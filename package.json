@@ -1,0 +1,75 @@
+{
+  "name": "vscode-motoko",
+  "displayName": "Motoko",
+  "description": "Motoko language support",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.38.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "motoko",
+        "aliases": [
+          "Motoko",
+          "motoko"
+        ],
+        "extensions": [
+          ".mo"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [],
+    "configuration": {
+      "type": "object",
+      "title": "Motoko",
+      "properties": {
+        "motoko.moIde": {
+          "scope": "resource",
+          "type": "string",
+          "default": "mo-ide",
+          "description": "Location of the mo-ide executable"
+        },
+        "motoko.maxNumberOfProblems": {
+          "scope": "resource",
+          "type": "number",
+          "default": 100,
+          "description": "Controls the maximum number of problems produced by the server."
+        },
+        "motoko.trace.server": {
+          "scope": "window",
+          "type": "string",
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
+          "default": "off",
+          "description": "Traces the communication between VS Code and the language server."
+        }
+      }
+    }
+  },
+  "activationEvents": [
+    "onLanguage:motoko"
+  ],
+  "main": "./out/extension",
+  "dependencies": {
+    "vscode-languageclient": "^5.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^12.0.0",
+    "typescript": "^3.6.0",
+    "@types/vscode": "^1.38.0"
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "lint": "tslint -p ./",
+    "watch": "tsc -watch -p ./"
+  }
+}
