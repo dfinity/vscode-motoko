@@ -76,7 +76,7 @@ export function deactivate(): Thenable<void> | undefined {
 
 // This is a subset of a normal Dfx.json
 interface DfxJson {
-  canisters: Map<string, Canister>
+  canisters: { [key: string]: Canister }
 }
 interface Canister {
   main: string
@@ -110,19 +110,19 @@ function getCanisterMain(): Canister | undefined {
       const contents: string = fs.readFileSync(dfxPath).toString();
       const dfxJson: DfxJson = JSON.parse(contents);
       // these shenaigans are because JSON.parse parses Maps into objects
-      const canisterMap: Map<string, Canister> = new Map(Object.entries(dfxJson.canisters));
-      const canisterKeys: string[] = Array.from(canisterMap.keys());
+      const canisterMap = dfxJson.canisters;
+      const canisterKeys: string[] = Object.keys(canisterMap);
 
       switch (canisterKeys.length) {
         case 0:
           window.showErrorMessage("No canister roots found in your dfx.json");
           return undefined;
         case 1:
-          return canisterMap.get(canisterKeys[0]);
+          return canisterMap[canisterKeys[0]];
         default:
           const root = canisterKeys[0];
           window.showWarningMessage(`Multiple canisters found so canister ${root} was chosen`);
-          return canisterMap.get(canisterKeys[0]);
+          return canisterMap[canisterKeys[0]];
       }
     }
   }
