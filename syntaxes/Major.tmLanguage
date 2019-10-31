@@ -6,7 +6,7 @@
 	<string>Matt Alexander - matt@queg.net</string>
 	<key>fileTypes</key>
 	<array>
-		<string>swift</string>
+		<string>Motoko</string>
 	</array>
 	<key>firstLineMatch</key>
 	<string>^#!/.*\bswift</string>
@@ -1184,7 +1184,7 @@
 		</dict>
 	</dict>
 	<key>scopeName</key>
-	<string>source.swift</string>
+	<string>source.mo</string>
 	<key>uuid</key>
 	<string>7efa1168-97c3-4433-8dd7-15b99bf3bb53</string>
 </dict>
