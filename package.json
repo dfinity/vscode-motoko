@@ -23,7 +23,13 @@
         "configuration": "./language-configuration.json"
       }
     ],
-    "grammars": [],
+    "grammars": [
+      {
+        "language": "motoko",
+        "scopeName": "source.mo",
+        "path": "./syntaxes/Major.tmLanguage"
+      }
+    ],
     "configuration": {
       "type": "object",
       "title": "Motoko",
