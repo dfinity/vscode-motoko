@@ -3,13 +3,15 @@
  * Licensed under the MIT License. See License.txt in the project root for license information.
  * ------------------------------------------------------------------------------------------ */
 
-import { workspace, ExtensionContext } from 'vscode';
+import { workspace, ExtensionContext, window } from 'vscode';
+import * as fs from 'fs';
 
 import {
   LanguageClient,
   LanguageClientOptions,
   ServerOptions,
 } from 'vscode-languageclient';
+import { fstat } from 'fs';
 
 const config = workspace.getConfiguration("motoko");
 const { moIde } = config;
@@ -18,6 +20,12 @@ let client: LanguageClient;
 
 export function activate(context: ExtensionContext) {
 
+  if (!fs.existsSync(moIde)){
+    window.showErrorMessage(
+      `Failed to locate the Motoko IDE at ${moIde} try changing motoko.moIde in settings`
+    );
+    return;
+  }
   /* --------------- *
    * Language Server *
    * --------------- */
