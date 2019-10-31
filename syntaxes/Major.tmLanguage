@@ -968,7 +968,7 @@
 			<key>comment</key>
 			<string>Primitive types</string>
 			<key>match</key>
-			<string>\b(Int|Float|Double|String|Bool|Character|Void)\b</string>
+			<string>\b[A-Z].*?\b</string>
 			<key>name</key>
 			<string>support.type.swift</string>
 		</dict>
