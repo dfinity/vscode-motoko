@@ -23,7 +23,12 @@ export function activate(_context: ExtensionContext) {
     throw "Error cannot locate mo-ide"
   }
 
-  const args = ["ide"]
+  const canister = config.get("canister") as string;
+
+  const args = ["ide"];
+  if (canister !== ""){
+    args.concat(["--canister", canister]);
+  }
 
   /* --------------- *
    * Language Server *

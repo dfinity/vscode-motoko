@@ -57,11 +57,11 @@
           "default": "off",
           "description": "Traces the communication between VS Code and the language server."
         },
-        "motoko.canisterMainPath": {
+        "motoko.canister": {
           "scope": "resource",
           "type": "string",
           "default": "",
-          "description": "The location of the main canister module relative to the cwd, leave this blank and it will be inferred"
+          "description": "The name of the canister you want to develop, if this is blank we'll use a sensible default"
         }
       }
     }
