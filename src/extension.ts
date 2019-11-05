@@ -5,7 +5,6 @@
 
 import { workspace, ExtensionContext, window } from 'vscode';
 import * as fs from 'fs';
-import * as path from 'path';
 import * as which from 'which';
 
 import {
@@ -19,28 +18,23 @@ const config = workspace.getConfiguration("motoko");
 let client: LanguageClient;
 
 export function activate(_context: ExtensionContext) {
-  let canisterMain = getCanisterMain();
-  let moIde = getMoIde();
-  if (moIde === undefined){
+  const dfx = getDfx();
+  if (dfx === undefined){
     throw "Error cannot locate mo-ide"
   }
-  let args: string[];
-  if (canisterMain === undefined){
-    args = []
-  }else{
-    args = ["--canister-main", canisterMain.main]
-  }
+
+  const args = ["ide"]
 
   /* --------------- *
    * Language Server *
    * --------------- */
   let serverOptions: ServerOptions = {
     run: {
-      command: moIde,
+      command: dfx,
       args: args
     },
     debug: {
-      command: moIde,
+      command: dfx,
       args: args
     }
   };
@@ -74,72 +68,18 @@ export function deactivate(): Thenable<void> | undefined {
   return client.stop();
 }
 
-// This is a subset of a normal Dfx.json
-interface DfxJson {
-  canisters: { [key: string]: Canister }
-}
-interface Canister {
-  main: string
-}
-function canister(path: string): Canister {
-  return {main: path};
-}
-
-function getCanisterMain(): Canister | undefined {
-  const canisterMainPath = config.get("canisterMainPath") as string;
-  const workspaceFolders = workspace.workspaceFolders;
-  let dfxPath = undefined;
-  if (workspaceFolders === undefined){
-    return undefined
-  }else{
-    const projectRoot:string = workspaceFolders[0].uri.fsPath;
-    const dfxJson =  "dfx.json"; 
-    dfxPath = path.join(projectRoot, dfxJson);
-  }
-
-  // users have troube differentiating between empty strings and whitespace
-  if (canisterMainPath.trim() !== ""){
-    window.showWarningMessage(
-       "Reading canister main path from motoko.canisterMainPath, this is probably not what you want"
-    )
-    return canister(canisterMainPath);
-  }else{
-    if (!fs.existsSync(dfxPath)){
-      return undefined;
-    } else{
-      const contents: string = fs.readFileSync(dfxPath).toString();
-      const dfxJson: DfxJson = JSON.parse(contents);
-      // these shenaigans are because JSON.parse parses Maps into objects
-      const canisterMap = dfxJson.canisters;
-      const canisterKeys: string[] = Object.keys(canisterMap);
-
-      switch (canisterKeys.length) {
-        case 0:
-          window.showErrorMessage("No canister roots found in your dfx.json");
-          return undefined;
-        case 1:
-          return canisterMap[canisterKeys[0]];
-        default:
-          const root = canisterKeys[0];
-          window.showWarningMessage(`Multiple canisters found so canister ${root} was chosen`);
-          return canisterMap[canisterKeys[0]];
-      }
-    }
-  }
-}
-
-function getMoIde(): string | undefined {
-  const moIde = config.get("moIde") as string;
+function getDfx(): string | undefined {
+  const dfx = config.get("dfx") as string;
   try {
-      return which.sync(moIde);
+      return which.sync(dfx);
   } catch (ex) {
-    if (!fs.existsSync(moIde)){
+    if (!fs.existsSync(dfx)){
       window.showErrorMessage(
-        `Failed to locate the Motoko IDE at ${moIde} try changing motoko.moIde in settings`
+        `Failed to locate dfx at ${dfx} check that dfx is installed or try changing motoko.dfx in settings`
       );
       return undefined;
     }else{
-      return moIde;
+      return dfx;
     }
   }
 }

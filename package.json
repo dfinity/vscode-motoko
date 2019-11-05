@@ -34,11 +34,11 @@
       "type": "object",
       "title": "Motoko",
       "properties": {
-        "motoko.moIde": {
+        "motoko.dfx": {
           "scope": "resource",
           "type": "string",
-          "default": "mo-ide",
-          "description": "Location of the mo-ide executable"
+          "default": "dfx",
+          "description": "Location of the dfx executable"
         },
         "motoko.maxNumberOfProblems": {
           "scope": "resource",
