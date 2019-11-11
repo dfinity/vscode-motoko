@@ -31,7 +31,7 @@ in {
 
     installPhase = ''
       mkdir -p $out
-      cp vscode-motoko-0.0.1.vsix $out/${name}.vsix
+      cp ${withVsix.package}/lib/node_modules/vscode-motoko/vscode-motoko-0.0.1.vsix $out/${name}.vsix
     '';
   };
 }
