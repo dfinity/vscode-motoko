@@ -63,3 +63,10 @@ Added features X, Y, and Z.
 * [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
 
 **Enjoy!**
+
+### Adding new packages
+To add a new package just run
+```
+node2nix -d -i package.json --supplement-input supplement.json -c package.nix
+```
+Then change `"nodejs-8_x"`to `"nodejs-12_x"`. This should be changed to be done as part of the nix build at a future date

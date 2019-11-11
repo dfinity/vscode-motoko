@@ -74,14 +74,14 @@
   "main": "./out/extension",
   "dependencies": {
     "@types/which": "^1.3.2",
-    "vsce": "^1.69.0",
     "vscode-languageclient": "^5.2.0",
     "which": "2.0.1"
   },
   "devDependencies": {
     "@types/node": "^12.0.0",
     "typescript": "^3.6.0",
-    "@types/vscode": "^1.38.0"
+    "@types/vscode": "^1.38.0",
+    "vsce": "^1.69.0"
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
