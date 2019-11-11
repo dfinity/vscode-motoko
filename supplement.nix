@@ -94,13 +94,13 @@ let
         sha512 = "NYrtPht0wGzhwe9+/idPaBB+TqkY9AhTvOLMkThm0IoEfLaiVQZwBwyJ5puCkO3AUCWrmcoePjp2mbFocKy4SQ==";
       };
     };
-    "@types/node-8.10.58" = {
+    "@types/node-8.10.59" = {
       name = "_at_types_slash_node";
       packageName = "@types/node";
-      version = "8.10.58";
+      version = "8.10.59";
       src = fetchurl {
-        url = "https://registry.npmjs.org/@types/node/-/node-8.10.58.tgz";
-        sha512 = "NNcUk/rAdR7Pie7WiA5NHp345dTkD62qaxqscQXVIjCjog/ZXsrG8Wo7dZMZAzE7PSpA+qR2S3TYTeFCKuBFxQ==";
+        url = "https://registry.npmjs.org/@types/node/-/node-8.10.59.tgz";
+        sha512 = "8RkBivJrDCyPpBXhVZcjh7cQxVBSmRk9QM7hOketZzp6Tg79c0N8kkpAIito9bnJ3HCVCHVYz+KHTEbfQNfeVQ==";
       };
     };
     "@types/read-0.0.28" = {
@@ -490,13 +490,13 @@ let
         sha512 = "xdQnfykZ9JMEiasTAJZJdMWCQ1Vm00NBw79/AWi7ELfZuuPCSOMDZbT9mkOfSctVtfhb+sAAzrm+j//GjjLHLg==";
       };
     };
-    "es-to-primitive-1.2.0" = {
+    "es-to-primitive-1.2.1" = {
       name = "es-to-primitive";
       packageName = "es-to-primitive";
-      version = "1.2.0";
+      version = "1.2.1";
       src = fetchurl {
-        url = "https://registry.npmjs.org/es-to-primitive/-/es-to-primitive-1.2.0.tgz";
-        sha512 = "qZryBOJjV//LaxLTV6UC//WewneB3LcXOL9NP++ozKVXsIIIpm/2c13UDiD9Jp2eThsecw9m3jPqDwTyobcdbg==";
+        url = "https://registry.npmjs.org/es-to-primitive/-/es-to-primitive-1.2.1.tgz";
+        sha512 = "QCOllgZJtaUo9miYBcLChTUaHNjJF3PYs1VidD7AwiEj1kYxKeQTctLAezAOH5ZKRH0g2IgPn6KwB4IT8iRpvA==";
       };
     };
     "escape-string-regexp-1.0.5" = {
@@ -967,13 +967,13 @@ let
         sha1 = "097b602b53422a522c1afb8790318336941a011d";
       };
     };
-    "object-inspect-1.6.0" = {
+    "object-inspect-1.7.0" = {
       name = "object-inspect";
       packageName = "object-inspect";
-      version = "1.6.0";
+      version = "1.7.0";
       src = fetchurl {
-        url = "https://registry.npmjs.org/object-inspect/-/object-inspect-1.6.0.tgz";
-        sha512 = "GJzfBZ6DgDAmnuaM3104jR4s1Myxr3Y3zfIyN4z3UdqN69oSRacNK8UhnobDdC+7J2AHCjGwxQubNJfE70SXXQ==";
+        url = "https://registry.npmjs.org/object-inspect/-/object-inspect-1.7.0.tgz";
+        sha512 = "a7pEHdh1xKIAgTySUGgLMx/xwDZskN1Ud6egYYN3EdRW4ZMPNEDUTF+hwy2LUC+Bl+SyLXANnwz/jyh/qutKUw==";
       };
     };
     "object-keys-1.1.1" = {
@@ -1718,7 +1718,7 @@ in
       sources."@types/mime-1.3.1"
       sources."@types/minimatch-3.0.3"
       sources."@types/mocha-5.2.7"
-      sources."@types/node-8.10.58"
+      sources."@types/node-8.10.59"
       sources."@types/read-0.0.28"
       sources."@types/semver-6.2.0"
       sources."@types/tmp-0.1.0"
@@ -1765,7 +1765,7 @@ in
       sources."entities-1.1.2"
       sources."error-ex-1.3.2"
       sources."es-abstract-1.16.0"
-      sources."es-to-primitive-1.2.0"
+      sources."es-to-primitive-1.2.1"
       sources."escape-string-regexp-1.0.5"
       sources."execa-1.0.0"
       sources."fd-slicer-1.1.0"
@@ -1821,7 +1821,7 @@ in
       sources."npm-run-path-2.0.2"
       sources."nth-check-1.0.2"
       sources."number-is-nan-1.0.1"
-      sources."object-inspect-1.6.0"
+      sources."object-inspect-1.7.0"
       sources."object-keys-1.1.1"
       sources."object.getownpropertydescriptors-2.0.3"
       sources."once-1.4.0"
