@@ -3,8 +3,10 @@
   "displayName": "Motoko",
   "description": "Motoko language support",
   "version": "0.0.1",
+  "publisher": "dfinity",
+  "repository": "https://github.com/dfinity/dfinity-lab/vscode-motoko",
   "engines": {
-    "vscode": "^1.38.0"
+    "vscode": "^1.40.0"
   },
   "categories": [
     "Programming Languages"
@@ -78,7 +80,8 @@
   "devDependencies": {
     "@types/node": "^12.0.0",
     "typescript": "^3.6.0",
-    "@types/vscode": "^1.38.0"
+    "@types/vscode": "^1.40.0",
+    "vsce": "^1.69.0"
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",

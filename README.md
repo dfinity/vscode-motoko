@@ -63,3 +63,6 @@ Added features X, Y, and Z.
 * [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
 
 **Enjoy!**
+
+### Updating package.json
+After updating package.json run `./update-deps.sh` to update the generated nix files
