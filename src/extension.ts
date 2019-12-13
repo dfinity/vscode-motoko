@@ -19,13 +19,10 @@ let client: LanguageClient;
 
 export function activate(_context: ExtensionContext) {
   const dfx = getDfx();
-  if (dfx === undefined){
-    throw "Error cannot locate mo-ide"
-  }
 
   const canister = config.get("canister") as string;
 
-  const args = ["ide"];
+  const args = ["_language-service"];
   if (canister !== ""){
     args.concat(["--canister", canister]);
   }
@@ -73,7 +70,7 @@ export function deactivate(): Thenable<void> | undefined {
   return client.stop();
 }
 
-function getDfx(): string | undefined {
+function getDfx(): string {
   const dfx = config.get("dfx") as string;
   try {
       return which.sync(dfx);
@@ -82,7 +79,7 @@ function getDfx(): string | undefined {
       window.showErrorMessage(
         `Failed to locate dfx at ${dfx} check that dfx is installed or try changing motoko.dfx in settings`
       );
-      return undefined;
+      throw Error("Failed to locate dfx");
     }else{
       return dfx;
     }

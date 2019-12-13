@@ -4,13 +4,13 @@
 
 let
   sources = {
-    "@types/node-12.12.7" = {
+    "@types/node-12.12.14" = {
       name = "_at_types_slash_node";
       packageName = "@types/node";
-      version = "12.12.7";
+      version = "12.12.14";
       src = fetchurl {
-        url = "https://registry.npmjs.org/@types/node/-/node-12.12.7.tgz";
-        sha512 = "E6Zn0rffhgd130zbCbAr/JdXfXkoOUFAKNs/rF8qnafSJ8KYaA/j3oz7dcwal+lYjLA7xvdd5J4wdYpCTlP8+w==";
+        url = "https://registry.npmjs.org/@types/node/-/node-12.12.14.tgz";
+        sha512 = "u/SJDyXwuihpwjXy7hOOghagLEV1KdAST6syfnOk6QZAMzZuWZqXy5aYYZbh8Jdpd4escVFP0MvftHNDb9pruA==";
       };
     };
     "@types/vscode-1.40.0" = {
@@ -686,7 +686,7 @@ let
     version = "0.0.1";
     src = ./.;
     dependencies = [
-      sources."@types/node-12.12.7"
+      sources."@types/node-12.12.14"
       sources."@types/vscode-1.40.0"
       sources."@types/which-1.3.2"
       sources."ansi-styles-3.2.1"

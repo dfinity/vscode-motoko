@@ -4,13 +4,13 @@
 
 let
   sources = {
-    "@types/cheerio-0.22.13" = {
+    "@types/cheerio-0.22.14" = {
       name = "_at_types_slash_cheerio";
       packageName = "@types/cheerio";
-      version = "0.22.13";
+      version = "0.22.14";
       src = fetchurl {
-        url = "https://registry.npmjs.org/@types/cheerio/-/cheerio-0.22.13.tgz";
-        sha512 = "OZd7dCUOUkiTorf97vJKwZnSja/DmHfuBAroe1kREZZTCf/tlFecwHhsOos3uVHxeKGZDwzolIrCUApClkdLuA==";
+        url = "https://registry.npmjs.org/@types/cheerio/-/cheerio-0.22.14.tgz";
+        sha512 = "SVtcP2fvPYrebTwpyqxjxb7K5v3ZOAdH409yAEWFPpZThCSGa1K2IFfx6Rg6ttvThCBQXP4fU9WF94sqLoiQGg==";
       };
     };
     "@types/denodeify-1.2.31" = {
@@ -49,13 +49,13 @@ let
         sha512 = "1Bh06cbWJUHMC97acuD6UMG29nMt0Aqz1vF3guLfG+kHHJhy3AyohZFFxYk2f7Q1SQIrNwvncxAE0N/9s70F2w==";
       };
     };
-    "@types/lodash-4.14.146" = {
+    "@types/lodash-4.14.149" = {
       name = "_at_types_slash_lodash";
       packageName = "@types/lodash";
-      version = "4.14.146";
+      version = "4.14.149";
       src = fetchurl {
-        url = "https://registry.npmjs.org/@types/lodash/-/lodash-4.14.146.tgz";
-        sha512 = "JzJcmQ/ikHSv7pbvrVNKJU5j9jL9VLf3/gqs048CEnBVVVEv4kve3vLxoPHGvclutS+Il4SBIuQQ087m1eHffw==";
+        url = "https://registry.npmjs.org/@types/lodash/-/lodash-4.14.149.tgz";
+        sha512 = "ijGqzZt/b7BfzcK9vTrS6MFljQRPn5BFWOx8oE0GYxribu6uV+aA9zZuXI1zc/etK9E8nrgdoF2+LgUw7+9tJQ==";
       };
     };
     "@types/markdown-it-0.0.2" = {
@@ -481,13 +481,13 @@ let
         sha512 = "7dFHNmqeFSEt2ZBsCriorKnn3Z2pj+fd9kmI6QoWw4//DL+icEBfc0U7qJCisqrTsKTjw4fNFy2pW9OqStD84g==";
       };
     };
-    "es-abstract-1.16.0" = {
+    "es-abstract-1.16.2" = {
       name = "es-abstract";
       packageName = "es-abstract";
-      version = "1.16.0";
+      version = "1.16.2";
       src = fetchurl {
-        url = "https://registry.npmjs.org/es-abstract/-/es-abstract-1.16.0.tgz";
-        sha512 = "xdQnfykZ9JMEiasTAJZJdMWCQ1Vm00NBw79/AWi7ELfZuuPCSOMDZbT9mkOfSctVtfhb+sAAzrm+j//GjjLHLg==";
+        url = "https://registry.npmjs.org/es-abstract/-/es-abstract-1.16.2.tgz";
+        sha512 = "jYo/J8XU2emLXl3OLwfwtuFfuF2w6DYPs+xy9ZfVyPkDcrauu6LYrw/q2TyCtrbc/KUdCiC5e9UajRhgNkVopA==";
       };
     };
     "es-to-primitive-1.2.1" = {
@@ -625,13 +625,13 @@ let
         sha1 = "b5d454dc2199ae225699f3467e5a07f3b955bafd";
       };
     };
-    "has-symbols-1.0.0" = {
+    "has-symbols-1.0.1" = {
       name = "has-symbols";
       packageName = "has-symbols";
-      version = "1.0.0";
+      version = "1.0.1";
       src = fetchurl {
-        url = "https://registry.npmjs.org/has-symbols/-/has-symbols-1.0.0.tgz";
-        sha1 = "ba1a8f1af2a0fc39650f5c850367704122063b44";
+        url = "https://registry.npmjs.org/has-symbols/-/has-symbols-1.0.1.tgz";
+        sha512 = "PLcsoqu++dmEIZB+6totNFKq/7Do+Z0u4oT0zKOJNl3lYK6vGwwu2hjHs+68OEZbTjiUE9bgOABXbP/GvrS0Kg==";
       };
     };
     "he-1.1.1" = {
@@ -751,13 +751,13 @@ let
         sha1 = "12d4a3dd4e68e0b79ceb8dbc84173ae80d91ca44";
       };
     };
-    "is-symbol-1.0.2" = {
+    "is-symbol-1.0.3" = {
       name = "is-symbol";
       packageName = "is-symbol";
-      version = "1.0.2";
+      version = "1.0.3";
       src = fetchurl {
-        url = "https://registry.npmjs.org/is-symbol/-/is-symbol-1.0.2.tgz";
-        sha512 = "HS8bZ9ox60yCJLH9snBpIwv9pYUAkcuLhSA1oero1UB5y9aiQpRA8y2ex945AOtCZL1lJDeIk3G5LthswI46Lw==";
+        url = "https://registry.npmjs.org/is-symbol/-/is-symbol-1.0.3.tgz";
+        sha512 = "OwijhaRSgqvhm/0ZdAcXNZt9lYdKFpcRDT5ULUuYXPoT794UNOdU+gpT6Rzo7b4V2HUl/op6GqY894AZwv9faQ==";
       };
     };
     "isexe-2.0.0" = {
@@ -1237,13 +1237,13 @@ let
         sha1 = "97f717b69d48784f5f526a6c5aa8ffdda055a4d1";
       };
     };
-    "resolve-1.12.0" = {
+    "resolve-1.13.1" = {
       name = "resolve";
       packageName = "resolve";
-      version = "1.12.0";
+      version = "1.13.1";
       src = fetchurl {
-        url = "https://registry.npmjs.org/resolve/-/resolve-1.12.0.tgz";
-        sha512 = "B/dOmuoAik5bKcD6s6nXDCjzUKnaDvdkRyAk6rsmsKLipWj4797iothd7jmmUhWTfinVMU+wc56rYKsit2Qy4w==";
+        url = "https://registry.npmjs.org/resolve/-/resolve-1.13.1.tgz";
+        sha512 = "CxqObCX8K8YtAhOBRg+lrcdn+LK+WYOS8tSjqSFbjtrI5PnS63QPhZl4+yKfrU9tdsbMu9Anr/amegT87M9Z6w==";
       };
     };
     "rxjs-6.5.3" = {
@@ -1708,12 +1708,12 @@ in
       sha512 = "mRSlfrTb6rw8UVFZpJ3w++s0wd4S/OPjhUgSmspjiuy96HQEqOdpPF6S/ssYs0SqE/hMh6grmAYE0MLUmi1w4Q==";
     };
     dependencies = [
-      sources."@types/cheerio-0.22.13"
+      sources."@types/cheerio-0.22.14"
       sources."@types/denodeify-1.2.31"
       sources."@types/didyoumean-1.2.0"
       sources."@types/events-3.0.0"
       sources."@types/glob-7.1.1"
-      sources."@types/lodash-4.14.146"
+      sources."@types/lodash-4.14.149"
       sources."@types/markdown-it-0.0.2"
       sources."@types/mime-1.3.1"
       sources."@types/minimatch-3.0.3"
@@ -1764,7 +1764,7 @@ in
       sources."end-of-stream-1.4.4"
       sources."entities-1.1.2"
       sources."error-ex-1.3.2"
-      sources."es-abstract-1.16.0"
+      sources."es-abstract-1.16.2"
       sources."es-to-primitive-1.2.1"
       sources."escape-string-regexp-1.0.5"
       sources."execa-1.0.0"
@@ -1778,7 +1778,7 @@ in
       sources."growl-1.10.5"
       sources."has-1.0.3"
       sources."has-flag-3.0.0"
-      sources."has-symbols-1.0.0"
+      sources."has-symbols-1.0.1"
       sources."he-1.1.1"
       sources."hosted-git-info-2.8.5"
       sources."htmlparser2-3.10.1"
@@ -1791,7 +1791,7 @@ in
       sources."is-fullwidth-code-point-1.0.0"
       sources."is-regex-1.0.4"
       sources."is-stream-1.1.0"
-      sources."is-symbol-1.0.2"
+      sources."is-symbol-1.0.3"
       sources."isexe-2.0.0"
       sources."json-parse-better-errors-1.0.2"
       sources."lcid-2.0.0"
@@ -1851,7 +1851,7 @@ in
       sources."readable-stream-3.4.0"
       sources."require-directory-2.1.1"
       sources."require-main-filename-1.0.1"
-      sources."resolve-1.12.0"
+      sources."resolve-1.13.1"
       sources."rxjs-6.5.3"
       sources."safe-buffer-5.2.0"
       sources."sax-1.2.4"
