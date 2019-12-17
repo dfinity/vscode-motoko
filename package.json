@@ -6,7 +6,7 @@
   "publisher": "dfinity",
   "repository": "https://github.com/dfinity/dfinity-lab/vscode-motoko",
   "engines": {
-    "vscode": "^1.40.0"
+    "vscode": "^1.41.0"
   },
   "categories": [
     "Programming Languages"
@@ -78,15 +78,16 @@
     "which": "2.0.1"
   },
   "devDependencies": {
-    "@types/node": "^12.0.0",
-    "typescript": "^3.6.0",
-    "@types/vscode": "^1.40.0",
-    "vsce": "^1.69.0"
+    "@types/node": "^12.12.18",
+    "@types/vscode": "^1.41.0",
+    "typescript": "^3.7.3",
+    "vsce": "^1.71.0"
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "lint": "tslint -p ./",
+    "package": "vsce package",
     "watch": "tsc -watch -p ./"
   }
 }
