@@ -24,7 +24,7 @@ export function activate(_context: ExtensionContext) {
 
   const args = ["_language-service"];
   if (canister !== ""){
-    args.concat(["--canister", canister]);
+    args.push(canister);
   }
 
   /* --------------- *
