@@ -11,7 +11,12 @@ Motoko language support.
 
 Until we've published the extension to the Marketplace you need to package it yourself.
 
-After cloning this repo run `npm install && npm package`, which should leave you with a `vscode-motoko-0.0.1.vsix` file in the project root.
+After cloning this repo run 
+```bash
+npm install -g vsce
+npm install && vsce package
+```
+This should leave you with a `vscode-motoko-0.0.1.vsix` file in the project root.
 
 Next run `code --install-extension vscode-motoko-0.0.1.vsix` and the plugin should be ready to go the next time you open a Motoko file in a `dfx` project.
 
