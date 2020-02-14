@@ -1,17 +1,12 @@
-/* --------------------------------------------------------------------------------------------
- * Copyright (c) Microsoft Corporation. All rights reserved.
- * Licensed under the MIT License. See License.txt in the project root for license information.
- * ------------------------------------------------------------------------------------------ */
-
-import { workspace, ExtensionContext, window } from 'vscode';
-import * as fs from 'fs';
-import * as which from 'which';
+import { workspace, ExtensionContext, window } from "vscode";
+import * as fs from "fs";
+import * as which from "which";
 
 import {
   LanguageClient,
   LanguageClientOptions,
-  ServerOptions,
-} from 'vscode-languageclient';
+  ServerOptions
+} from "vscode-languageclient";
 
 const config = workspace.getConfiguration("motoko");
 
@@ -23,38 +18,36 @@ export function activate(_context: ExtensionContext) {
   const canister = config.get("canister") as string;
 
   const args = ["_language-service"];
-  if (canister !== ""){
+  if (canister !== "") {
     args.push(canister);
   }
+
+  let serverCommand = isDfxProject()
+    ? { command: dfx, args }
+    : { command: config.standaloneBinary, args: config.standaloneArguments.split(' ') };
 
   /* --------------- *
    * Language Server *
    * --------------- */
   let serverOptions: ServerOptions = {
-    run: {
-      command: dfx,
-      args: args
-    },
-    debug: {
-      command: dfx,
-      args: args
-    }
+    run: serverCommand,
+    debug: serverCommand
   };
 
   // Options to control the language client
   let clientOptions: LanguageClientOptions = {
     // Register the server for motoko source files
-    documentSelector: [{ scheme: 'file', language: 'motoko' }],
+    documentSelector: [{ scheme: "file", language: "motoko" }],
     synchronize: {
       // Notify the server about file changes to '.clientrc files contained in the workspace
-      fileEvents: workspace.createFileSystemWatcher('**/.clientrc')
+      fileEvents: workspace.createFileSystemWatcher("**/.clientrc")
     }
   };
 
   // Create the language client and start the client.
   client = new LanguageClient(
-    'motoko',
-    'Motoko language server',
+    "motoko",
+    "Motoko language server",
     serverOptions,
     clientOptions
   );
@@ -70,17 +63,21 @@ export function deactivate(): Thenable<void> | undefined {
   return client.stop();
 }
 
+function isDfxProject(): boolean {
+  return fs.existsSync("dfx.json");
+}
+
 function getDfx(): string {
   const dfx = config.get("dfx") as string;
   try {
-      return which.sync(dfx);
+    return which.sync(dfx);
   } catch (ex) {
-    if (!fs.existsSync(dfx)){
+    if (!fs.existsSync(dfx)) {
       window.showErrorMessage(
         `Failed to locate dfx at ${dfx} check that dfx is installed or try changing motoko.dfx in settings`
       );
       throw Error("Failed to locate dfx");
-    }else{
+    } else {
       return dfx;
     }
   }
