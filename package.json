@@ -74,8 +74,8 @@
         "motoko.standaloneArguments": {
           "scope": "resource",
           "type": "string",
-          "default": "--canister-main main.mo",
-          "description": "Arguments to pass to the language server when running in a non-dfx project"
+          "default": "",
+          "description": "Additional arguments to pass to the language server when running in a non-dfx project"
         }
       }
     }
