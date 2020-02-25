@@ -50,9 +50,14 @@ function launchDfxProject(dfxConfig: DfxConfig) {
   if (canister !== "") start(canister);
   else if (canisters.length === 1) start(canisters[0]);
   else
-    window.showQuickPick(canisters, { canPickMany: false }).then(c => {
-      if (c) start(c);
-    });
+    window
+      .showQuickPick(canisters, {
+        canPickMany: false,
+        placeHolder: "What canister do you want to work on?"
+      })
+      .then(c => {
+        if (c) start(c);
+      });
 }
 
 function launchClient(serverOptions: ServerOptions) {
