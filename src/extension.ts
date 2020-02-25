@@ -14,40 +14,45 @@ const config = workspace.getConfiguration("motoko");
 let client: LanguageClient;
 
 export function activate(_context: ExtensionContext) {
-  if (isDfxProject()) {
-    return launchDfxProject();
+  const dfxConfig = isDfxProject();
+  if (dfxConfig !== null) {
+    return launchDfxProject(dfxConfig);
   }
 
   const prompt = `We failed to detect a dfx project for this Motoko file. What file do you want to use as an entry point?`;
   const currentDocument = window.activeTextEditor?.document?.fileName;
 
-  window
-    .showInputBox({ prompt, value: currentDocument })
-    .then(entryPoint => {
-      if (entryPoint) {
-        const serverCommand = {
-          command: config.standaloneBinary,
-          args: ["--canister-main", entryPoint].concat(
-            config.standaloneArguments.split(" ")
-          )
-        };
-        launchClient({ run: serverCommand, debug: serverCommand });
-      }
-    });
+  window.showInputBox({ prompt, value: currentDocument }).then(entryPoint => {
+    if (entryPoint) {
+      const serverCommand = {
+        command: config.standaloneBinary,
+        args: ["--canister-main", entryPoint].concat(
+          config.standaloneArguments.split(" ")
+        )
+      };
+      launchClient({ run: serverCommand, debug: serverCommand });
+    }
+  });
 }
 
-function launchDfxProject() {
-  const dfx = getDfx();
+function launchDfxProject(dfxConfig: DfxConfig) {
+  const start = (canister: string) => {
+    const serverCommand = {
+      command: getDfx(),
+      args: ["_language-service", canister]
+    };
+    launchClient({ run: serverCommand, debug: serverCommand });
+  };
 
-  const canister = config.get("canister") as string;
+  let canister = config.get("canister") as string;
+  let canisters = Object.keys(dfxConfig.canisters);
 
-  const args = ["_language-service"];
-  if (canister !== "") {
-    args.push(canister);
-  }
-
-  const serverCommand = { command: dfx, args };
-  launchClient({ run: serverCommand, debug: serverCommand });
+  if (canister !== "") start(canister);
+  else if (canisters.length === 1) start(canisters[0]);
+  else
+    window.showQuickPick(canisters, { canPickMany: false }).then(c => {
+      if (c) start(c);
+    });
 }
 
 function launchClient(serverOptions: ServerOptions) {
@@ -79,12 +84,28 @@ export function deactivate(): Thenable<void> | undefined {
   return client.stop();
 }
 
-function isDfxProject(): boolean {
+interface DfxCanisters {
+  [key: string]: { main: string };
+}
+
+type DfxConfig = {
+  canisters: DfxCanisters;
+};
+
+function isDfxProject(): DfxConfig | null {
   const wsf = workspace.workspaceFolders;
   if (wsf) {
-    return fs.existsSync(path.join(wsf[0].uri.fsPath, "dfx.json"));
+    try {
+      return JSON.parse(
+        fs
+          .readFileSync(path.join(wsf[0].uri.fsPath, "dfx.json"))
+          .toString("utf8")
+      );
+    } catch {
+      return null;
+    }
   } else {
-    return false;
+    return null;
   }
 }
 
