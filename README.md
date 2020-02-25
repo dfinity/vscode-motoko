@@ -16,9 +16,9 @@ After cloning this repo run
 npm install
 npm run build
 ```
-This should leave you with a `vscode-motoko-0.0.1.vsix` file in the project root.
+This should leave you with a `vscode-motoko-0.1.0.vsix` file in the project root.
 
-Next run `code --install-extension vscode-motoko-0.0.1.vsix` and the plugin should be ready to go the next time you open a Motoko file in a `dfx` project. If this doesn't work you can also use the VSCode UI to install from a local `.vsix` file.
+Next run `code --install-extension vscode-motoko-0.1.0.vsix` and the plugin should be ready to go the next time you open a Motoko file in a `dfx` project. If this doesn't work you can also use the VSCode UI to install from a local `.vsix` file.
 
 ## Requirements
 
@@ -31,4 +31,4 @@ For example:
 This extension contributes the following settings:
 
 * `motoko.dfx`: The location of the `dfx` binary
-* `motoko.canister`: By default we'll choose the first canister defined in your project for now, use this setting to change that to a specific one
+* `motoko.canister`: By default we'll let you choose what canister defined in your project you want to use, use this setting to change that to a specific one
