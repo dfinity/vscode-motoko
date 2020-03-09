@@ -1,4 +1,4 @@
-import { workspace, ExtensionContext, window } from "vscode";
+import { workspace, ExtensionContext, window, commands } from "vscode";
 import * as fs from "fs";
 import * as path from "path";
 import * as which from "which";
@@ -13,7 +13,16 @@ const config = workspace.getConfiguration("motoko");
 
 let client: LanguageClient;
 
-export function activate(_context: ExtensionContext) {
+export function activate(context: ExtensionContext) {
+  context.subscriptions.push(commands.registerCommand("motoko.startService", startServer));
+  startServer();
+}
+
+export function startServer() {
+  if (client) {
+    client.stop();
+  }
+
   const dfxConfig = isDfxProject();
   if (dfxConfig !== null) {
     return launchDfxProject(dfxConfig);

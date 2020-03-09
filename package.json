@@ -78,10 +78,17 @@
           "description": "Additional arguments to pass to the language server when running in a non-dfx project"
         }
       }
-    }
+    },
+    "commands": [
+      { 
+        "command": "motoko.startService",
+        "title": "Motoko: Start/Restart language service"
+      }
+    ]
   },
   "activationEvents": [
-    "onLanguage:motoko"
+    "onLanguage:motoko",
+    "onCommand:motoko.startService"
   ],
   "main": "./out/extension",
   "dependencies": {
@@ -100,7 +107,6 @@
     "compile": "tsc -p ./",
     "lint": "tslint -p ./",
     "package": "vsce package",
-    "build": "npm run compile && npm run package",
     "watch": "tsc -watch -p ./"
   }
 }
