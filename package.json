@@ -2,7 +2,7 @@
   "name": "vscode-motoko",
   "displayName": "Motoko",
   "description": "Motoko language support",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "dfinity",
   "repository": "https://github.com/dfinity/dfinity-lab/vscode-motoko",
   "engines": {
@@ -80,7 +80,7 @@
       }
     },
     "commands": [
-      { 
+      {
         "command": "motoko.startService",
         "title": "Motoko: Start/Restart language service"
       }
