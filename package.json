@@ -11,6 +11,11 @@
   "categories": [
     "Programming Languages"
   ],
+  "icon": "images/logo.svg",
+  "galleryBanner": {
+    "color": "#000000",
+    "theme": "dark"
+  },
   "contributes": {
     "languages": [
       {
