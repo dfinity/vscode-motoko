@@ -2,6 +2,7 @@ import { workspace, ExtensionContext, window, commands } from "vscode";
 import * as fs from "fs";
 import * as path from "path";
 import * as which from "which";
+import { execSync } from "child_process";
 
 import {
   LanguageClient,
@@ -14,7 +15,9 @@ const config = workspace.getConfiguration("motoko");
 let client: LanguageClient;
 
 export function activate(context: ExtensionContext) {
-  context.subscriptions.push(commands.registerCommand("motoko.startService", startServer));
+  context.subscriptions.push(
+    commands.registerCommand("motoko.startService", startServer)
+  );
   startServer();
 }
 
@@ -35,9 +38,9 @@ export function startServer() {
     if (entryPoint) {
       const serverCommand = {
         command: config.standaloneBinary,
-        args: ["--canister-main", entryPoint].concat(
-          config.standaloneArguments.split(" ")
-        )
+        args: ["--canister-main", entryPoint]
+          .concat(vesselArgs())
+          .concat(config.standaloneArguments.split(" "))
       };
       launchClient({ run: serverCommand, debug: serverCommand });
     }
@@ -136,5 +139,19 @@ function getDfx(): string {
     } else {
       return dfx;
     }
+  }
+}
+
+function vesselArgs(): string[] {
+  try {
+    let ws = workspace.workspaceFolders!![0].uri.fsPath;
+    if (!fs.existsSync(path.join(ws, "vessel.json"))) return [];
+    let flags = execSync("vessel sources", {
+      cwd: ws
+    }).toString("utf8");
+    return flags.split(" ");
+  } catch (err) {
+    console.log(err);
+    return [];
   }
 }
