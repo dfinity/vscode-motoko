@@ -4,7 +4,7 @@
   "description": "Motoko language support",
   "version": "0.3.4",
   "publisher": "dfinity-foundation",
-  "repository": "https://github.com/dfinity/dfinity-lab/vscode-motoko",
+  "repository": "https://github.com/dfinity/vscode-motoko",
   "engines": {
     "vscode": "^1.44.0"
   },
