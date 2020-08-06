@@ -145,7 +145,12 @@ function getDfx(): string {
 function vesselArgs(): string[] {
   try {
     let ws = workspace.workspaceFolders!![0].uri.fsPath;
-    if (!fs.existsSync(path.join(ws, "vessel.json"))) return [];
+    if (
+      !fs.existsSync(path.join(ws, "vessel.dhall")) ||
+      // TODO: Remove this once vessel has been using dhall for a while
+      !fs.existsSync(path.join(ws, "vessel.json"))
+    )
+      return [];
     let flags = execSync("vessel sources", {
       cwd: ws
     }).toString("utf8");
