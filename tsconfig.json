@@ -4,9 +4,7 @@
     "target": "es6",
     "outDir": "out",
     "rootDir": "src",
-    "lib": [
-      "es6"
-    ],
+    "lib": ["es6"],
     "sourceMap": true,
     "pretty": true,
     "strict": true,
@@ -19,13 +17,8 @@
     "noUnusedLocals": true /* Report errors on unused locals. */,
     "noUnusedParameters": true /* Report errors on unused parameters. */,
     "noImplicitReturns": true /* Report error when not all code paths in function return a value. */,
-    "noFallthroughCasesInSwitch": true /* Report errors for fallthrough cases in switch statement. */,
+    "noFallthroughCasesInSwitch": true /* Report errors for fallthrough cases in switch statement. */
   },
-  "include": [
-    "src"
-  ],
-  "exclude": [
-    "node_modules",
-    ".vscode-test"
-  ]
+  "include": ["src"],
+  "exclude": ["node_modules", ".vscode-test"]
 }

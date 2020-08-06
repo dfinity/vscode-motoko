@@ -7,7 +7,7 @@ import { execSync } from "child_process";
 import {
   LanguageClient,
   LanguageClientOptions,
-  ServerOptions
+  ServerOptions,
 } from "vscode-languageclient";
 
 const config = workspace.getConfiguration("motoko");
@@ -34,13 +34,13 @@ export function startServer() {
   const prompt = `We failed to detect a dfx project for this Motoko file. What file do you want to use as an entry point?`;
   const currentDocument = window.activeTextEditor?.document?.fileName;
 
-  window.showInputBox({ prompt, value: currentDocument }).then(entryPoint => {
+  window.showInputBox({ prompt, value: currentDocument }).then((entryPoint) => {
     if (entryPoint) {
       const serverCommand = {
         command: config.standaloneBinary,
         args: ["--canister-main", entryPoint]
           .concat(vesselArgs())
-          .concat(config.standaloneArguments.split(" "))
+          .concat(config.standaloneArguments.split(" ")),
       };
       launchClient({ run: serverCommand, debug: serverCommand });
     }
@@ -51,7 +51,7 @@ function launchDfxProject(dfxConfig: DfxConfig) {
   const start = (canister: string) => {
     const serverCommand = {
       command: getDfx(),
-      args: ["_language-service", canister]
+      args: ["_language-service", canister],
     };
     launchClient({ run: serverCommand, debug: serverCommand });
   };
@@ -65,9 +65,9 @@ function launchDfxProject(dfxConfig: DfxConfig) {
     window
       .showQuickPick(canisters, {
         canPickMany: false,
-        placeHolder: "What canister do you want to work on?"
+        placeHolder: "What canister do you want to work on?",
       })
-      .then(c => {
+      .then((c) => {
         if (c) start(c);
       });
 }
@@ -78,8 +78,8 @@ function launchClient(serverOptions: ServerOptions) {
     documentSelector: [{ scheme: "file", language: "motoko" }],
     synchronize: {
       // Notify the server about file changes to '.clientrc files contained in the workspace
-      fileEvents: workspace.createFileSystemWatcher("**/.clientrc")
-    }
+      fileEvents: workspace.createFileSystemWatcher("**/.clientrc"),
+    },
   };
 
   // Create the language client and start the client.
@@ -152,7 +152,7 @@ function vesselArgs(): string[] {
     )
       return [];
     let flags = execSync("vessel sources", {
-      cwd: ws
+      cwd: ws,
     }).toString("utf8");
     return flags.split(" ");
   } catch (err) {

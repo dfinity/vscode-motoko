@@ -104,6 +104,7 @@
   "devDependencies": {
     "@types/node": "^13.11.1",
     "@types/vscode": "^1.44.0",
+    "prettier": "2.0.5",
     "typescript": "^3.8.3",
     "vsce": "^1.75.0"
   },
@@ -112,6 +113,7 @@
     "compile": "tsc -p ./",
     "lint": "tslint -p ./",
     "package": "vsce package",
-    "watch": "tsc -watch -p ./"
+    "watch": "tsc -watch -p ./",
+    "format": "prettier --write ."
   }
 }
