@@ -1,15 +1,16 @@
-# vscode-motoko
+# `vscode-motoko`
 
 Motoko language support.
 
 ## Features
 
-- Syntax highlighting (currently based on the Swift TM grammar definitions)
+- Syntax highlighting (currently based on the Swift® grammar definitions)
 - Integration with the Motoko language service
 
 ## Installation
 
-Install through the Marketplace. The extension is published by the `DFINITY Foundation` publisher as `Motoko`
+Install through the Marketplace. The extension is published by the `DFINITY Foundation` publisher as `Motoko`:
+https://marketplace.visualstudio.com/items?itemName=dfinity-foundation.vscode-motoko
 
 ## Requirements
 
@@ -41,4 +42,4 @@ npm run package
 
 This should leave you with a `vscode-motoko-x.x.x.vsix` file in the project root.
 
-Next run `code --install-extension vscode-motoko-x.x.x.vsix` to install your development version. If this doesn't work you can also use the VSCode UI to install from a local `.vsix` file.
+Next run `code --install-extension vscode-motoko-x.x.x.vsix` to install your development version. If this doesn't work, you can also use the VSCode UI to install from a local `.vsix` file.
