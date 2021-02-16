@@ -3,12 +3,11 @@ import * as fs from "fs";
 import * as path from "path";
 import * as which from "which";
 import { execSync } from "child_process";
-
 import {
   LanguageClient,
   LanguageClientOptions,
   ServerOptions,
-} from "vscode-languageclient";
+} from "vscode-languageclient/node";
 
 const config = workspace.getConfiguration("motoko");
 
