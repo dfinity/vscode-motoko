@@ -114,6 +114,7 @@
     "lint": "tslint -p ./",
     "package": "vsce package",
     "watch": "tsc -watch -p ./",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "publish": "vsce publish"
   }
 }
