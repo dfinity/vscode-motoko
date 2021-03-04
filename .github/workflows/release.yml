@@ -11,6 +11,8 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Publish
-      run: npm run publish
+      run: |
+        npm install
+        npm run publish
       env:
         VSCE_PAT: ${{ secrets.VSCE_PAT }}
