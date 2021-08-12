@@ -89,6 +89,12 @@
         "command": "motoko.startService",
         "title": "Motoko: Start/Restart language service"
       }
+    ],
+    "snippets": [
+      {
+        "language": "motoko",
+        "path": "./snippets.json"
+      }
     ]
   },
   "activationEvents": [
