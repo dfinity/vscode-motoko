@@ -64,7 +64,7 @@
 			<key>comment</key>
 			<string>access-level-modifier</string>
 			<key>match</key>
-			<string>\b(open|public|internal|fileprivate|private)\b(?:\(set\))?</string>
+			<string>\b(public|system|private)\b</string>
 			<key>name</key>
 			<string>keyword.other.access-level-modifier.swift</string>
 		</dict>
@@ -757,7 +757,7 @@
 					<key>comment</key>
 					<string>statement keyword</string>
 					<key>match</key>
-					<string>\b(assert|async|await|break|case|continue|default|debug|debug_show|else|if|in|for|return|switch|while|loop|try|throw|query)\b</string>
+					<string>\b(assert|async|await|break|case|continue|default|debug|debug_show|else|if|ignore|in|for|label|return|switch|while|loop|try|throw)\b</string>
 					<key>name</key>
 					<string>keyword.statement.swift</string>
 				</dict>
@@ -765,7 +765,7 @@
 					<key>comment</key>
 					<string>other keyword</string>
 					<key>match</key>
-					<string>\b(associativity|didSet|get|infix|inout|left|mutating|none|nonmutating|operator|override|postfix|precedence|prefix|right|set|unowned((un)?safe)?|weak|willSet)\b</string>
+					<string>\b(flexible|query|stable)\b</string>
 					<key>name</key>
 					<string>keyword.other.swift</string>
 				</dict>
