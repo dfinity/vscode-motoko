@@ -1177,13 +1177,6 @@
 				</dict>
 			</array>
 		</dict>
-		<key>type-casting-operator</key>
-		<dict>
-			<key>match</key>
-			<string>\b(is\b|as(\?\B|\b))</string>
-			<key>name</key>
-			<string>keyword.operator.type-casting.motoko</string>
-		</dict>
 	</dict>
 	<key>scopeName</key>
 	<string>source.mo</string>
