@@ -390,7 +390,7 @@
 			<key>comment</key>
 			<string>declaration-modifier</string>
 			<key>match</key>
-			<string>\b(class|object|type|shared|convenience|dynamic|final|lazy|(non)?mutating|optional|override|required|static|unowned((un)?safe)?|weak)\b</string>
+			<string>\b(class|object|type|shared)\b</string>
 			<key>name</key>
 			<string>keyword.other.declaration-modifier.motoko</string>
 		</dict>
