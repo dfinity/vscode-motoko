@@ -357,10 +357,10 @@
 					<key>include</key>
 					<string>#import-declaration</string>
 				</dict>
-				<dict>
+				<!-- <dict>
 					<key>include</key>
 					<string>#function-declaration</string>
-				</dict>
+				</dict> -->
 			</array>
 		</dict>
 		<key>declaration-modifier</key>
@@ -682,12 +682,12 @@
 				</dict>
 			</array>
 		</dict>
-		<key>integer-type</key>
+		<key>resolved-type</key>
 		<dict>
 			<key>comment</key>
-			<string>Int types</string>
+			<string>Resolved types</string>
 			<key>match</key>
-			<string>\bInt(8|16|32|64)?\b</string>
+			<string>\b[A-Z].*?\b</string>
 			<key>name</key>
 			<string>support.type.motoko</string>
 		</dict>
@@ -710,6 +710,10 @@
 				<dict>
 					<key>include</key>
 					<string>#catch-statement-keyword</string>
+				</dict>
+				<dict>
+					<key>include</key>
+					<string>#async-await-keyword</string>
 				</dict>
 				<dict>
 					<key>include</key>
@@ -955,7 +959,7 @@
 			<key>comment</key>
 			<string>Primitive types</string>
 			<key>match</key>
-			<string>\b[A-Z].*?\b</string>
+			<string>\b(Blob|Bool|Char|Float|(Int|Nat)(8|16|32|64)?|Principal|Text|Error)\b</string>
 			<key>name</key>
 			<string>support.type.motoko</string>
 		</dict>
@@ -1139,7 +1143,7 @@
 				</dict>
 				<dict>
 					<key>include</key>
-					<string>#integer-type</string>
+					<string>#resolved-type</string>
 				</dict>
 				<dict>
 					<key>include</key>
