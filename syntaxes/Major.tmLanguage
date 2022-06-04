@@ -8,10 +8,8 @@
 	<array>
 		<string>Motoko</string>
 	</array>
-	<key>firstLineMatch</key>
-	<string>^#!/.*\bmotoko</string>
 	<key>keyEquivalent</key>
-	<string>^~S</string>
+	<string>^~M</string>
 	<key>name</key>
 	<string>Motoko</string>
 	<key>patterns</key>
