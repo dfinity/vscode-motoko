@@ -1123,7 +1123,7 @@
 			<key>comment</key>
 			<string>switch-statement</string>
 			<key>match</key>
-			<string>\b(switch|case|default|where)\b</string>
+			<string>\b(switch|case|default)\b</string>
 			<key>name</key>
 			<string>keyword.control.switch.motoko</string>
 		</dict>
