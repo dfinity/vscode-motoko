@@ -709,7 +709,7 @@
 			<key>comment</key>
 			<string>Int types</string>
 			<key>match</key>
-			<string>\bU?Int(8|16|32|64)?\b</string>
+			<string>\bInt(8|16|32|64)?\b</string>
 			<key>name</key>
 			<string>support.type.motoko</string>
 		</dict>
