@@ -285,28 +285,6 @@
 				</dict>
 			</array>
 		</dict>
-		<key>collection-type</key>
-		<dict>
-			<key>comment</key>
-			<string>Collection types</string>
-			<key>patterns</key>
-			<array>
-				<dict>
-					<key>include</key>
-					<string>#array-type</string>
-				</dict>
-				<dict>
-					<key>include</key>
-					<string>#dictionary-type</string>
-				</dict>
-				<dict>
-					<key>match</key>
-					<string>\b(Array|Dictionary)\b</string>
-					<key>name</key>
-					<string>support.type.motoko</string>
-				</dict>
-			</array>
-		</dict>
 		<key>comment</key>
 		<dict>
 			<key>comment</key>
@@ -1162,10 +1140,6 @@
 				<dict>
 					<key>include</key>
 					<string>#integer-type</string>
-				</dict>
-				<dict>
-					<key>include</key>
-					<string>#collection-type</string>
 				</dict>
 				<dict>
 					<key>include</key>
