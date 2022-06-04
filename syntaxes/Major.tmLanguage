@@ -13,7 +13,7 @@
 	<key>keyEquivalent</key>
 	<string>^~S</string>
 	<key>name</key>
-	<string>motoko</string>
+	<string>Motoko</string>
 	<key>patterns</key>
 	<array>
 		<dict>
