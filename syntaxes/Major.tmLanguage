@@ -1149,13 +1149,6 @@
 			<key>name</key>
 			<string>keyword.control.switch.motoko</string>
 		</dict>
-		<key>ternary-operator</key>
-		<dict>
-			<key>match</key>
-			<string>(?&lt;=[\s(\[{,;:])(\?|:)(?=[\s)\]},;:])</string>
-			<key>name</key>
-			<string>keyword.operator.ternary.motoko</string>
-		</dict>
 		<key>type</key>
 		<dict>
 			<key>comment</key>
