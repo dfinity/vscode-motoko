@@ -317,7 +317,7 @@
 			<key>comment</key>
 			<string>control-transfer-statement</string>
 			<key>match</key>
-			<string>\b(continue|break|fallthrough|return)\b</string>
+			<string>\b(continue|break|return)\b</string>
 			<key>name</key>
 			<string>keyword.control.transfer.motoko</string>
 		</dict>
