@@ -1,0 +1,10 @@
+.github/**
+.gitignore
+.vscode/**
+docker/**
+node_modules/**
+out/**
+src/**
+test/**
+**/tsconfig.json
+**/*.map
