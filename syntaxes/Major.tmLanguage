@@ -8,12 +8,10 @@
 	<array>
 		<string>Motoko</string>
 	</array>
-	<key>firstLineMatch</key>
-	<string>^#!/.*\bswift</string>
 	<key>keyEquivalent</key>
-	<string>^~S</string>
+	<string>^~M</string>
 	<key>name</key>
-	<string>Swift</string>
+	<string>Motoko</string>
 	<key>patterns</key>
 	<array>
 		<dict>
@@ -66,14 +64,14 @@
 			<key>match</key>
 			<string>\b(public|system|private)\b</string>
 			<key>name</key>
-			<string>keyword.other.access-level-modifier.swift</string>
+			<string>keyword.other.access-level-modifier.motoko</string>
 		</dict>
 		<key>arithmetic-operator</key>
 		<dict>
 			<key>match</key>
 			<string>(?&lt;![/=\-+!*%&lt;&gt;&amp;|\^~.])(\+|\-|\*|\/)(?![/=\-+!*%&lt;&gt;&amp;|\^~.])</string>
 			<key>name</key>
-			<string>keyword.operator.arithmetic.swift</string>
+			<string>keyword.operator.arithmetic.motoko</string>
 		</dict>
 		<key>array-type</key>
 		<dict>
@@ -84,12 +82,12 @@
 				<key>1</key>
 				<dict>
 					<key>name</key>
-					<string>support.type.array.swift</string>
+					<string>support.type.array.motoko</string>
 				</dict>
 				<key>2</key>
 				<dict>
 					<key>name</key>
-					<string>punctuation.array.begin.swift</string>
+					<string>punctuation.array.begin.motoko</string>
 				</dict>
 			</dict>
 			<key>end</key>
@@ -99,11 +97,11 @@
 				<key>1</key>
 				<dict>
 					<key>name</key>
-					<string>punctuation.array.end.swift</string>
+					<string>punctuation.array.end.motoko</string>
 				</dict>
 			</dict>
 			<key>name</key>
-			<string>meta.array.swift</string>
+			<string>meta.array.motoko</string>
 			<key>patterns</key>
 			<array>
 				<dict>
@@ -117,14 +115,14 @@
 			<key>match</key>
 			<string>(?&lt;![/=\-+!*%&lt;&gt;&amp;|\^~.])(\+|\-|\*|\/|%|&lt;&lt;|&gt;&gt;|&amp;|\^|\||&amp;&amp;|\|\|)?=(?![/=\-+!*%&lt;&gt;&amp;|\^~.])</string>
 			<key>name</key>
-			<string>keyword.operator.assignment.swift</string>
+			<string>keyword.operator.assignment.motoko</string>
 		</dict>
 		<key>attribute</key>
 		<dict>
 			<key>comment</key>
 			<string>attribute</string>
 			<key>name</key>
-			<string>meta.attribute.swift</string>
+			<string>meta.attribute.motoko</string>
 			<key>patterns</key>
 			<array>
 				<dict>
@@ -135,21 +133,21 @@
 						<key>1</key>
 						<dict>
 							<key>name</key>
-							<string>storage.modifier.attribute.swift</string>
+							<string>storage.modifier.attribute.motoko</string>
 						</dict>
 						<key>2</key>
 						<dict>
 							<key>name</key>
-							<string>punctuation.definition.attribute.swift</string>
+							<string>punctuation.definition.attribute.motoko</string>
 						</dict>
 						<key>3</key>
 						<dict>
 							<key>name</key>
-							<string>punctuation.definition.attribute-arguments.begin.swift</string>
+							<string>punctuation.definition.attribute-arguments.begin.motoko</string>
 						</dict>
 					</dict>
 					<key>contentName</key>
-					<string>meta.attribute.arguments.swift</string>
+					<string>meta.attribute.arguments.motoko</string>
 					<key>end</key>
 					<string>\)</string>
 					<key>endCaptures</key>
@@ -157,7 +155,7 @@
 						<key>0</key>
 						<dict>
 							<key>name</key>
-							<string>punctuation.definition.attribute-arguments.end.swift</string>
+							<string>punctuation.definition.attribute-arguments.end.motoko</string>
 						</dict>
 					</dict>
 					<key>patterns</key>
@@ -174,12 +172,12 @@
 						<key>1</key>
 						<dict>
 							<key>name</key>
-							<string>storage.modifier.attribute.swift</string>
+							<string>storage.modifier.attribute.motoko</string>
 						</dict>
 						<key>2</key>
 						<dict>
 							<key>name</key>
-							<string>punctuation.definition.attribute.swift</string>
+							<string>punctuation.definition.attribute.motoko</string>
 						</dict>
 					</dict>
 					<key>match</key>
@@ -192,7 +190,7 @@
 			<key>match</key>
 			<string>(?&lt;![/=\-+!*%&lt;&gt;&amp;|\^~.])(&amp;|\||\^|&lt;&lt;|&gt;&gt;)(?![/=\-+!*%&lt;&gt;&amp;|\^~.])</string>
 			<key>name</key>
-			<string>keyword.operator.bitwise.swift</string>
+			<string>keyword.operator.bitwise.motoko</string>
 		</dict>
 		<key>block-comment</key>
 		<dict>
@@ -203,7 +201,7 @@
 				<key>0</key>
 				<dict>
 					<key>name</key>
-					<string>punctuation.definition.comment.block.begin.swift</string>
+					<string>punctuation.definition.comment.block.begin.motoko</string>
 				</dict>
 			</dict>
 			<key>comment</key>
@@ -215,23 +213,23 @@
 				<key>0</key>
 				<dict>
 					<key>name</key>
-					<string>punctuation.definition.comment.block.end.swift</string>
+					<string>punctuation.definition.comment.block.end.motoko</string>
 				</dict>
 			</dict>
 			<key>name</key>
-			<string>comment.block.swift</string>
+			<string>comment.block.motoko</string>
 		</dict>
 		<key>boolean</key>
 		<dict>
 			<key>match</key>
 			<string>\b(true|false)\b</string>
 			<key>name</key>
-			<string>keyword.constant.boolean.swift</string>
+			<string>keyword.constant.boolean.motoko</string>
 		</dict>
 		<key>branch-statement-keyword</key>
 		<dict>
 			<key>name</key>
-			<string>keyword.control.branch.swift</string>
+			<string>keyword.control.branch.motoko</string>
 			<key>patterns</key>
 			<array>
 				<dict>
@@ -251,7 +249,7 @@
 			<key>match</key>
 			<string>\b(catch|do)\b</string>
 			<key>name</key>
-			<string>kewyord.control.catch.swift</string>
+			<string>kewyord.control.catch.motoko</string>
 		</dict>
 		<key>code-block</key>
 		<dict>
@@ -262,7 +260,7 @@
 				<key>1</key>
 				<dict>
 					<key>name</key>
-					<string>punctuation.definition.code-block.begin.swift</string>
+					<string>punctuation.definition.code-block.begin.motoko</string>
 				</dict>
 			</dict>
 			<key>comment</key>
@@ -274,7 +272,7 @@
 				<key>1</key>
 				<dict>
 					<key>name</key>
-					<string>punctuation.definition.code-block.end.swift</string>
+					<string>punctuation.definition.code-block.end.motoko</string>
 				</dict>
 			</dict>
 			<key>patterns</key>
@@ -282,28 +280,6 @@
 				<dict>
 					<key>include</key>
 					<string>$self</string>
-				</dict>
-			</array>
-		</dict>
-		<key>collection-type</key>
-		<dict>
-			<key>comment</key>
-			<string>Collection types</string>
-			<key>patterns</key>
-			<array>
-				<dict>
-					<key>include</key>
-					<string>#array-type</string>
-				</dict>
-				<dict>
-					<key>include</key>
-					<string>#dictionary-type</string>
-				</dict>
-				<dict>
-					<key>match</key>
-					<string>\b(Array|Dictionary)\b</string>
-					<key>name</key>
-					<string>support.type.swift</string>
 				</dict>
 			</array>
 		</dict>
@@ -332,16 +308,16 @@
 			<key>match</key>
 			<string>(?&lt;![/=\-+!*%&lt;&gt;&amp;|\^~.])((=|!)==?|(&lt;|&gt;)=?|~=)(?![/=\-+!*%&lt;&gt;&amp;|\^~.])</string>
 			<key>name</key>
-			<string>keyword.operator.comparative.swift</string>
+			<string>keyword.operator.comparative.motoko</string>
 		</dict>
 		<key>control-transfer-statement-keyword</key>
 		<dict>
 			<key>comment</key>
 			<string>control-transfer-statement</string>
 			<key>match</key>
-			<string>\b(continue|break|fallthrough|return)\b</string>
+			<string>\b(continue|break|return)\b</string>
 			<key>name</key>
-			<string>keyword.control.transfer.swift</string>
+			<string>keyword.control.transfer.motoko</string>
 		</dict>
 		<key>custom-operator</key>
 		<dict>
@@ -351,19 +327,19 @@
 					<key>match</key>
 					<string>(?&lt;=[\s(\[{,;:])([/=\-+!*%&lt;&gt;&amp;|\^~.]++)(?![\s)\]},;:])</string>
 					<key>name</key>
-					<string>keyword.operator.custom.prefix.unary.swift</string>
+					<string>keyword.operator.custom.prefix.unary.motoko</string>
 				</dict>
 				<dict>
 					<key>match</key>
 					<string>(?&lt;![\s(\[{,;:])([/=\-+!*%&lt;&gt;&amp;|\^~.]++)(?![\s)\]},;:\.])</string>
 					<key>name</key>
-					<string>keyword.operator.custom.postfix.unary.swift</string>
+					<string>keyword.operator.custom.postfix.unary.motoko</string>
 				</dict>
 				<dict>
 					<key>match</key>
 					<string>(?&lt;=[\s(\[{,;:])([/=\-+!*%&lt;&gt;&amp;|\^~.]++)(?=[\s)\]},;:])</string>
 					<key>name</key>
-					<string>keyword.operator.custom.binary.swift</string>
+					<string>keyword.operator.custom.binary.motoko</string>
 				</dict>
 			</array>
 		</dict>
@@ -372,17 +348,17 @@
 			<key>comment</key>
 			<string>declaration</string>
 			<key>name</key>
-			<string>meta.declaration.swift</string>
+			<string>meta.declaration.motoko</string>
 			<key>patterns</key>
 			<array>
 				<dict>
 					<key>include</key>
 					<string>#import-declaration</string>
 				</dict>
-				<dict>
+				<!-- <dict>
 					<key>include</key>
 					<string>#function-declaration</string>
-				</dict>
+				</dict> -->
 			</array>
 		</dict>
 		<key>declaration-modifier</key>
@@ -390,9 +366,9 @@
 			<key>comment</key>
 			<string>declaration-modifier</string>
 			<key>match</key>
-			<string>\b(class|object|type|shared|convenience|dynamic|final|lazy|(non)?mutating|optional|override|required|static|unowned((un)?safe)?|weak)\b</string>
+			<string>\b(class|object|type|shared)\b</string>
 			<key>name</key>
-			<string>keyword.other.declaration-modifier.swift</string>
+			<string>keyword.other.declaration-modifier.motoko</string>
 		</dict>
 		<key>dictionary-type</key>
 		<dict>
@@ -403,12 +379,12 @@
 				<key>1</key>
 				<dict>
 					<key>name</key>
-					<string>support.type.dictionary.swift</string>
+					<string>support.type.dictionary.motoko</string>
 				</dict>
 				<key>2</key>
 				<dict>
 					<key>name</key>
-					<string>punctuation.dictionary.begin.swift</string>
+					<string>punctuation.dictionary.begin.motoko</string>
 				</dict>
 			</dict>
 			<key>end</key>
@@ -418,11 +394,11 @@
 				<key>1</key>
 				<dict>
 					<key>name</key>
-					<string>punctuation.dictionary.end.swift</string>
+					<string>punctuation.dictionary.end.motoko</string>
 				</dict>
 			</dict>
 			<key>name</key>
-			<string>meta.dictionary.swift</string>
+			<string>meta.dictionary.motoko</string>
 			<key>patterns</key>
 			<array>
 				<dict>
@@ -440,7 +416,7 @@
 				<key>0</key>
 				<dict>
 					<key>name</key>
-					<string>punctuation.definition.comment.block.documentation.begin.swift</string>
+					<string>punctuation.definition.comment.block.documentation.begin.motoko</string>
 				</dict>
 			</dict>
 			<key>comment</key>
@@ -452,16 +428,16 @@
 				<key>0</key>
 				<dict>
 					<key>name</key>
-					<string>punctuation.definition.comment.block.documentation.end.swift</string>
+					<string>punctuation.definition.comment.block.documentation.end.motoko</string>
 				</dict>
 			</dict>
 			<key>name</key>
-			<string>comment.block.documentation.swift</string>
+			<string>comment.block.documentation.motoko</string>
 		</dict>
 		<key>floating-point-literal</key>
 		<dict>
 			<key>name</key>
-			<string>constant.numeric.floating-point.swift</string>
+			<string>constant.numeric.floating-point.motoko</string>
 			<key>patterns</key>
 			<array>
 				<dict>
@@ -483,7 +459,7 @@
 			<key>comment</key>
 			<string>function-body</string>
 			<key>name</key>
-			<string>meta.function-body.swift</string>
+			<string>meta.function-body.motoko</string>
 			<key>patterns</key>
 			<array>
 				<dict>
@@ -501,12 +477,12 @@
 				<key>1</key>
 				<dict>
 					<key>name</key>
-					<string>storage.type.function.swift</string>
+					<string>storage.type.function.motoko</string>
 				</dict>
 				<key>2</key>
 				<dict>
 					<key>name</key>
-					<string>entity.type.function.swift</string>
+					<string>entity.type.function.motoko</string>
 				</dict>
 			</dict>
 			<key>comment</key>
@@ -514,7 +490,7 @@
 			<key>end</key>
 			<string>(?&lt;=\})</string>
 			<key>name</key>
-			<string>meta.function-declaration.swift</string>
+			<string>meta.function-declaration.motoko</string>
 			<key>patterns</key>
 			<array>
 				<dict>
@@ -544,7 +520,7 @@
 				<key>1</key>
 				<dict>
 					<key>name</key>
-					<string>keyword.operator.function-result.swift</string>
+					<string>keyword.operator.function-result.motoko</string>
 				</dict>
 			</dict>
 			<key>comment</key>
@@ -552,7 +528,7 @@
 			<key>end</key>
 			<string>\s*(?=\{)</string>
 			<key>name</key>
-			<string>meta.function-result.swift</string>
+			<string>meta.function-result.motoko</string>
 			<key>patterns</key>
 			<array>
 				<dict>
@@ -570,7 +546,7 @@
 				<key>1</key>
 				<dict>
 					<key>name</key>
-					<string>punctuation.definition.generic-parameter-clause.begin.swift</string>
+					<string>punctuation.definition.generic-parameter-clause.begin.motoko</string>
 				</dict>
 			</dict>
 			<key>comment</key>
@@ -582,11 +558,11 @@
 				<key>1</key>
 				<dict>
 					<key>name</key>
-					<string>punctuation.definition.generic-parameter-clause.end.swift</string>
+					<string>punctuation.definition.generic-parameter-clause.end.motoko</string>
 				</dict>
 			</dict>
 			<key>name</key>
-			<string>meta.generic-parameter-clause.swift</string>
+			<string>meta.generic-parameter-clause.motoko</string>
 			<key>patterns</key>
 			<array>
 				<dict>
@@ -602,7 +578,7 @@
 			<key>match</key>
 			<string>(\B\$[0-9]+|\b[\w^\d][\w\d]*\b|\B`[\w^\d][\w\d]*`\B)</string>
 			<key>name</key>
-			<string>meta.identifier.swift</string>
+			<string>meta.identifier.motoko</string>
 		</dict>
 		<key>if-statement-keyword</key>
 		<dict>
@@ -611,7 +587,7 @@
 			<key>match</key>
 			<string>\b(if|else)\b</string>
 			<key>name</key>
-			<string>keyword.control.if.swift</string>
+			<string>keyword.control.if.motoko</string>
 		</dict>
 		<key>import-declaration</key>
 		<dict>
@@ -620,17 +596,17 @@
 				<key>1</key>
 				<dict>
 					<key>name</key>
-					<string>keyword.other.import.swift</string>
+					<string>keyword.other.import.motoko</string>
 				</dict>
 				<key>2</key>
 				<dict>
 					<key>name</key>
-					<string>storage.modifier.swift</string>
+					<string>storage.modifier.motoko</string>
 				</dict>
 				<key>3</key>
 				<dict>
 					<key>name</key>
-					<string>support.type.module.import.swift</string>
+					<string>support.type.module.import.motoko</string>
 				</dict>
 			</dict>
 			<key>comment</key>
@@ -638,7 +614,7 @@
 			<key>match</key>
 			<string>\b(import)\s+(?:(class|var|func)\s+)?((?:\B\$[0-9]+|\b[\w^\d][\w\d]*\b|\B`[\w^\d][\w\d]*`\B|[/=\-+!*%&lt;&gt;&amp;|\^~.]+)(?:\.(?:\B\$[0-9]+|\b[\w^\d][\w\d]*\b|\B`[\w^\d][\w\d]*`\B|[/=\-+!*%&lt;&gt;&amp;|\^~.]+))*)</string>
 			<key>name</key>
-			<string>meta.import.swift</string>
+			<string>meta.import.motoko</string>
 		</dict>
 		<key>in-line-comment</key>
 		<dict>
@@ -647,7 +623,7 @@
 				<key>1</key>
 				<dict>
 					<key>name</key>
-					<string>punctuation.definition.comment.line.double-slash.swift</string>
+					<string>punctuation.definition.comment.line.double-slash.motoko</string>
 				</dict>
 			</dict>
 			<key>comment</key>
@@ -655,19 +631,19 @@
 			<key>match</key>
 			<string>(//).*</string>
 			<key>name</key>
-			<string>comment.line.double-slash.swift</string>
+			<string>comment.line.double-slash.motoko</string>
 		</dict>
 		<key>increment-decrement-operator</key>
 		<dict>
 			<key>match</key>
 			<string>(?&lt;![/=\-+!*%&lt;&gt;&amp;|\^~.])(\+\+|\-\-)(?![/=\-+!*%&lt;&gt;&amp;|\^~.])</string>
 			<key>name</key>
-			<string>keyword.operator.increment-or-decrement.swift</string>
+			<string>keyword.operator.increment-or-decrement.motoko</string>
 		</dict>
 		<key>integer-literal</key>
 		<dict>
 			<key>name</key>
-			<string>constant.numeric.integer.swift</string>
+			<string>constant.numeric.integer.motoko</string>
 			<key>patterns</key>
 			<array>
 				<dict>
@@ -676,7 +652,7 @@
 					<key>match</key>
 					<string>(\B\-|\b)(0b[01][01_]*)\b</string>
 					<key>name</key>
-					<string>constant.numeric.integer.binary.swift</string>
+					<string>constant.numeric.integer.binary.motoko</string>
 				</dict>
 				<dict>
 					<key>comment</key>
@@ -684,7 +660,7 @@
 					<key>match</key>
 					<string>(\B\-|\b)(0o[0-7][0-7_]*)\b</string>
 					<key>name</key>
-					<string>constant.numeric.integer.octal.swift</string>
+					<string>constant.numeric.integer.octal.motoko</string>
 				</dict>
 				<dict>
 					<key>comment</key>
@@ -692,7 +668,7 @@
 					<key>match</key>
 					<string>(\B\-|\b)([0-9][0-9_]*)\b</string>
 					<key>name</key>
-					<string>constant.numeric.integer.decimal.swift</string>
+					<string>constant.numeric.integer.decimal.motoko</string>
 				</dict>
 				<dict>
 					<key>comment</key>
@@ -700,18 +676,18 @@
 					<key>match</key>
 					<string>(\B\-|\b)(0x\h[\h_]*)\b</string>
 					<key>name</key>
-					<string>constant.numeric.integer.hexadecimal.swift</string>
+					<string>constant.numeric.integer.hexadecimal.motoko</string>
 				</dict>
 			</array>
 		</dict>
-		<key>integer-type</key>
+		<key>resolved-type</key>
 		<dict>
 			<key>comment</key>
-			<string>Int types</string>
+			<string>Resolved types</string>
 			<key>match</key>
-			<string>\bU?Int(8|16|32|64)?\b</string>
+			<string>\b[A-Z].*?\b</string>
 			<key>name</key>
-			<string>support.type.swift</string>
+			<string>support.type.motoko</string>
 		</dict>
 		<key>keyword</key>
 		<dict>
@@ -735,6 +711,10 @@
 				</dict>
 				<dict>
 					<key>include</key>
+					<string>#async-await-keyword</string>
+				</dict>
+				<dict>
+					<key>include</key>
 					<string>#operator-declaration-modifier</string>
 				</dict>
 				<dict>
@@ -749,17 +729,17 @@
 					<key>comment</key>
 					<string>declaration keyword</string>
 					<key>match</key>
-					<string>\b(async|actor|and|class|func|import|let|module|not|or)\b</string>
+					<string>\b(actor|and|class|func|import|let|module|not|or)\b</string>
 					<key>name</key>
-					<string>keyword.declaration.swift</string>
+					<string>keyword.declaration.motoko</string>
 				</dict>
 				<dict>
 					<key>comment</key>
 					<string>statement keyword</string>
 					<key>match</key>
-					<string>\b(assert|async|await|break|case|continue|default|debug|debug_show|else|if|ignore|in|for|label|return|switch|while|loop|try|throw)\b</string>
+					<string>\b(assert|break|case|continue|default|debug|debug_show|else|if|ignore|in|for|label|return|switch|while|loop|try|throw)\b</string>
 					<key>name</key>
-					<string>keyword.statement.swift</string>
+					<string>keyword.statement.motoko</string>
 				</dict>
 				<dict>
 					<key>comment</key>
@@ -767,7 +747,7 @@
 					<key>match</key>
 					<string>\b(flexible|query|stable)\b</string>
 					<key>name</key>
-					<string>keyword.other.swift</string>
+					<string>keyword.other.motoko</string>
 				</dict>
 			</array>
 		</dict>
@@ -802,7 +782,7 @@
 			<key>match</key>
 			<string>(?&lt;![/=\-+!*%&lt;&gt;&amp;|\^~.])(!|&amp;&amp;|\|\|)(?![/=\-+!*%&lt;&gt;&amp;|\^~.])</string>
 			<key>name</key>
-			<string>keyword.operator.logical.swift</string>
+			<string>keyword.operator.logical.motoko</string>
 		</dict>
 		<key>loop-statement-keyword</key>
 		<dict>
@@ -811,16 +791,25 @@
 			<key>match</key>
 			<string>\b(while|repeat|for|in|loop)\b</string>
 			<key>name</key>
-			<string>keyword.control.loop.swift</string>
+			<string>keyword.control.loop.motoko</string>
 		</dict>
-		<key>nil-literal</key>
+		<key>async-await-keyword</key>
 		<dict>
 			<key>comment</key>
-			<string>nil-literal</string>
+			<string>async-await-literal</string>
 			<key>match</key>
-			<string>\bnil\b</string>
+			<string>\b(async|await)\b</string>
 			<key>name</key>
-			<string>constant.nil.swift</string>
+			<string>keyword.async-await.motoko</string>
+		</dict>
+		<key>null-literal</key>
+		<dict>
+			<key>comment</key>
+			<string>null-literal</string>
+			<key>match</key>
+			<string>\bnull\b</string>
+			<key>name</key>
+			<string>constant.null.motoko</string>
 		</dict>
 		<key>operator</key>
 		<dict>
@@ -883,7 +872,7 @@
 			<key>match</key>
 			<string>\b(operator|prefix|infix|postfix)\b</string>
 			<key>name</key>
-			<string>keyword.other.operator.swift</string>
+			<string>keyword.other.operator.motoko</string>
 		</dict>
 		<key>optional-type</key>
 		<dict>
@@ -892,12 +881,12 @@
 				<key>1</key>
 				<dict>
 					<key>name</key>
-					<string>support.type.optional.swift</string>
+					<string>support.type.optional.motoko</string>
 				</dict>
 				<key>2</key>
 				<dict>
 					<key>name</key>
-					<string>punctuation.optional.begin.swift</string>
+					<string>punctuation.optional.begin.motoko</string>
 				</dict>
 			</dict>
 			<key>end</key>
@@ -907,13 +896,13 @@
 				<key>1</key>
 				<dict>
 					<key>name</key>
-					<string>punctuation.optional.end.swift</string>
+					<string>punctuation.optional.end.motoko</string>
 				</dict>
 			</dict>
 			<key>match</key>
 			<string>\b(Optional)(&lt;)</string>
 			<key>name</key>
-			<string>meta.optional.swift</string>
+			<string>meta.optional.motoko</string>
 			<key>patterns</key>
 			<array>
 				<dict>
@@ -927,7 +916,7 @@
 			<key>match</key>
 			<string>(?&lt;![/=\-+!*%&lt;&gt;&amp;|\^~.])\&amp;(\+|\-|\*|\/|%)(?![/=\-+!*%&lt;&gt;&amp;|\^~.])</string>
 			<key>name</key>
-			<string>keyword.operator.overflow.swift</string>
+			<string>keyword.operator.overflow.motoko</string>
 		</dict>
 		<key>parameter-clause</key>
 		<dict>
@@ -938,7 +927,7 @@
 				<key>1</key>
 				<dict>
 					<key>name</key>
-					<string>punctuation.definition.function-arguments.begin.swift</string>
+					<string>punctuation.definition.function-arguments.begin.motoko</string>
 				</dict>
 			</dict>
 			<key>comment</key>
@@ -950,11 +939,11 @@
 				<key>1</key>
 				<dict>
 					<key>name</key>
-					<string>punctuation.definition.function-arguments.end.swift</string>
+					<string>punctuation.definition.function-arguments.end.motoko</string>
 				</dict>
 			</dict>
 			<key>name</key>
-			<string>meta.parameter-clause.swift</string>
+			<string>meta.parameter-clause.motoko</string>
 			<key>patterns</key>
 			<array>
 				<dict>
@@ -968,9 +957,9 @@
 			<key>comment</key>
 			<string>Primitive types</string>
 			<key>match</key>
-			<string>\b[A-Z].*?\b</string>
+			<string>\b(Blob|Bool|Char|Float|(Int|Nat)(8|16|32|64)?|Principal|Text|Error)\b</string>
 			<key>name</key>
-			<string>support.type.swift</string>
+			<string>support.type.motoko</string>
 		</dict>
 		<key>protocol-composition-type</key>
 		<dict>
@@ -979,12 +968,12 @@
 				<key>1</key>
 				<dict>
 					<key>name</key>
-					<string>support.type.protocol.swift</string>
+					<string>support.type.protocol.motoko</string>
 				</dict>
 				<key>2</key>
 				<dict>
 					<key>name</key>
-					<string>punctuation.protocol.begin.swift</string>
+					<string>punctuation.protocol.begin.motoko</string>
 				</dict>
 			</dict>
 			<key>end</key>
@@ -994,13 +983,13 @@
 				<key>1</key>
 				<dict>
 					<key>name</key>
-					<string>punctuation.protocol.end.swift</string>
+					<string>punctuation.protocol.end.motoko</string>
 				</dict>
 			</dict>
 			<key>match</key>
 			<string>\b(protocol)(&lt;)</string>
 			<key>name</key>
-			<string>meta.protocol.swift</string>
+			<string>meta.protocol.motoko</string>
 			<key>patterns</key>
 			<array>
 				<dict>
@@ -1014,14 +1003,14 @@
 			<key>match</key>
 			<string>(?&lt;![/=\-+!*%&lt;&gt;&amp;|\^~.])\.\.(?:\.)?(?![/=\-+!*%&lt;&gt;&amp;|\^~.])</string>
 			<key>name</key>
-			<string>keyword.operator.range.swift</string>
+			<string>keyword.operator.range.motoko</string>
 		</dict>
 		<key>remainder-operator</key>
 		<dict>
 			<key>match</key>
 			<string>(?&lt;![/=\-+!*%&lt;&gt;&amp;|\^~.])\%(?![/=\-+!*%&lt;&gt;&amp;|\^~.])</string>
 			<key>name</key>
-			<string>keyword.operator.remainder.swift</string>
+			<string>keyword.operator.remainder.motoko</string>
 		</dict>
 		<key>shebang-line</key>
 		<dict>
@@ -1030,7 +1019,7 @@
 				<key>1</key>
 				<dict>
 					<key>name</key>
-					<string>punctuation.definition.comment.line.shebang.swift</string>
+					<string>punctuation.definition.comment.line.shebang.motoko</string>
 				</dict>
 			</dict>
 			<key>comment</key>
@@ -1038,21 +1027,21 @@
 			<key>match</key>
 			<string>^(#!).*$</string>
 			<key>name</key>
-			<string>comment.line.shebang.swift</string>
+			<string>comment.line.shebang.motoko</string>
 		</dict>
 		<key>special-literal</key>
 		<dict>
 			<key>match</key>
 			<string>\b__(FILE|LINE|COLUMN|FUNCTION)__\b</string>
 			<key>name</key>
-			<string>keyword.other.literal.swift</string>
+			<string>keyword.other.literal.motoko</string>
 		</dict>
 		<key>storage-type</key>
 		<dict>
 			<key>match</key>
 			<string>\b(var|func|let|class|enum)\b</string>
 			<key>name</key>
-			<string>storage.type.swift</string>
+			<string>storage.type.motoko</string>
 		</dict>
 		<key>string-literal</key>
 		<dict>
@@ -1063,7 +1052,7 @@
 				<key>0</key>
 				<dict>
 					<key>name</key>
-					<string>string.quoted.double.swift</string>
+					<string>string.quoted.double.motoko</string>
 				</dict>
 			</dict>
 			<key>end</key>
@@ -1073,18 +1062,18 @@
 				<key>0</key>
 				<dict>
 					<key>name</key>
-					<string>string.quoted.double.swift</string>
+					<string>string.quoted.double.motoko</string>
 				</dict>
 			</dict>
 			<key>name</key>
-			<string>meta.literal.string.swift</string>
+			<string>meta.literal.string.motoko</string>
 			<key>patterns</key>
 			<array>
 				<dict>
 					<key>match</key>
 					<string>\\([0tnr\"\'\\]|x\h{2}|u\h{4}|U\h{8})</string>
 					<key>name</key>
-					<string>constant.character.escape.swift</string>
+					<string>constant.character.escape.motoko</string>
 				</dict>
 				<dict>
 					<key>begin</key>
@@ -1094,11 +1083,11 @@
 						<key>1</key>
 						<dict>
 							<key>name</key>
-							<string>support.punctuation.expression.begin.swift</string>
+							<string>support.punctuation.expression.begin.motoko</string>
 						</dict>
 					</dict>
 					<key>contentName</key>
-					<string>meta.expression.swift</string>
+					<string>meta.expression.motoko</string>
 					<key>end</key>
 					<string>(\))</string>
 					<key>endCaptures</key>
@@ -1106,14 +1095,14 @@
 						<key>1</key>
 						<dict>
 							<key>name</key>
-							<string>support.punctuation.expression.end.swift</string>
+							<string>support.punctuation.expression.end.motoko</string>
 						</dict>
 					</dict>
 					<key>patterns</key>
 					<array>
 						<dict>
 							<key>include</key>
-							<string>source.swift</string>
+							<string>source.motoko</string>
 						</dict>
 					</array>
 				</dict>
@@ -1121,13 +1110,13 @@
 					<key>match</key>
 					<string>(\"|\\)</string>
 					<key>name</key>
-					<string>invalid.illegal.swift</string>
+					<string>invalid.illegal.motoko</string>
 				</dict>
 				<dict>
 					<key>match</key>
 					<string>(.)</string>
 					<key>name</key>
-					<string>string.quoted.double.swift</string>
+					<string>string.quoted.double.motoko</string>
 				</dict>
 			</array>
 		</dict>
@@ -1136,16 +1125,9 @@
 			<key>comment</key>
 			<string>switch-statement</string>
 			<key>match</key>
-			<string>\b(switch|case|default|where)\b</string>
+			<string>\b(switch|case|default)\b</string>
 			<key>name</key>
-			<string>keyword.control.switch.swift</string>
-		</dict>
-		<key>ternary-operator</key>
-		<dict>
-			<key>match</key>
-			<string>(?&lt;=[\s(\[{,;:])(\?|:)(?=[\s)\]},;:])</string>
-			<key>name</key>
-			<string>keyword.operator.ternary.swift</string>
+			<string>keyword.control.switch.motoko</string>
 		</dict>
 		<key>type</key>
 		<dict>
@@ -1159,11 +1141,7 @@
 				</dict>
 				<dict>
 					<key>include</key>
-					<string>#integer-type</string>
-				</dict>
-				<dict>
-					<key>include</key>
-					<string>#collection-type</string>
+					<string>#resolved-type</string>
 				</dict>
 				<dict>
 					<key>include</key>
@@ -1174,13 +1152,6 @@
 					<string>#protocol-composition-type</string>
 				</dict>
 			</array>
-		</dict>
-		<key>type-casting-operator</key>
-		<dict>
-			<key>match</key>
-			<string>\b(is\b|as(\?\B|\b))</string>
-			<key>name</key>
-			<string>keyword.operator.type-casting.swift</string>
 		</dict>
 	</dict>
 	<key>scopeName</key>
