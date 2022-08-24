@@ -737,7 +737,7 @@
 					<key>comment</key>
 					<string>statement keyword</string>
 					<key>match</key>
-					<string>\b(assert|break|case|continue|default|debug|debug_show|else|if|ignore|in|for|label|return|switch|while|loop|try|throw)\b</string>
+					<string>\b(assert|break|case|continue|default|debug|debug_show|else|if|ignore|in|for|label|return|switch|while|loop|try|throw|with)\b</string>
 					<key>name</key>
 					<string>keyword.statement.motoko</string>
 				</dict>
