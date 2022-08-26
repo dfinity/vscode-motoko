@@ -1,4 +1,4 @@
-import { workspace, ExtensionContext, window, commands } from "vscode";
+import { workspace, ExtensionContext, window, commands, languages, TextDocument, TextEdit } from "vscode";
 import * as fs from "fs";
 import * as path from "path";
 import * as which from "which";
@@ -8,6 +8,7 @@ import {
   LanguageClientOptions,
   ServerOptions,
 } from "vscode-languageclient/node";
+import { formatDocument } from "./formatter";
 
 const config = workspace.getConfiguration("motoko");
 
@@ -17,6 +18,12 @@ export function activate(context: ExtensionContext) {
   context.subscriptions.push(
     commands.registerCommand("motoko.startService", startServer)
   );
+  context.subscriptions.push(
+    languages.registerDocumentFormattingEditProvider('motoko', {
+      provideDocumentFormattingEdits(document: TextDocument): TextEdit[] {
+        return formatDocument(document, context);
+      },
+    }));
   startServer();
 }
 
