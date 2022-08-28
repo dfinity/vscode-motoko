@@ -37,20 +37,28 @@ export function startServer() {
     return launchDfxProject(dfxConfig);
   }
 
-  const prompt = `We failed to detect a dfx project for this Motoko file. What file do you want to use as an entry point?`;
-  const currentDocument = window.activeTextEditor?.document?.fileName;
-
-  window.showInputBox({ prompt, value: currentDocument }).then((entryPoint) => {
-    if (entryPoint) {
-      const serverCommand = {
-        command: config.standaloneBinary,
-        args: ["--canister-main", entryPoint]
-          .concat(vesselArgs())
-          .concat(config.standaloneArguments.split(" ")),
-      };
-      launchClient({ run: serverCommand, debug: serverCommand });
+  // Check if `mo-ide` exists
+  fs.access(config.standaloneBinary, fs.constants.F_OK, (err) => {
+    if(err) {
+      console.error(err.message);
+      return;
     }
-  });
+
+    const prompt = `There doesn't seem to be a dfx project for this Motoko file. What file do you want to use as an entry point?`;
+    const currentDocument = window.activeTextEditor?.document?.fileName;
+
+    window.showInputBox({ prompt, value: currentDocument }).then((entryPoint) => {
+      if (entryPoint) {
+        const serverCommand = {
+          command: config.standaloneBinary,
+          args: ["--canister-main", entryPoint]
+            .concat(vesselArgs())
+            .concat(config.standaloneArguments.split(" ")),
+        };
+        launchClient({ run: serverCommand, debug: serverCommand });
+      }
+    });
+  })
 }
 
 function launchDfxProject(dfxConfig: DfxConfig) {
