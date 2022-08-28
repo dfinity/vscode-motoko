@@ -1,61 +1,66 @@
-# `vscode-motoko`
+# Motoko - VS Code Extension
 
-Motoko language support.
+> #### Motoko language support for [Visual Studio Code](https://code.visualstudio.com/).
+
+[![Visual Studio Marketplace](https://vsmarketplacebadge.apphb.com/installs-short/dfinity-foundation.vscode-motoko.svg)](https://marketplace.visualstudio.com/items?itemName=dfinity-foundation.vscode-motoko)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/dfinity/prettier-plugin-motoko/issues)
 
 ## Features
 
-- Syntax highlighting (currently based on the Swift® grammar definitions)
-- Integration with the Motoko language service
+- Syntax highlighting
+- Code formatter
+- When using a [dfx.json](https://medium.com/@chiedo/6-steps-to-deploying-your-first-dapp-on-the-internet-computer-b9a36b45f91e) config file:
+  - Autocompletion
+  - Error checking
+  - Go to definition
 
 ## Installation
 
-Install through the Marketplace. The extension is published by the `DFINITY Foundation` publisher as `Motoko`:
-https://marketplace.visualstudio.com/items?itemName=dfinity-foundation.vscode-motoko
+Get this extension through the [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=dfinity-foundation.vscode-motoko), or alternatively the [Extensions panel](https://code.visualstudio.com/docs/editor/extension-marketplace) in your VS Code project.
 
-## Requirements
+## Integrations
 
-- `dfx`
+- [`dfx`](https://internetcomputer.org/docs/current/developer-docs/build/install-upgrade-remove/) (autocompletion, error checking, go-to-definition)
+- [`prettier-plugin-motoko`](https://npmjs.com/package/prettier-plugin-motoko) (code formatter)
 
 ## Extension Commands
 
-This extension contributes the following commands:
-
-- `motoko.startService` Starts/Restarts the language service. This is automatically triggered when opening a Motoko project.
+- `motoko.startService`: Starts (or restarts) the language service. This is automatically triggered when opening a Motoko project.
 
 ## Extension Settings
 
-This extension contributes the following settings:
-
 - `motoko.dfx`: The location of the `dfx` binary
-- `motoko.canister`: By default we'll let you choose what canister defined in your project you want to use, use this setting to change that to a specific one
+- `motoko.canister`: The default canister name to use in multi-canister projects
 - `motoko.standaloneArguments`: Additional arguments to pass to the language service when running in a non-dfx project
 - `motoko.standaloneBinary`: The location of the `mo-ide` binary (when running in a non-dfx project)
+- `motoko.formatter`: The formatter used by the extension
 
 ## Contributing
 
-When hacking on the extension you can package your local version by running:
+### Set up your local development environment:
 
 ```bash
+git clone https://github.com/dfinity/vscode-motoko
+cd vscode-motoko
 npm install
+```
+
+### Build the extension with your local changes:
+
+```bash
 npm run package
 ```
 
-This should leave you with a `vscode-motoko-x.x.x.vsix` file in the project root.
+This generates a file named `vscode-motoko-x.x.x.vsix` in the project root.
 
-Next run `code --install-extension vscode-motoko-x.x.x.vsix` to install your development version. If this doesn't work, you can also use the VSCode UI to install from a local `.vsix` file.
+### Install your local extension in VS Code:
 
-## License
+```bash
+code --install-extension vscode-motoko-x.x.x.vsix
+```
 
-Copyright 2020 DFINITY Foundation
+Alternatively, right-click the `.vsix` file and then select the "Install Extension VSIX" option.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
+---
 
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+Community [PRs](https://github.com/dfinity/vscode-motoko/pulls) are welcome! Be sure to check the list of [open issues](https://github.com/dfinity/vscode-motoko/issues) in case anything catches your eye.
