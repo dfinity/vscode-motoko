@@ -1,20 +1,27 @@
-# `vscode-motoko`
+# Motoko - VS Code Extension
 
-Motoko language support.
+> #### Motoko language support for [Visual Studio Code](https://code.visualstudio.com/).
+
+[![Visual Studio Marketplace](https://vsmarketplacebadge.apphb.com/installs-short/dfinity-foundation.vscode-motoko.svg)](https://marketplace.visualstudio.com/items?itemName=dfinity-foundation.vscode-motoko)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/dfinity/prettier-plugin-motoko/issues)
 
 ## Features
 
-- Syntax highlighting (currently based on the Swift® grammar definitions)
-- Integration with the Motoko language service
+- Syntax highlighting
+- Code formatter
+- When using a [dfx.json](https://medium.com/@chiedo/6-steps-to-deploying-your-first-dapp-on-the-internet-computer-b9a36b45f91e) config file:
+  - Autocompletion
+  - Error checking
+  - Go to definition
 
 ## Installation
 
-Install through the Marketplace. The extension is published by the `DFINITY Foundation` publisher as `Motoko`:
-https://marketplace.visualstudio.com/items?itemName=dfinity-foundation.vscode-motoko
+Install through the [Marketplace page](https://marketplace.visualstudio.com/items?itemName=dfinity-foundation.vscode-motoko), or alternatively the [Extensions panel](https://code.visualstudio.com/docs/editor/extension-marketplace) in your VS Code project.
 
-## Requirements
+## Integrations
 
-- `dfx`
+- [`dfx`](https://internetcomputer.org/docs/current/developer-docs/build/install-upgrade-remove/) (autocompletion, error checking, go-to-definition)
+- [`prettier-plugin-motoko`](https://npmjs.com/package/prettier-plugin-motoko) (code formatter)
 
 ## Extension Commands
 
