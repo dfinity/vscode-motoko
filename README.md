@@ -2,7 +2,7 @@
 
 > #### Motoko language support for [Visual Studio Code](https://code.visualstudio.com/).
 
-[![Visual Studio Marketplace](https://vsmarketplacebadge.apphb.com/installs-short/dfinity-foundation.vscode-motoko.svg)](https://marketplace.visualstudio.com/items?itemName=dfinity-foundation.vscode-motoko)
+[![Visual Studio Marketplace](https://img.shields.io/visual-studio-marketplace/v/dfinity-foundation.vscode-motoko?color=brightgreen&logo=visual-studio-code)](https://marketplace.visualstudio.com/items?itemName=dfinity-foundation.vscode-motoko)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/dfinity/prettier-plugin-motoko/issues)
 
 ## Features
