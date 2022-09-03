@@ -53,6 +53,12 @@
           "default": 100,
           "description": "Controls the maximum number of problems produced by the server."
         },
+        "motoko.hideWarningRegex": {
+          "scope": "resource",
+          "type": "regex",
+          "default": "",
+          "description": "Hides compiler warnings based on a regular expression."
+        },
         "motoko.trace.server": {
           "scope": "window",
           "type": "string",
@@ -68,19 +74,19 @@
           "scope": "resource",
           "type": "string",
           "default": "",
-          "description": "The name of the canister you want to develop, if this is blank we'll use a sensible default"
+          "description": "The name of the canister you want to develop. If this is blank, we'll use a sensible default."
         },
         "motoko.standaloneBinary": {
           "scope": "resource",
           "type": "string",
           "default": "mo-ide",
-          "description": "The path to the language server binary when running in a non-dfx project"
+          "description": "The path to the language server binary when running in a non-dfx project."
         },
         "motoko.standaloneArguments": {
           "scope": "resource",
           "type": "string",
           "default": "",
-          "description": "Additional arguments to pass to the language server when running in a non-dfx project"
+          "description": "Additional arguments to pass to the language server when running in a non-dfx project."
         },
         "motoko.formatter": {
           "type": "string",
@@ -89,7 +95,7 @@
             "none",
             "prettier"
           ],
-          "description": "Use the selected Motoko code formatter"
+          "description": "The Motoko code formatter used by the extension."
         }
       }
     },

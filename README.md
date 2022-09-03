@@ -20,20 +20,22 @@ Get this extension through the [Visual Studio Marketplace](https://marketplace.v
 
 ## Integrations
 
-- [`dfx`](https://internetcomputer.org/docs/current/developer-docs/build/install-upgrade-remove/) (autocompletion, error checking, go-to-definition)
+- [`motoko`](https://www.npmjs.com/package/motoko) npm package (for projects without a `dfx.json` file)
+- [`dfx`](https://internetcomputer.org/docs/current/developer-docs/build/install-upgrade-remove/) (for multi-canister projects)
 - [`prettier-plugin-motoko`](https://npmjs.com/package/prettier-plugin-motoko) (code formatter)
 
 ## Extension Commands
 
-- `motoko.startService`: Starts (or restarts) the language service. This is automatically triggered when opening a Motoko project.
+- `motoko.startService`: Starts (or restarts) the language service.
 
 ## Extension Settings
 
-- `motoko.dfx`: The location of the `dfx` binary
-- `motoko.canister`: The default canister name to use in multi-canister projects
-- `motoko.standaloneArguments`: Additional arguments to pass to the language service when running in a non-dfx project
-- `motoko.standaloneBinary`: The location of the `mo-ide` binary (when running in a non-dfx project)
-- `motoko.formatter`: The formatter used by the extension
+- `motoko.dfx`: The location of the `dfx` binary.
+- `motoko.ignoreWarningRegex`: Hides compiler warnings based on a regular expression.
+- `motoko.canister`: The default canister name to use in multi-canister projects.
+- `motoko.standaloneArguments`: Additional arguments to pass to the language service when running in a non-dfx project.
+- `motoko.standaloneBinary`: The location of the `mo-ide` binary (when running in a non-dfx project).
+- `motoko.formatter`: The code formatter used by the extension.
 
 ## Contributing
 
