@@ -31,7 +31,7 @@ Get this extension through the [Visual Studio Marketplace](https://marketplace.v
 ## Extension Settings
 
 - `motoko.dfx`: The location of the `dfx` binary.
-- `motoko.ignoreWarningRegex`: Hides compiler warnings based on a regular expression.
+- `motoko.hideWarningRegex`: Hides compiler warnings based on a regular expression.
 - `motoko.canister`: The default canister name to use in multi-canister projects.
 - `motoko.standaloneArguments`: Additional arguments to pass to the language service when running in a non-dfx project.
 - `motoko.standaloneBinary`: The location of the `mo-ide` binary (when running in a non-dfx project).
