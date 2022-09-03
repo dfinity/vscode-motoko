@@ -16,7 +16,7 @@
 
 ## Installation
 
-Get this extension through the [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=dfinity-foundation.vscode-motoko), or alternatively the [Extensions panel](https://code.visualstudio.com/docs/editor/extension-marketplace) in your VS Code project.
+Get this extension through the [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=dfinity-foundation.vscode-motoko) or the [Extensions panel](https://code.visualstudio.com/docs/editor/extension-marketplace) inside VS Code.
 
 ## Integrations
 
