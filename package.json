@@ -118,22 +118,22 @@
   ],
   "main": "./out/extension",
   "dependencies": {
-    "@types/which": "^2.0.0",
-    "motoko": "^2.0.9",
+    "motoko": "^2.0.10",
     "prettier": "^2.7.1",
     "prettier-plugin-motoko": "^0.1.5",
-    "vscode-languageclient": "^7.0.0",
+    "vscode-languageclient": "^8.0.2",
     "vscode-languageserver": "^8.0.2",
     "vscode-languageserver-textdocument": "^1.0.7",
     "which": "2.0.2"
   },
   "devDependencies": {
-    "@types/node": "^14.14.30",
+    "@types/node": "^14",
     "@types/prettier": "^2.7.0",
     "@types/vscode": "^1.53.0",
+    "@types/which": "^2.0.1",
     "rimraf": "^3.0.2",
-    "typescript": "^4.1.5",
-    "vsce": "^2.10.2"
+    "typescript": "^4.8.2",
+    "vsce": "^2.11.0"
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",

@@ -15,6 +15,7 @@ import {
     LanguageClient,
     LanguageClientOptions,
     ServerOptions,
+    TransportKind,
 } from 'vscode-languageclient/node';
 import { formatDocument } from './formatter';
 
@@ -33,23 +34,38 @@ export function activate(context: ExtensionContext) {
             },
         }),
     );
-    startServer();
+    startServer(context);
 }
 
-export function startServer() {
+export function startServer(context: ExtensionContext) {
     if (client) {
         client.stop();
     }
 
     const dfxConfig = isDfxProject();
     if (dfxConfig !== null) {
-        return launchDfxProject(dfxConfig);
+        return launchDfxProject(context, dfxConfig);
     }
 
     // Check if `mo-ide` exists
     fs.access(config.standaloneBinary, fs.constants.F_OK, (err) => {
         if (err) {
             console.error(err.message);
+
+            // Launch TypeScript language server
+            // const module = path.join(__dirname, 'server', 'server.js');
+            const module = context.asAbsolutePath(
+                path.join('out', 'server', 'server.js'),
+            );
+            console.error('MODULE:', module); ////
+            launchClient(context, {
+                run: { module, transport: TransportKind.ipc },
+                debug: {
+                    module,
+                    options: { execArgv: ['--nolazy', '--inspect=6004'] },
+                    transport: TransportKind.ipc,
+                },
+            });
             return;
         }
 
@@ -66,19 +82,22 @@ export function startServer() {
                             .concat(vesselArgs())
                             .concat(config.standaloneArguments.split(' ')),
                     };
-                    launchClient({ run: serverCommand, debug: serverCommand });
+                    launchClient(context, {
+                        run: serverCommand,
+                        debug: serverCommand,
+                    });
                 }
             });
     });
 }
 
-function launchDfxProject(dfxConfig: DfxConfig) {
+function launchDfxProject(context: ExtensionContext, dfxConfig: DfxConfig) {
     const start = (canister: string) => {
         const serverCommand = {
             command: getDfx(),
             args: ['_language-service', canister],
         };
-        launchClient({ run: serverCommand, debug: serverCommand });
+        launchClient(context, { run: serverCommand, debug: serverCommand });
     };
 
     let canister = config.get('canister') as string;
@@ -97,33 +116,30 @@ function launchDfxProject(dfxConfig: DfxConfig) {
             });
 }
 
-function launchClient(serverOptions: ServerOptions) {
+function launchClient(context: ExtensionContext, serverOptions: ServerOptions) {
     let clientOptions: LanguageClientOptions = {
-        // Register the server for motoko source files
-        documentSelector: [{ scheme: 'file', language: 'motoko' }],
+        documentSelector: [
+            { scheme: 'file', language: 'motoko' },
+            // { scheme: 'untitled', language: 'motoko' },
+        ],
         synchronize: {
-            // Notify the server about file changes to '.clientrc files contained in the workspace
-            fileEvents: workspace.createFileSystemWatcher('**/.clientrc'),
+            fileEvents: workspace.createFileSystemWatcher('**/*.mo'),
         },
     };
-
-    // Create the language client and start the client.
     client = new LanguageClient(
         'motoko',
-        'Motoko language server',
+        'Motoko Language Server',
         serverOptions,
         clientOptions,
     );
-
-    // Start the client. This will also launch the server
-    client.start();
+    client.start().catch((err) => console.error(err.stack || err));
+    context.subscriptions.push(client);
 }
 
-export function deactivate(): Thenable<void> | undefined {
-    if (!client) {
-        return undefined;
-    }
-    return client.stop();
+export function deactivate() {
+    // if (client) {
+    //     await client.stop();
+    // }
 }
 
 interface DfxCanisters {
