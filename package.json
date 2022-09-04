@@ -102,7 +102,7 @@
     "commands": [
       {
         "command": "motoko.startService",
-        "title": "Motoko: Start/Restart language service"
+        "title": "Restart Motoko language service"
       }
     ],
     "jsonValidation": [
