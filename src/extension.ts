@@ -127,6 +127,7 @@ function launchClient(context: ExtensionContext, serverOptions: ServerOptions) {
             // { scheme: 'untitled', language: 'motoko' },
         ],
         synchronize: {
+            configurationSection: 'motoko',
             fileEvents: workspace.createFileSystemWatcher('**/*.mo'),
         },
     };

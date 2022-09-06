@@ -21,12 +21,6 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import * as glob from 'fast-glob';
 
-mo.loadPackages({
-    base: 'dfinity/motoko-base/master/src',
-}).then(() => {
-    validateOpenDocuments();
-});
-
 interface Settings {
     motoko: MotokoSettings;
 }
@@ -62,6 +56,17 @@ function resolvePath(uri: string): string {
 //     }
 //     return resolvePath(folder.uri);
 // }
+
+const packages = {
+    base: 'dfinity/motoko-base/master/src',
+};
+mo.loadPackages(packages)
+    .then(() => {
+        validateOpenDocuments();
+    })
+    .catch((err) =>
+        console.error(`Error while loading Motoko packages: ${err}`),
+    );
 
 // Create a connection for the language server
 const connection = createConnection(ProposedFeatures.all);
@@ -126,7 +131,6 @@ connection.onInitialized(() => {
     });
 
     notifyWorkspace();
-    validateOpenDocuments();
 });
 
 connection.onDidChangeWatchedFiles((event) => {
@@ -165,9 +169,8 @@ function notifyWorkspace() {
                         mo.write(path, readFileSync(path, 'utf-8'));
                     } catch (err) {
                         console.error(
-                            `Error while adding Motoko file: ${path}`,
+                            `Error while adding Motoko file ${path}: ${err}`,
                         );
-                        console.error(err);
                     }
                 },
             );
@@ -207,9 +210,7 @@ function check(document: TextDocument) {
     if (document.languageId === 'motoko') {
         const path = resolvePath(document.uri);
         try {
-            let diagnostics: Diagnostic[] = mo.check(
-                path,
-            ) as any as Diagnostic[]; //
+            let diagnostics = mo.check(path) as any as Diagnostic[]; //
 
             if (settings) {
                 if (settings.maxNumberOfProblems > 0) {
@@ -223,7 +224,9 @@ function check(document: TextDocument) {
                         ({ message, severity }) =>
                             severity === 1 /* Error */ ||
                             // @ts-ignore
-                            new RegExp(settings.hideWarningRegex).test(message),
+                            !new RegExp(settings.hideWarningRegex).test(
+                                message,
+                            ),
                     );
                 }
             }
