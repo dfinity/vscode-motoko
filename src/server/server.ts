@@ -24,7 +24,7 @@ import * as glob from 'fast-glob';
 mo.loadPackages({
     base: 'dfinity/motoko-base/master/src',
 }).then(() => {
-    revalidate();
+    validateOpenDocuments();
 });
 
 interface Settings {
@@ -78,26 +78,6 @@ let workspaceFolders: WorkspaceFolder[] | undefined;
 connection.onInitialize((event): InitializeResult => {
     workspaceFolders = event.workspaceFolders || undefined;
 
-    // Register all Motoko files in workspace
-    if (workspaceFolders) {
-        workspaceFolders.forEach((folder) => {
-            const folderPath = resolvePath(folder.uri);
-            glob.sync('**/*.mo', { cwd: folderPath }).forEach(
-                (relativePath) => {
-                    const path = join(folderPath, relativePath);
-                    try {
-                        mo.write(path, readFileSync(path, 'utf-8'));
-                    } catch (err) {
-                        console.error(
-                            `Error while adding Motoko file: ${path}`,
-                        );
-                        console.error(err);
-                    }
-                },
-            );
-        });
-    }
-
     const result: InitializeResult = {
         capabilities: {
             completionProvider: {
@@ -141,9 +121,12 @@ connection.onInitialized(() => {
         event.added.forEach((workspaceFolder) => {
             folders.push(workspaceFolder);
         });
+
+        notifyWorkspace();
     });
 
-    revalidate();
+    notifyWorkspace();
+    validateOpenDocuments();
 });
 
 connection.onDidChangeWatchedFiles((event) => {
@@ -160,15 +143,42 @@ connection.onDidChangeWatchedFiles((event) => {
         }
     });
 
-    revalidate();
+    validateOpenDocuments();
 });
 
 connection.onDidChangeConfiguration((event) => {
     settings = (<Settings>event.settings).motoko;
-    revalidate();
+    validateOpenDocuments();
 });
 
-function revalidate() {
+/**
+ * Registers or updates all Motoko files in the current workspace.
+ */
+function notifyWorkspace() {
+    if (workspaceFolders) {
+        workspaceFolders.forEach((folder) => {
+            const folderPath = resolvePath(folder.uri);
+            glob.sync('**/*.mo', { cwd: folderPath }).forEach(
+                (relativePath) => {
+                    const path = join(folderPath, relativePath);
+                    try {
+                        mo.write(path, readFileSync(path, 'utf-8'));
+                    } catch (err) {
+                        console.error(
+                            `Error while adding Motoko file: ${path}`,
+                        );
+                        console.error(err);
+                    }
+                },
+            );
+        });
+    }
+}
+
+/**
+ * Validates all Motoko files which are currently open in the editor.
+ */
+function validateOpenDocuments() {
     documents.all().forEach((document) => notify(document));
     documents.all().forEach((document) => check(document));
 }
@@ -179,7 +189,7 @@ function validate(document: TextDocument) {
 }
 
 /**
- * Updates the document in the compiler's virtual file system.
+ * Registers or updates the document in the compiler's virtual file system.
  */
 function notify(document: TextDocument) {
     try {
