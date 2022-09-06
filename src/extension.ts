@@ -6,6 +6,7 @@ import {
     languages,
     TextDocument,
     TextEdit,
+    FormattingOptions,
 } from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -29,8 +30,11 @@ export function activate(context: ExtensionContext) {
     );
     context.subscriptions.push(
         languages.registerDocumentFormattingEditProvider('motoko', {
-            provideDocumentFormattingEdits(document: TextDocument): TextEdit[] {
-                return formatDocument(document, context);
+            provideDocumentFormattingEdits(
+                document: TextDocument,
+                options: FormattingOptions,
+            ): TextEdit[] {
+                return formatDocument(document, context, options);
             },
         }),
     );
