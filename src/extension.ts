@@ -43,7 +43,7 @@ export function startServer(context: ExtensionContext) {
     }
 
     const dfxConfig = isDfxProject();
-    if (dfxConfig !== null) {
+    if (dfxConfig && getDfx()) {
         return launchDfxProject(context, dfxConfig);
     }
 
@@ -151,6 +151,9 @@ type DfxConfig = {
 };
 
 function isDfxProject(): DfxConfig | null {
+    if (!config.get('legacyDfxSupport')) {
+        return null;
+    }
     const wsf = workspace.workspaceFolders;
     if (wsf) {
         try {

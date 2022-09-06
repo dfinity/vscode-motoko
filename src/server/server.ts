@@ -19,15 +19,20 @@ import mo from 'motoko';
 
 mo.loadPackages({
     base: 'dfinity/motoko-base/master/src',
+}).then(() => {
+    revalidate();
 });
 
-// interface Settings {
-//     motoko: MotokoSettings;
-// }
+interface Settings {
+    motoko: MotokoSettings;
+}
 
-// interface MotokoSettings {
-//     // TODO
-// }
+interface MotokoSettings {
+    hideWarningRegex: string;
+    maxNumberOfProblems: number;
+}
+
+let settings: MotokoSettings | undefined;
 
 function resolvePath(uri: string): string {
     return uri.replace('file://', ''); //
@@ -85,7 +90,6 @@ connection.onInitialized(() => {
 
 connection.onDidChangeWatchedFiles((event) => {
     event.changes.forEach((change) => {
-        '>>> Changed watched file: ' + change.uri + ' ' + change.type; /////
         try {
             const path = resolvePath(change.uri);
             if (change.type === 3 /* FileChangeType.Deleted */) {
@@ -98,20 +102,16 @@ connection.onDidChangeWatchedFiles((event) => {
         }
     });
 
-    validateAllDocuments();
+    revalidate();
 });
 
-connection.onDidChangeConfiguration((_event) => {
-    // const settings = <Settings>change.settings;
+connection.onDidChangeConfiguration((event) => {
+    settings = (<Settings>event.settings).motoko;
     revalidate();
 });
 
 function revalidate() {
-    validateAllDocuments();
-}
-
-function validateAllDocuments() {
-    documents.all().forEach((document) => update(document)); // TODO: necessary?
+    documents.all().forEach((document) => update(document));
     documents.all().forEach((document) => check(document));
 }
 
@@ -128,7 +128,7 @@ function update(document: TextDocument) {
         const path = resolvePath(document.uri);
         mo.write(path, document.getText());
     } catch (err) {
-        console.error(`Error while updating Motoko file: ${err}`); ///
+        console.error(`Error while updating Motoko file: ${err}`);
     }
 }
 
@@ -139,20 +139,38 @@ function check(document: TextDocument) {
     if (document.languageId === 'motoko') {
         const path = resolvePath(document.uri);
         try {
-            const diagnostics: Diagnostic[] = mo.check(
+            let diagnostics: Diagnostic[] = mo.check(
                 path,
             ) as any as Diagnostic[]; //
 
-            // console.log('Result:', diagnostics);
-
-            connection.sendDiagnostics({ uri: document.uri, diagnostics });
+            if (settings) {
+                if (settings.maxNumberOfProblems > 0) {
+                    diagnostics = diagnostics.slice(
+                        0,
+                        settings.maxNumberOfProblems,
+                    );
+                }
+                if (settings.hideWarningRegex?.trim()) {
+                    diagnostics = diagnostics.filter(
+                        ({ message, severity }) =>
+                            severity === 1 /* Error */ ||
+                            // @ts-ignore
+                            new RegExp(settings.hideWarningRegex).test(message),
+                    );
+                }
+            }
+            connection.sendDiagnostics({
+                uri: document.uri,
+                diagnostics: diagnostics,
+            });
         } catch (err) {
-            console.error(`Error while checking Motoko file: ${err}`);
+            console.error(`Error while compiling Motoko file: ${err}`);
             connection.sendDiagnostics({
                 uri: document.uri,
                 diagnostics: [
                     {
-                        message: 'Error while type checking Motoko file.',
+                        message:
+                            'Unexpected error while compiling Motoko file.',
                         range: {
                             start: { line: 0, character: 0 },
                             end: { line: 0, character: 0 },
