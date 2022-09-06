@@ -42,6 +42,7 @@ function resolvePath(uri: string): string {
 const connection = createConnection(ProposedFeatures.all);
 
 console.log = connection.console.log.bind(connection.console);
+console.warn = connection.console.warn.bind(connection.console);
 console.error = connection.console.error.bind(connection.console);
 
 const documents = new TextDocuments(TextDocument);
@@ -86,6 +87,8 @@ connection.onInitialized(() => {
             folders.push(workspaceFolder);
         });
     });
+
+    revalidate();
 });
 
 connection.onDidChangeWatchedFiles((event) => {
