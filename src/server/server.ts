@@ -35,7 +35,8 @@ interface MotokoSettings {
 let settings: MotokoSettings | undefined;
 
 function resolvePath(uri: string): string {
-    return uri.replace('file://', ''); //
+    const prefix = 'file://';
+    return uri.startsWith(prefix) ? uri.substring(prefix.length) : uri;
 }
 
 // Create a connection for the language server
