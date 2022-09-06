@@ -58,6 +58,14 @@ connection.onInitialize((event): InitializeResult => {
                 triggerCharacters: ['.'],
             },
             definitionProvider: true,
+            // codeActionProvider: true,
+            // declarationProvider: true,
+            // hoverProvider: true,
+            // diagnosticProvider: {
+            //     documentSelector: ['motoko'],
+            //     interFileDependencies: true,
+            //     workspaceDiagnostics: false,
+            // },
             textDocumentSync: TextDocumentSyncKind.Full,
             workspace: {
                 workspaceFolders: {
@@ -114,19 +122,19 @@ connection.onDidChangeConfiguration((event) => {
 });
 
 function revalidate() {
-    documents.all().forEach((document) => update(document));
+    documents.all().forEach((document) => notify(document));
     documents.all().forEach((document) => check(document));
 }
 
 function validate(document: TextDocument) {
-    update(document);
+    notify(document);
     check(document);
 }
 
 /**
  * Updates the document in the compiler's virtual file system.
  */
-function update(document: TextDocument) {
+function notify(document: TextDocument) {
     try {
         const path = resolvePath(document.uri);
         mo.write(path, document.getText());
