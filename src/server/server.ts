@@ -13,9 +13,13 @@ import {
     // VersionedTextDocumentIdentifier,
     WorkspaceFolder,
 } from 'vscode-languageserver/node';
+import { URI } from 'vscode-uri';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 // import { FileChangeType } from 'vscode-languageclient';
 import mo from 'motoko';
+import { readFileSync } from 'fs';
+import { join } from 'path';
+import * as glob from 'fast-glob';
 
 mo.loadPackages({
     base: 'dfinity/motoko-base/master/src',
@@ -32,12 +36,32 @@ interface MotokoSettings {
     maxNumberOfProblems: number;
 }
 
-let settings: MotokoSettings | undefined;
-
+/**
+ * Resolves the absolute file path from the given URI.
+ */
 function resolvePath(uri: string): string {
-    const prefix = 'file://';
-    return uri.startsWith(prefix) ? uri.substring(prefix.length) : uri;
+    return URI.parse(uri).path;
 }
+
+/**
+ * Resolves the workspace root path from the given URI.
+ */
+// function resolveRootPath(uri?: string | undefined): string | undefined {
+//     if (uri === undefined) {
+//         const rootUri = workspaceFolders?.[0]?.uri;
+//         return rootUri && resolvePath(rootUri);
+//     }
+//     if (!workspaceFolders) {
+//         return;
+//     }
+//     const folder = workspaceFolders.find((folder) =>
+//         uri.startsWith(folder.uri),
+//     );
+//     if (!folder) {
+//         return;
+//     }
+//     return resolvePath(folder.uri);
+// }
 
 // Create a connection for the language server
 const connection = createConnection(ProposedFeatures.all);
@@ -48,9 +72,31 @@ console.error = connection.console.error.bind(connection.console);
 
 const documents = new TextDocuments(TextDocument);
 
+let settings: MotokoSettings | undefined;
 let workspaceFolders: WorkspaceFolder[] | undefined;
+
 connection.onInitialize((event): InitializeResult => {
     workspaceFolders = event.workspaceFolders || undefined;
+
+    // Register all Motoko files in workspace
+    if (workspaceFolders) {
+        workspaceFolders.forEach((folder) => {
+            const folderPath = resolvePath(folder.uri);
+            glob.sync('**/*.mo', { cwd: folderPath }).forEach(
+                (relativePath) => {
+                    const path = join(folderPath, relativePath);
+                    try {
+                        mo.write(path, readFileSync(path, 'utf-8'));
+                    } catch (err) {
+                        console.error(
+                            `Error while adding Motoko file: ${path}`,
+                        );
+                        console.error(err);
+                    }
+                },
+            );
+        });
+    }
 
     const result: InitializeResult = {
         capabilities: {
