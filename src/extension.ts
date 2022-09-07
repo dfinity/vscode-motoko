@@ -43,7 +43,7 @@ export function activate(context: ExtensionContext) {
 
 export function startServer(context: ExtensionContext) {
     if (client) {
-        client.stop();
+        client.stop().catch((err) => console.error(err.stack || err));
     }
 
     const dfxConfig = getDfxConfig();
@@ -57,11 +57,9 @@ export function startServer(context: ExtensionContext) {
             console.error(err.message);
 
             // Launch TypeScript language server
-            // const module = path.join(__dirname, 'server', 'server.js');
             const module = context.asAbsolutePath(
                 path.join('out', 'server', 'server.js'),
             );
-            console.error('MODULE:', module); ////
             launchClient(context, {
                 run: { module, transport: TransportKind.ipc },
                 debug: {
@@ -73,7 +71,7 @@ export function startServer(context: ExtensionContext) {
             return;
         }
 
-        const prompt = `There doesn't seem to be a dfx project for this Motoko file. What file do you want to use as an entry point?`;
+        const prompt = `There doesn't seem to be a dfx.json file for this Motoko project. What file do you want to use as an entry point?`;
         const currentDocument = window.activeTextEditor?.document?.fileName;
 
         window
@@ -97,6 +95,13 @@ export function startServer(context: ExtensionContext) {
 
 function launchDfxProject(context: ExtensionContext, dfxConfig: DfxConfig) {
     const start = (canister: string) => {
+        const dfxPath = getDfxPath();
+        if (!fs.existsSync(dfxPath)) {
+            window.showErrorMessage(
+                `Failed to locate dfx at ${dfxPath} check that dfx is installed or try changing motoko.dfx in settings`,
+            );
+            throw Error('Failed to locate dfx');
+        }
         const serverCommand = {
             command: getDfxPath(),
             args: ['_language-service', canister],
@@ -104,12 +109,14 @@ function launchDfxProject(context: ExtensionContext, dfxConfig: DfxConfig) {
         launchClient(context, { run: serverCommand, debug: serverCommand });
     };
 
-    let canister = config.get('canister') as string;
+    let canister = config.get<string>('canister');
     let canisters = Object.keys(dfxConfig.canisters);
 
-    if (canister !== '') start(canister);
-    else if (canisters.length === 1) start(canisters[0]);
-    else
+    if (canister) {
+        start(canister);
+    } else if (canisters.length === 1) {
+        start(canisters[0]);
+    } else {
         window
             .showQuickPick(canisters, {
                 canPickMany: false,
@@ -118,6 +125,7 @@ function launchDfxProject(context: ExtensionContext, dfxConfig: DfxConfig) {
             .then((c) => {
                 if (c) start(c);
             });
+    }
 }
 
 function launchClient(context: ExtensionContext, serverOptions: ServerOptions) {
@@ -143,10 +151,10 @@ function launchClient(context: ExtensionContext, serverOptions: ServerOptions) {
     context.subscriptions.push(client);
 }
 
-export function deactivate() {
-    // if (client) {
-    //     await client.stop();
-    // }
+export async function deactivate() {
+    if (client) {
+        await client.stop();
+    }
 }
 
 interface DfxCanisters {
@@ -172,23 +180,16 @@ function getDfxConfig(): DfxConfig | undefined {
                 .toString('utf8'),
         );
     } catch {
-        return;
+        return; // TODO: warning?
     }
 }
 
 function getDfxPath(): string {
-    const dfx = config.get('dfx') as string;
+    const dfx = config.get<string>('dfx') || 'dfx';
     try {
         return which.sync(dfx);
-    } catch (ex) {
-        if (!fs.existsSync(dfx)) {
-            window.showErrorMessage(
-                `Failed to locate dfx at ${dfx} check that dfx is installed or try changing motoko.dfx in settings`,
-            );
-            throw Error('Failed to locate dfx');
-        } else {
-            return dfx;
-        }
+    } catch {
+        return dfx;
     }
 }
 
@@ -197,7 +198,6 @@ function vesselArgs(): string[] {
         let ws = workspace.workspaceFolders!![0].uri.fsPath;
         if (
             !fs.existsSync(path.join(ws, 'vessel.dhall')) &&
-            // TODO: Remove this once vessel has been using dhall for a while
             !fs.existsSync(path.join(ws, 'vessel.json'))
         )
             return [];
