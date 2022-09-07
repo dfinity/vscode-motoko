@@ -46,8 +46,8 @@ export function startServer(context: ExtensionContext) {
         client.stop();
     }
 
-    const dfxConfig = isDfxProject();
-    if (dfxConfig && getDfx()) {
+    const dfxConfig = getDfxConfig();
+    if (dfxConfig && getDfxPath()) {
         return launchDfxProject(context, dfxConfig);
     }
 
@@ -98,7 +98,7 @@ export function startServer(context: ExtensionContext) {
 function launchDfxProject(context: ExtensionContext, dfxConfig: DfxConfig) {
     const start = (canister: string) => {
         const serverCommand = {
-            command: getDfx(),
+            command: getDfxPath(),
             args: ['_language-service', canister],
         };
         launchClient(context, { run: serverCommand, debug: serverCommand });
@@ -157,27 +157,26 @@ type DfxConfig = {
     canisters: DfxCanisters;
 };
 
-function isDfxProject(): DfxConfig | null {
+function getDfxConfig(): DfxConfig | undefined {
     if (!config.get('legacyDfxSupport')) {
-        return null;
+        return;
     }
     const wsf = workspace.workspaceFolders;
-    if (wsf) {
-        try {
-            return JSON.parse(
-                fs
-                    .readFileSync(path.join(wsf[0].uri.fsPath, 'dfx.json'))
-                    .toString('utf8'),
-            );
-        } catch {
-            return null;
-        }
-    } else {
-        return null;
+    if (!wsf) {
+        return;
+    }
+    try {
+        return JSON.parse(
+            fs
+                .readFileSync(path.join(wsf[0].uri.fsPath, 'dfx.json'))
+                .toString('utf8'),
+        );
+    } catch {
+        return;
     }
 }
 
-function getDfx(): string {
+function getDfxPath(): string {
     const dfx = config.get('dfx') as string;
     try {
         return which.sync(dfx);
