@@ -210,7 +210,11 @@ function check(document: TextDocument) {
     if (document.languageId === 'motoko') {
         const path = resolvePath(document.uri);
         try {
-            let diagnostics = mo.check(path) as any as Diagnostic[]; //
+            let diagnostics = mo.check(path).filter(
+                (diagnostic) =>
+                    !diagnostic.source ||
+                    diagnostic.source === path,
+            ) as any as Diagnostic[]; // temp
 
             if (settings) {
                 if (settings.maxNumberOfProblems > 0) {
@@ -232,7 +236,10 @@ function check(document: TextDocument) {
             }
             connection.sendDiagnostics({
                 uri: document.uri,
-                diagnostics: diagnostics,
+                diagnostics: diagnostics.map((diagnostic) => ({
+                    ...diagnostic,
+                    source: 'motoko',
+                })),
             });
         } catch (err) {
             console.error(`Error while compiling Motoko file: ${err}`);
