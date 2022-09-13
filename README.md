@@ -9,9 +9,9 @@
 
 - Syntax highlighting
 - Code formatter
+- Error checking
 - When using a [dfx.json](https://medium.com/@chiedo/6-steps-to-deploying-your-first-dapp-on-the-internet-computer-b9a36b45f91e) config file:
   - Autocompletion
-  - Error checking
   - Go to definition
 
 ## Installation
@@ -34,6 +34,7 @@ Get this extension through the [Visual Studio Marketplace](https://marketplace.v
 - `motoko.standaloneArguments`: Additional arguments to pass to the language service when running in a non-dfx project
 - `motoko.standaloneBinary`: The location of the `mo-ide` binary (when running in a non-dfx project)
 - `motoko.formatter`: The formatter used by the extension
+- `motoko.legacyDfxSupport`: Uses legacy `dfx`-dependent features when a `dfx.json` file is available
 
 ## Contributing
 
