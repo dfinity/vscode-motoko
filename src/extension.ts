@@ -180,8 +180,8 @@ function getDfxConfig(): DfxConfig | undefined {
                 .readFileSync(path.join(wsf[0].uri.fsPath, 'dfx.json'))
                 .toString('utf8'),
         );
-        // Require TS language server for `dfx >= 0.11.1`
-        if (dfxConfig.dfx >= '0.11.1') {
+        // Require TS language server for newer versions of `dfx`
+        if (!dfxConfig?.dfx || dfxConfig.dfx >= '0.11.1') {
             return;
         }
         return dfxConfig;
