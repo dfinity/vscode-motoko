@@ -2,7 +2,7 @@
   "name": "vscode-motoko",
   "displayName": "Motoko",
   "description": "Motoko language support",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "publisher": "dfinity-foundation",
   "repository": "https://github.com/dfinity/vscode-motoko",
   "engines": {
@@ -47,10 +47,10 @@
           "default": "dfx",
           "description": "Location of the dfx executable"
         },
-        "motoko.legacyDfxSupport": {
+        "motoko.legacyLanguageServer": {
           "scope": "resource",
           "type": "boolean",
-          "default": true,
+          "default": false,
           "description": "Uses the legacy OCaml language server when a `dfx.json` file is available."
         },
         "motoko.maxNumberOfProblems": {

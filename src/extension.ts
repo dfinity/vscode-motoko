@@ -166,7 +166,7 @@ type DfxConfig = {
 };
 
 function getDfxConfig(): DfxConfig | undefined {
-    if (!config.get('legacyDfxSupport')) {
+    if (!config.get('legacyLanguageServer')) {
         return;
     }
     const wsf = workspace.workspaceFolders;

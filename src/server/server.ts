@@ -17,9 +17,10 @@ import { URI } from 'vscode-uri';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 // import { FileChangeType } from 'vscode-languageclient';
 import mo from 'motoko';
-import { readFileSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import * as glob from 'fast-glob';
+import { execSync } from 'child_process';
 
 interface Settings {
     motoko: MotokoSettings;
@@ -57,23 +58,74 @@ function resolvePath(uri: string): string {
 //     return resolvePath(folder.uri);
 // }
 
-const packages = {
-    base: 'dfinity/motoko-base/master/src',
-};
-mo.loadPackages(packages)
-    .then(() => {
-        validateOpenDocuments();
-    })
-    .catch((err) =>
-        console.error(`Error while loading Motoko packages: ${err}`),
-    );
+async function setupPackages() {
+    function getVesselArgs():
+        | { workspaceFolder: string; args: string[] }
+        | undefined {
+        try {
+            for (const folder of workspaceFolders || []) {
+                const uri = folder.uri;
+                if (!uri) {
+                    continue;
+                }
+                const ws = resolvePath(uri);
+                if (
+                    !existsSync(join(ws, 'vessel.dhall')) &&
+                    !existsSync(join(ws, 'vessel.json'))
+                ) {
+                    continue;
+                }
+                const flags = execSync('vessel sources', {
+                    cwd: ws,
+                }).toString('utf8');
+                return {
+                    workspaceFolder: folder.uri,
+                    args: flags.split(' '),
+                };
+            }
+        } catch (err) {
+            console.warn(err);
+        }
+        return;
+    }
+
+    mo.clearPackages();
+
+    const vesselArgs = getVesselArgs();
+    if (vesselArgs) {
+        const { workspaceFolder, args } = vesselArgs;
+        // Load packages from Vessel
+        let nextArg;
+        while ((nextArg = args.shift())) {
+            if (nextArg === '--package') {
+                const name = args.shift()!;
+                const path = resolvePath(join(workspaceFolder, args.shift()!));
+                console.log('Package:', name, '->', path);
+                mo.addPackage(name, path);
+            }
+        }
+    } else {
+        const defaultPackages = {
+            base: 'dfinity/motoko-base/master/src',
+        };
+        await mo.loadPackages(defaultPackages);
+    }
+}
 
 // Create a connection for the language server
 const connection = createConnection(ProposedFeatures.all);
 
-console.log = connection.console.log.bind(connection.console);
-console.warn = connection.console.warn.bind(connection.console);
-console.error = connection.console.error.bind(connection.console);
+const forwardMessage =
+    (send: (message: string) => void) =>
+    (...args: string[]): void => {
+        send(args.join(' '));
+    };
+
+console.log = forwardMessage(connection.console.log.bind(connection.console));
+console.warn = forwardMessage(connection.console.warn.bind(connection.console));
+console.error = forwardMessage(
+    connection.console.error.bind(connection.console),
+);
 
 const documents = new TextDocuments(TextDocument);
 
@@ -131,6 +183,14 @@ connection.onInitialized(() => {
     });
 
     notifyWorkspace();
+
+    setupPackages()
+        .then(() => {
+            validateOpenDocuments();
+        })
+        .catch((err) =>
+            console.error(`Error while loading Motoko packages: ${err}`),
+        );
 });
 
 connection.onDidChangeWatchedFiles((event) => {
@@ -162,10 +222,11 @@ function notifyWorkspace() {
     if (workspaceFolders) {
         workspaceFolders.forEach((folder) => {
             const folderPath = resolvePath(folder.uri);
-            glob.sync('**/*.mo', { cwd: folderPath }).forEach(
+            glob.sync('**/*.mo', { cwd: folderPath, dot: true }).forEach(
                 (relativePath) => {
                     const path = join(folderPath, relativePath);
                     try {
+                        console.log('*', path);
                         mo.write(path, readFileSync(path, 'utf-8'));
                     } catch (err) {
                         console.error(
@@ -210,11 +271,12 @@ function check(document: TextDocument) {
     if (document.languageId === 'motoko') {
         const path = resolvePath(document.uri);
         try {
-            let diagnostics = mo.check(path).filter(
-                (diagnostic) =>
-                    !diagnostic.source ||
-                    diagnostic.source === path,
-            ) as any as Diagnostic[]; // temp
+            let diagnostics = mo
+                .check(path)
+                .filter(
+                    (diagnostic) =>
+                        !diagnostic.source || diagnostic.source === path,
+                ) as any as Diagnostic[]; // temp
 
             if (settings) {
                 if (settings.maxNumberOfProblems > 0) {
