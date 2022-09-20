@@ -50,8 +50,8 @@
         "motoko.legacyLanguageServer": {
           "scope": "resource",
           "type": "boolean",
-          "default": false,
-          "description": "Uses the legacy OCaml language server when a `dfx.json` file is available."
+          "default": true,
+          "description": "Uses the legacy OCaml language server when `dfx <= 0.11.0`."
         },
         "motoko.maxNumberOfProblems": {
           "scope": "resource",
@@ -108,7 +108,7 @@
     "commands": [
       {
         "command": "motoko.startService",
-        "title": "Motoko: Restart language service"
+        "title": "Motoko: Restart language server"
       }
     ],
     "jsonValidation": [

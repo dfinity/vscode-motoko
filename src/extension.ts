@@ -42,19 +42,16 @@ export function activate(context: ExtensionContext) {
 }
 
 export function startServer(context: ExtensionContext) {
-    if (client) {
-        client.stop().catch((err) => console.error(err.stack || err));
-    }
-
     const dfxConfig = getDfxConfig();
     if (dfxConfig && getDfxPath()) {
-        return launchDfxProject(context, dfxConfig);
+        launchDfxProject(context, dfxConfig);
+        return;
     }
 
     // Check if `mo-ide` exists
     fs.access(config.standaloneBinary, fs.constants.F_OK, (err) => {
         if (err) {
-            console.error(err.message);
+            console.log(err.message);
 
             // Launch TypeScript language server
             const module = context.asAbsolutePath(
@@ -129,6 +126,10 @@ function launchDfxProject(context: ExtensionContext, dfxConfig: DfxConfig) {
 }
 
 function launchClient(context: ExtensionContext, serverOptions: ServerOptions) {
+    if (client) {
+        console.log('Restarting Motoko language server');
+        client.stop().catch((err) => console.error(err.stack || err));
+    }
     let clientOptions: LanguageClientOptions = {
         documentSelector: [
             { scheme: 'file', language: 'motoko' },
@@ -174,11 +175,16 @@ function getDfxConfig(): DfxConfig | undefined {
         return;
     }
     try {
-        return JSON.parse(
+        const dfxConfig = JSON.parse(
             fs
                 .readFileSync(path.join(wsf[0].uri.fsPath, 'dfx.json'))
                 .toString('utf8'),
         );
+        // Require TS language server for `dfx >= 0.11.1`
+        if (dfxConfig.dfx >= '0.11.1') {
+            return;
+        }
+        return dfxConfig;
     } catch {
         return; // TODO: warning?
     }
