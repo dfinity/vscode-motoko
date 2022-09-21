@@ -34,7 +34,14 @@ interface MotokoSettings {
 /**
  * Resolves the absolute file path from the given URI.
  */
-function resolvePath(uri: string): string {
+function resolveFilePath(uri: string): string {
+    return URI.parse(uri).fsPath;
+}
+
+/**
+ * Resolves the virtual file system path from the given URI.
+ */
+function resolveVirtualPath(uri: string): string {
     return URI.parse(uri).path;
 }
 
@@ -82,7 +89,7 @@ async function loadDfxConfig(): Promise<DfxConfig | undefined> {
 
 async function loadPackages() {
     function getVesselArgs():
-        | { workspaceFolder: string; args: string[] }
+        | { workspaceFolder: WorkspaceFolder; args: string[] }
         | undefined {
         try {
             for (const folder of workspaceFolders || []) {
@@ -90,7 +97,7 @@ async function loadPackages() {
                 if (!uri) {
                     continue;
                 }
-                const ws = resolvePath(uri);
+                const ws = resolveFilePath(uri);
                 if (
                     !existsSync(join(ws, 'vessel.dhall')) &&
                     !existsSync(join(ws, 'vessel.json'))
@@ -101,7 +108,7 @@ async function loadPackages() {
                     cwd: ws,
                 }).toString('utf8');
                 return {
-                    workspaceFolder: folder.uri,
+                    workspaceFolder: folder,
                     args: flags.split(' '),
                 };
             }
@@ -121,7 +128,9 @@ async function loadPackages() {
         while ((nextArg = args.shift())) {
             if (nextArg === '--package') {
                 const name = args.shift()!;
-                const path = resolvePath(join(workspaceFolder, args.shift()!));
+                const path = resolveVirtualPath(
+                    join(workspaceFolder.uri, args.shift()!),
+                );
                 console.log('Package:', name, '->', path);
                 mo.addPackage(name, path);
             }
@@ -217,14 +226,14 @@ connection.onInitialized(() => {
     });
 
     Promise.all([dfxPromise, packagePromise])
-        .catch(() => {})
+        .catch(console.error)
         .then(() => validateOpenDocuments());
 });
 
 connection.onDidChangeWatchedFiles((event) => {
     event.changes.forEach((change) => {
         try {
-            const path = resolvePath(change.uri);
+            const path = resolveVirtualPath(change.uri);
             if (change.type === 3 /* FileChangeType.Deleted */) {
                 mo.delete(path);
             } else {
@@ -249,13 +258,15 @@ connection.onDidChangeConfiguration((event) => {
 function notifyWorkspace() {
     if (workspaceFolders) {
         workspaceFolders.forEach((folder) => {
-            const folderPath = resolvePath(folder.uri);
+            const folderPath = resolveFilePath(folder.uri);
+            const virtualFolderPath = resolveVirtualPath(folder.uri);
             glob.sync('**/*.mo', { cwd: folderPath, dot: true }).forEach(
                 (relativePath) => {
                     const path = join(folderPath, relativePath);
+                    const virtualPath = join(virtualFolderPath, relativePath);
                     try {
-                        console.log('*', path);
-                        mo.write(path, readFileSync(path, 'utf-8'));
+                        console.log('*', virtualPath);
+                        mo.write(virtualPath, readFileSync(path, 'utf8'));
                     } catch (err) {
                         console.error(
                             `Error while adding Motoko file ${path}: ${err}`,
@@ -285,7 +296,7 @@ function validate(document: TextDocument) {
  */
 function notify(document: TextDocument) {
     try {
-        const path = resolvePath(document.uri);
+        const path = resolveVirtualPath(document.uri);
         mo.write(path, document.getText());
     } catch (err) {
         console.error(`Error while updating Motoko file: ${err}`);
@@ -297,7 +308,7 @@ function notify(document: TextDocument) {
  */
 function check(document: TextDocument) {
     if (document.languageId === 'motoko') {
-        const path = resolvePath(document.uri);
+        const path = resolveVirtualPath(document.uri);
         try {
             let diagnostics = mo
                 .check(path)
