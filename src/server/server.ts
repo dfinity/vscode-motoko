@@ -58,7 +58,7 @@ async function loadDfxConfig(): Promise<DfxConfig | undefined> {
     //     return;
     // }
     // for (const folder of workspaceFolders) {
-    //     const basePath = resolvePath(folder.uri);
+    //     const basePath = resolveFilePath(folder.uri);
     //     const dfxPath = join(basePath, 'dfx.json');
     //     if (existsSync(dfxPath)) {
     //         const dfxJson = JSON.parse(
@@ -74,7 +74,7 @@ async function loadDfxConfig(): Promise<DfxConfig | undefined> {
     //                     (!canister.type || canister.type === 'motoko') &&
     //                     canister.main
     //                 ) {
-    //                     aliases[name] = // TODO
+    //                     aliases[name] = ''// TODO
     //                 }
     //             }
     //             // @ts-ignore
@@ -136,10 +136,18 @@ async function loadPackages() {
             }
         }
     } else {
-        const defaultPackages = {
+        await mo.loadPackages({
             base: 'dfinity/motoko-base/master/src',
-        };
-        await mo.loadPackages(defaultPackages);
+        });
+    }
+
+    try {
+        const dfxConfig = await loadDfxConfig();
+        // @ts-ignore
+        dfxConfig;
+    } catch (err) {
+        console.error('Error while loading dfx.json:');
+        console.error(err);
     }
 }
 
@@ -172,7 +180,7 @@ connection.onInitialize((event): InitializeResult => {
                 resolveProvider: false,
                 triggerCharacters: ['.'],
             },
-            definitionProvider: true,
+            // definitionProvider: true,
             // codeActionProvider: true,
             // declarationProvider: true,
             // hoverProvider: true,
@@ -215,32 +223,27 @@ connection.onInitialized(() => {
 
     notifyWorkspace();
 
-    const dfxPromise = loadDfxConfig().catch((err) => {
-        console.error('Error while loading dfx.json:');
-        console.error(err);
-    });
-
-    const packagePromise = loadPackages().catch((err) => {
-        console.error('Error while loading Motoko packages:');
-        console.error(err);
-    });
-
-    Promise.all([dfxPromise, packagePromise])
-        .catch(console.error)
-        .then(() => validateOpenDocuments());
+    loadPackages()
+        .catch((err) => {
+            console.error('Error while loading Motoko packages:');
+            console.error(err);
+        })
+        .then(() => checkWorkspace());
 });
 
 connection.onDidChangeWatchedFiles((event) => {
     event.changes.forEach((change) => {
         try {
-            const path = resolveVirtualPath(change.uri);
             if (change.type === 3 /* FileChangeType.Deleted */) {
+                const path = resolveVirtualPath(change.uri);
                 mo.delete(path);
             } else {
-                mo.write(path, documents.get(change.uri)?.getText() || '');
+                notify(change.uri);
+                // check(document);
             }
         } catch (err) {
-            console.error(`Error while handling Motoko file change: ${err}`); ///
+            console.error('Error while handling Motoko file change:');
+            console.error(err);
         }
     });
 
@@ -249,41 +252,67 @@ connection.onDidChangeWatchedFiles((event) => {
 
 connection.onDidChangeConfiguration((event) => {
     settings = (<Settings>event.settings).motoko;
-    validateOpenDocuments();
+    checkWorkspace();
 });
 
 /**
  * Registers or updates all Motoko files in the current workspace.
  */
 function notifyWorkspace() {
-    if (workspaceFolders) {
-        workspaceFolders.forEach((folder) => {
-            const folderPath = resolveFilePath(folder.uri);
-            glob.sync('**/*.mo', { cwd: folderPath, dot: true }).forEach(
-                (relativePath) => {
-                    const path = join(folderPath, relativePath);
-                    const virtualPath = resolveVirtualPath(
-                        folder.uri,
-                        relativePath,
-                    );
-                    try {
-                        console.log('*', virtualPath);
-                        mo.write(virtualPath, readFileSync(path, 'utf8'));
-                    } catch (err) {
-                        console.error(
-                            `Error while adding Motoko file ${path}: ${err}`,
-                        );
-                    }
-                },
-            );
-        });
+    if (!workspaceFolders) {
+        return;
     }
+    workspaceFolders.forEach((folder) => {
+        const folderPath = resolveFilePath(folder.uri);
+        glob.sync('**/*.mo', { cwd: folderPath, dot: true }).forEach(
+            (relativePath) => {
+                const path = join(folderPath, relativePath);
+                const virtualPath = resolveVirtualPath(
+                    folder.uri,
+                    relativePath,
+                );
+                try {
+                    console.log('*', virtualPath);
+                    mo.write(virtualPath, readFileSync(path, 'utf8'));
+                } catch (err) {
+                    console.error(`Error while adding Motoko file ${path}:`);
+                    console.error(err);
+                }
+            },
+        );
+    });
+}
+
+/**
+ * Type-checks all Motoko files in the current workspace.
+ */
+function checkWorkspace() {
+    if (!workspaceFolders) {
+        return;
+    }
+    workspaceFolders.forEach((folder) => {
+        const folderPath = resolveFilePath(folder.uri);
+        glob.sync('**/*.mo', {
+            cwd: folderPath,
+            dot: false /* exclude directories such as `.vessel` */,
+        }).forEach((relativePath) => {
+            const path = join(folderPath, relativePath);
+            try {
+                check(URI.file(path).toString());
+            } catch (err) {
+                console.error(`Error while checking Motoko file ${path}:`);
+                console.error(err);
+            }
+        });
+    });
+    validateOpenDocuments(); // TODO: remove or debounce
 }
 
 /**
  * Validates all Motoko files which are currently open in the editor.
  */
 function validateOpenDocuments() {
+    // TODO: validate all tabs
     documents.all().forEach((document) => notify(document));
     documents.all().forEach((document) => check(document));
 }
@@ -294,73 +323,96 @@ function validate(document: TextDocument) {
 }
 
 /**
- * Registers or updates the document in the compiler's virtual file system.
+ * Registers or updates the URI or document in the compiler's virtual file system.
  */
-function notify(document: TextDocument) {
+function notify(uri: string | TextDocument): boolean {
     try {
-        const path = resolveVirtualPath(document.uri);
-        mo.write(path, document.getText());
+        const document = typeof uri === 'string' ? documents.get(uri) : uri;
+        if (document) {
+            const virtualPath = resolveVirtualPath(document.uri);
+            mo.write(virtualPath, document.getText());
+        } else if (typeof uri === 'string') {
+            const virtualPath = resolveVirtualPath(uri);
+            const filePath = resolveFilePath(uri);
+            mo.write(virtualPath, readFileSync(filePath, 'utf8'));
+        }
     } catch (err) {
         console.error(`Error while updating Motoko file: ${err}`);
     }
+    return false;
 }
 
 /**
- * Generates errors and warnings for the document.
+ * Generates errors and warnings for a document.
  */
-function check(document: TextDocument) {
-    if (document.languageId === 'motoko') {
-        const path = resolveVirtualPath(document.uri);
-        try {
-            let diagnostics = mo
-                .check(path)
-                .filter(
-                    (diagnostic) =>
-                        !diagnostic.source || diagnostic.source === path,
-                ) as any as Diagnostic[]; // temp
-
-            if (settings) {
-                if (settings.maxNumberOfProblems > 0) {
-                    diagnostics = diagnostics.slice(
-                        0,
-                        settings.maxNumberOfProblems,
-                    );
-                }
-                if (settings.hideWarningRegex?.trim()) {
-                    diagnostics = diagnostics.filter(
-                        ({ message, severity }) =>
-                            severity === 1 /* Error */ ||
-                            // @ts-ignore
-                            !new RegExp(settings.hideWarningRegex).test(
-                                message,
-                            ),
-                    );
-                }
-            }
-            connection.sendDiagnostics({
-                uri: document.uri,
-                diagnostics: diagnostics.map((diagnostic) => ({
-                    ...diagnostic,
-                    source: 'motoko',
-                })),
-            });
-        } catch (err) {
-            console.error(`Error while compiling Motoko file: ${err}`);
-            connection.sendDiagnostics({
-                uri: document.uri,
-                diagnostics: [
-                    {
-                        message:
-                            'Unexpected error while compiling Motoko file.',
-                        range: {
-                            start: { line: 0, character: 0 },
-                            end: { line: 0, character: 0 },
-                        },
-                    },
-                ],
-            });
+function check(uri: string | TextDocument): boolean {
+    try {
+        let virtualPath: string;
+        const document = typeof uri === 'string' ? documents.get(uri) : uri;
+        if (document) {
+            // if (document.languageId !== 'motoko') {
+            //     return false;
+            // }
+            virtualPath = resolveVirtualPath(document.uri);
+        } else if (typeof uri === 'string') {
+            virtualPath = resolveVirtualPath(uri);
+        } else {
+            return false;
         }
+
+        console.log('~', virtualPath);
+        let diagnostics = mo.check(virtualPath) as any as Diagnostic[];
+
+        if (settings) {
+            if (settings.maxNumberOfProblems > 0) {
+                diagnostics = diagnostics.slice(
+                    0,
+                    settings.maxNumberOfProblems,
+                );
+            }
+            if (settings.hideWarningRegex?.trim()) {
+                diagnostics = diagnostics.filter(
+                    ({ message, severity }) =>
+                        severity === 1 /* Error */ ||
+                        // @ts-ignore
+                        !new RegExp(settings.hideWarningRegex).test(message),
+                );
+            }
+        }
+        const diagnosticMap: Record<string, Diagnostic[]> = {
+            [virtualPath]: [], // Start with empty diagnostics for the main file
+        };
+        diagnostics.forEach((diagnostic) => {
+            const key = diagnostic.source || virtualPath;
+            (diagnosticMap[key] || (diagnosticMap[key] = [])).push({
+                ...diagnostic,
+                source: 'motoko',
+            });
+        });
+
+        Object.entries(diagnosticMap).forEach(([path, diagnostics]) => {
+            connection.sendDiagnostics({
+                uri: URI.file(path).toString(),
+                diagnostics: diagnostics,
+            });
+        });
+        return true;
+    } catch (err) {
+        console.error(`Error while compiling Motoko file: ${err}`);
+        connection.sendDiagnostics({
+            uri: typeof uri === 'string' ? uri : uri.uri,
+            diagnostics: [
+                {
+                    message: 'Unexpected error while compiling Motoko file.',
+                    range: {
+                        start: { line: 0, character: 0 },
+                        end: { line: 0, character: 0 },
+                    },
+                },
+            ],
+        });
     }
+    return false;
 }
 
 connection.onSignatureHelp((): SignatureHelp | null => {
