@@ -26,7 +26,9 @@ let client: LanguageClient;
 
 export function activate(context: ExtensionContext) {
     context.subscriptions.push(
-        commands.registerCommand('motoko.startService', startServer),
+        commands.registerCommand('motoko.startService', () =>
+            startServer(context),
+        ),
     );
     context.subscriptions.push(
         languages.registerDocumentFormattingEditProvider('motoko', {
@@ -50,43 +52,47 @@ export function startServer(context: ExtensionContext) {
 
     // Check if `mo-ide` exists
     fs.access(config.standaloneBinary, fs.constants.F_OK, (err) => {
-        if (err) {
-            console.log(err.message);
+        try {
+            if (err) {
+                console.log(err.message);
 
-            // Launch TypeScript language server
-            const module = context.asAbsolutePath(
-                path.join('out', 'server', 'server.js'),
-            );
-            launchClient(context, {
-                run: { module, transport: TransportKind.ipc },
-                debug: {
-                    module,
-                    options: { execArgv: ['--nolazy', '--inspect=6004'] },
-                    transport: TransportKind.ipc,
-                },
-            });
-            return;
+                // Launch TypeScript language server
+                const module = context.asAbsolutePath(
+                    path.join('out', 'server', 'server.js'),
+                );
+                launchClient(context, {
+                    run: { module, transport: TransportKind.ipc },
+                    debug: {
+                        module,
+                        options: { execArgv: ['--nolazy', '--inspect=6004'] },
+                        transport: TransportKind.ipc,
+                    },
+                });
+                return;
+            }
+
+            const prompt = `There doesn't seem to be a dfx.json file for this Motoko project. What file do you want to use as an entry point?`;
+            const currentDocument = window.activeTextEditor?.document?.fileName;
+
+            window
+                .showInputBox({ prompt, value: currentDocument })
+                .then((entryPoint) => {
+                    if (entryPoint) {
+                        const serverCommand = {
+                            command: config.standaloneBinary,
+                            args: ['--canister-main', entryPoint]
+                                .concat(vesselArgs())
+                                .concat(config.standaloneArguments.split(' ')),
+                        };
+                        launchClient(context, {
+                            run: serverCommand,
+                            debug: serverCommand,
+                        });
+                    }
+                });
+        } catch (err) {
+            console.error(err);
         }
-
-        const prompt = `There doesn't seem to be a dfx.json file for this Motoko project. What file do you want to use as an entry point?`;
-        const currentDocument = window.activeTextEditor?.document?.fileName;
-
-        window
-            .showInputBox({ prompt, value: currentDocument })
-            .then((entryPoint) => {
-                if (entryPoint) {
-                    const serverCommand = {
-                        command: config.standaloneBinary,
-                        args: ['--canister-main', entryPoint]
-                            .concat(vesselArgs())
-                            .concat(config.standaloneArguments.split(' ')),
-                    };
-                    launchClient(context, {
-                        run: serverCommand,
-                        debug: serverCommand,
-                    });
-                }
-            });
     });
 }
 
