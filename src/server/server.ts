@@ -38,27 +38,49 @@ function resolvePath(uri: string): string {
     return URI.parse(uri).path;
 }
 
-/**
- * Resolves the workspace root path from the given URI.
- */
-// function resolveRootPath(uri?: string | undefined): string | undefined {
-//     if (uri === undefined) {
-//         const rootUri = workspaceFolders?.[0]?.uri;
-//         return rootUri && resolvePath(rootUri);
-//     }
-//     if (!workspaceFolders) {
-//         return;
-//     }
-//     const folder = workspaceFolders.find((folder) =>
-//         uri.startsWith(folder.uri),
-//     );
-//     if (!folder) {
-//         return;
-//     }
-//     return resolvePath(folder.uri);
-// }
+interface DfxCanister {
+    type?: string;
+    alias?: string;
+}
 
-async function setupPackages() {
+interface DfxConfig {
+    canisters: { [name: string]: DfxCanister };
+}
+
+async function loadDfxConfig(): Promise<DfxConfig | undefined> {
+    // if (!workspaceFolders) {
+    //     return;
+    // }
+    // for (const folder of workspaceFolders) {
+    //     const basePath = resolvePath(folder.uri);
+    //     const dfxPath = join(basePath, 'dfx.json');
+    //     if (existsSync(dfxPath)) {
+    //         const dfxJson = JSON.parse(
+    //             readFileSync(dfxPath, 'utf8'),
+    //         ) as DfxConfig;
+    //         if (dfxJson.canisters) {
+    //             // Configure actor aliases
+    //             const aliases: Record<string, string> = {};
+    //             for (const [name, canister] of Object.entries(
+    //                 dfxJson.canisters,
+    //             )) {
+    //                 if (
+    //                     (!canister.type || canister.type === 'motoko') &&
+    //                     canister.main
+    //                 ) {
+    //                     aliases[name] = // TODO
+    //                 }
+    //             }
+    //             // @ts-ignore
+    //             mo.setAliases(aliases);
+    //         }
+    //         return dfxJson;
+    //     }
+    // }
+    return;
+}
+
+async function loadPackages() {
     function getVesselArgs():
         | { workspaceFolder: string; args: string[] }
         | undefined {
@@ -184,13 +206,19 @@ connection.onInitialized(() => {
 
     notifyWorkspace();
 
-    setupPackages()
-        .then(() => {
-            validateOpenDocuments();
-        })
-        .catch((err) =>
-            console.error(`Error while loading Motoko packages: ${err}`),
-        );
+    const dfxPromise = loadDfxConfig().catch((err) => {
+        console.error('Error while loading dfx.json:');
+        console.error(err);
+    });
+
+    const packagePromise = loadPackages().catch((err) => {
+        console.error('Error while loading Motoko packages:');
+        console.error(err);
+    });
+
+    Promise.all([dfxPromise, packagePromise])
+        .catch(() => {})
+        .then(() => validateOpenDocuments());
 });
 
 connection.onDidChangeWatchedFiles((event) => {
