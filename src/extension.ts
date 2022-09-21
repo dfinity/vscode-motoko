@@ -26,7 +26,9 @@ let client: LanguageClient;
 
 export function activate(context: ExtensionContext) {
     context.subscriptions.push(
-        commands.registerCommand('motoko.startService', startServer),
+        commands.registerCommand('motoko.startService', () =>
+            startServer(context),
+        ),
     );
     context.subscriptions.push(
         languages.registerDocumentFormattingEditProvider('motoko', {
@@ -42,54 +44,55 @@ export function activate(context: ExtensionContext) {
 }
 
 export function startServer(context: ExtensionContext) {
-    if (client) {
-        client.stop().catch((err) => console.error(err.stack || err));
-    }
-
     const dfxConfig = getDfxConfig();
     if (dfxConfig && getDfxPath()) {
-        return launchDfxProject(context, dfxConfig);
+        launchDfxProject(context, dfxConfig);
+        return;
     }
 
     // Check if `mo-ide` exists
     fs.access(config.standaloneBinary, fs.constants.F_OK, (err) => {
-        if (err) {
-            console.error(err.message);
+        try {
+            if (err) {
+                console.log(err.message);
 
-            // Launch TypeScript language server
-            const module = context.asAbsolutePath(
-                path.join('out', 'server', 'server.js'),
-            );
-            launchClient(context, {
-                run: { module, transport: TransportKind.ipc },
-                debug: {
-                    module,
-                    options: { execArgv: ['--nolazy', '--inspect=6004'] },
-                    transport: TransportKind.ipc,
-                },
-            });
-            return;
+                // Launch TypeScript language server
+                const module = context.asAbsolutePath(
+                    path.join('out', 'server', 'server.js'),
+                );
+                launchClient(context, {
+                    run: { module, transport: TransportKind.ipc },
+                    debug: {
+                        module,
+                        options: { execArgv: ['--nolazy', '--inspect=6004'] },
+                        transport: TransportKind.ipc,
+                    },
+                });
+                return;
+            }
+
+            const prompt = `There doesn't seem to be a dfx.json file for this Motoko project. What file do you want to use as an entry point?`;
+            const currentDocument = window.activeTextEditor?.document?.fileName;
+
+            window
+                .showInputBox({ prompt, value: currentDocument })
+                .then((entryPoint) => {
+                    if (entryPoint) {
+                        const serverCommand = {
+                            command: config.standaloneBinary,
+                            args: ['--canister-main', entryPoint]
+                                .concat(vesselArgs())
+                                .concat(config.standaloneArguments.split(' ')),
+                        };
+                        launchClient(context, {
+                            run: serverCommand,
+                            debug: serverCommand,
+                        });
+                    }
+                });
+        } catch (err) {
+            console.error(err);
         }
-
-        const prompt = `There doesn't seem to be a dfx.json file for this Motoko project. What file do you want to use as an entry point?`;
-        const currentDocument = window.activeTextEditor?.document?.fileName;
-
-        window
-            .showInputBox({ prompt, value: currentDocument })
-            .then((entryPoint) => {
-                if (entryPoint) {
-                    const serverCommand = {
-                        command: config.standaloneBinary,
-                        args: ['--canister-main', entryPoint]
-                            .concat(vesselArgs())
-                            .concat(config.standaloneArguments.split(' ')),
-                    };
-                    launchClient(context, {
-                        run: serverCommand,
-                        debug: serverCommand,
-                    });
-                }
-            });
     });
 }
 
@@ -129,6 +132,10 @@ function launchDfxProject(context: ExtensionContext, dfxConfig: DfxConfig) {
 }
 
 function launchClient(context: ExtensionContext, serverOptions: ServerOptions) {
+    if (client) {
+        console.log('Restarting Motoko language server');
+        client.stop().catch((err) => console.error(err.stack || err));
+    }
     let clientOptions: LanguageClientOptions = {
         documentSelector: [
             { scheme: 'file', language: 'motoko' },
@@ -166,7 +173,7 @@ type DfxConfig = {
 };
 
 function getDfxConfig(): DfxConfig | undefined {
-    if (!config.get('legacyDfxSupport')) {
+    if (!config.get('legacyLanguageServer')) {
         return;
     }
     const wsf = workspace.workspaceFolders;
@@ -174,11 +181,16 @@ function getDfxConfig(): DfxConfig | undefined {
         return;
     }
     try {
-        return JSON.parse(
+        const dfxConfig = JSON.parse(
             fs
                 .readFileSync(path.join(wsf[0].uri.fsPath, 'dfx.json'))
                 .toString('utf8'),
         );
+        // Require TS language server for newer versions of `dfx`
+        if (!dfxConfig?.dfx || dfxConfig.dfx >= '0.11.1') {
+            return;
+        }
+        return dfxConfig;
     } catch {
         return; // TODO: warning?
     }

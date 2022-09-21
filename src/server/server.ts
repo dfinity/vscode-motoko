@@ -17,9 +17,10 @@ import { URI } from 'vscode-uri';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 // import { FileChangeType } from 'vscode-languageclient';
 import mo from 'motoko';
-import { readFileSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import * as glob from 'fast-glob';
+import { execSync } from 'child_process';
 
 interface Settings {
     motoko: MotokoSettings;
@@ -37,43 +38,116 @@ function resolvePath(uri: string): string {
     return URI.parse(uri).path;
 }
 
-/**
- * Resolves the workspace root path from the given URI.
- */
-// function resolveRootPath(uri?: string | undefined): string | undefined {
-//     if (uri === undefined) {
-//         const rootUri = workspaceFolders?.[0]?.uri;
-//         return rootUri && resolvePath(rootUri);
-//     }
-//     if (!workspaceFolders) {
-//         return;
-//     }
-//     const folder = workspaceFolders.find((folder) =>
-//         uri.startsWith(folder.uri),
-//     );
-//     if (!folder) {
-//         return;
-//     }
-//     return resolvePath(folder.uri);
-// }
+interface DfxCanister {
+    type?: string;
+    alias?: string;
+}
 
-const packages = {
-    base: 'dfinity/motoko-base/master/src',
-};
-mo.loadPackages(packages)
-    .then(() => {
-        validateOpenDocuments();
-    })
-    .catch((err) =>
-        console.error(`Error while loading Motoko packages: ${err}`),
-    );
+interface DfxConfig {
+    canisters: { [name: string]: DfxCanister };
+}
+
+async function loadDfxConfig(): Promise<DfxConfig | undefined> {
+    // if (!workspaceFolders) {
+    //     return;
+    // }
+    // for (const folder of workspaceFolders) {
+    //     const basePath = resolvePath(folder.uri);
+    //     const dfxPath = join(basePath, 'dfx.json');
+    //     if (existsSync(dfxPath)) {
+    //         const dfxJson = JSON.parse(
+    //             readFileSync(dfxPath, 'utf8'),
+    //         ) as DfxConfig;
+    //         if (dfxJson.canisters) {
+    //             // Configure actor aliases
+    //             const aliases: Record<string, string> = {};
+    //             for (const [name, canister] of Object.entries(
+    //                 dfxJson.canisters,
+    //             )) {
+    //                 if (
+    //                     (!canister.type || canister.type === 'motoko') &&
+    //                     canister.main
+    //                 ) {
+    //                     aliases[name] = // TODO
+    //                 }
+    //             }
+    //             // @ts-ignore
+    //             mo.setAliases(aliases);
+    //         }
+    //         return dfxJson;
+    //     }
+    // }
+    return;
+}
+
+async function loadPackages() {
+    function getVesselArgs():
+        | { workspaceFolder: string; args: string[] }
+        | undefined {
+        try {
+            for (const folder of workspaceFolders || []) {
+                const uri = folder.uri;
+                if (!uri) {
+                    continue;
+                }
+                const ws = resolvePath(uri);
+                if (
+                    !existsSync(join(ws, 'vessel.dhall')) &&
+                    !existsSync(join(ws, 'vessel.json'))
+                ) {
+                    continue;
+                }
+                const flags = execSync('vessel sources', {
+                    cwd: ws,
+                }).toString('utf8');
+                return {
+                    workspaceFolder: folder.uri,
+                    args: flags.split(' '),
+                };
+            }
+        } catch (err) {
+            console.warn(err);
+        }
+        return;
+    }
+
+    mo.clearPackages();
+
+    const vesselArgs = getVesselArgs();
+    if (vesselArgs) {
+        const { workspaceFolder, args } = vesselArgs;
+        // Load packages from Vessel
+        let nextArg;
+        while ((nextArg = args.shift())) {
+            if (nextArg === '--package') {
+                const name = args.shift()!;
+                const path = resolvePath(join(workspaceFolder, args.shift()!));
+                console.log('Package:', name, '->', path);
+                mo.addPackage(name, path);
+            }
+        }
+    } else {
+        const defaultPackages = {
+            base: 'dfinity/motoko-base/master/src',
+        };
+        await mo.loadPackages(defaultPackages);
+    }
+}
 
 // Create a connection for the language server
 const connection = createConnection(ProposedFeatures.all);
 
-console.log = connection.console.log.bind(connection.console);
-console.warn = connection.console.warn.bind(connection.console);
-console.error = connection.console.error.bind(connection.console);
+const forwardMessage =
+    (send: (message: string) => void) =>
+    (...args: string[]): void => {
+        send(args.join(' '));
+    };
+
+console.log = forwardMessage(connection.console.log.bind(connection.console));
+console.warn = forwardMessage(connection.console.warn.bind(connection.console));
+console.error = forwardMessage(
+    connection.console.error.bind(connection.console),
+);
 
 const documents = new TextDocuments(TextDocument);
 
@@ -131,6 +205,20 @@ connection.onInitialized(() => {
     });
 
     notifyWorkspace();
+
+    const dfxPromise = loadDfxConfig().catch((err) => {
+        console.error('Error while loading dfx.json:');
+        console.error(err);
+    });
+
+    const packagePromise = loadPackages().catch((err) => {
+        console.error('Error while loading Motoko packages:');
+        console.error(err);
+    });
+
+    Promise.all([dfxPromise, packagePromise])
+        .catch(() => {})
+        .then(() => validateOpenDocuments());
 });
 
 connection.onDidChangeWatchedFiles((event) => {
@@ -162,10 +250,11 @@ function notifyWorkspace() {
     if (workspaceFolders) {
         workspaceFolders.forEach((folder) => {
             const folderPath = resolvePath(folder.uri);
-            glob.sync('**/*.mo', { cwd: folderPath }).forEach(
+            glob.sync('**/*.mo', { cwd: folderPath, dot: true }).forEach(
                 (relativePath) => {
                     const path = join(folderPath, relativePath);
                     try {
+                        console.log('*', path);
                         mo.write(path, readFileSync(path, 'utf-8'));
                     } catch (err) {
                         console.error(
@@ -210,11 +299,12 @@ function check(document: TextDocument) {
     if (document.languageId === 'motoko') {
         const path = resolvePath(document.uri);
         try {
-            let diagnostics = mo.check(path).filter(
-                (diagnostic) =>
-                    !diagnostic.source ||
-                    diagnostic.source === path,
-            ) as any as Diagnostic[]; // temp
+            let diagnostics = mo
+                .check(path)
+                .filter(
+                    (diagnostic) =>
+                        !diagnostic.source || diagnostic.source === path,
+                ) as any as Diagnostic[]; // temp
 
             if (settings) {
                 if (settings.maxNumberOfProblems > 0) {
