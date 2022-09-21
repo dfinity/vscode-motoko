@@ -15,8 +15,7 @@ To continue using the original language server, you can modify your `dfx.json` f
 
 ```json
 {
-  "dfx": "0.11.0",
-  ...
+  "dfx": "0.11.0"
 }
 ```
 
