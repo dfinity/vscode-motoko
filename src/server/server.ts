@@ -1,4 +1,3 @@
-'use strict';
 import {
     createConnection,
     TextDocuments,
@@ -32,17 +31,17 @@ interface MotokoSettings {
 }
 
 /**
- * Resolves the absolute file path from the given URI.
+ * Resolves the absolute file system path from the given URI.
  */
-function resolveFilePath(uri: string): string {
-    return URI.parse(uri).fsPath;
+function resolveFilePath(uri: string, ...parts: string[]): string {
+    return join(URI.parse(uri).fsPath, ...parts);
 }
 
 /**
- * Resolves the virtual file system path from the given URI.
+ * Resolves the virtual compiler path from the given URI.
  */
-function resolveVirtualPath(uri: string): string {
-    return URI.parse(uri).path;
+function resolveVirtualPath(uri: string, ...parts: string[]): string {
+    return join(URI.parse(uri).path, ...parts).replace(/\\/g, '/');
 }
 
 interface DfxCanister {
@@ -129,7 +128,8 @@ async function loadPackages() {
             if (nextArg === '--package') {
                 const name = args.shift()!;
                 const path = resolveVirtualPath(
-                    join(workspaceFolder.uri, args.shift()!),
+                    workspaceFolder.uri,
+                    args.shift()!,
                 );
                 console.log('Package:', name, '->', path);
                 mo.addPackage(name, path);
@@ -259,11 +259,13 @@ function notifyWorkspace() {
     if (workspaceFolders) {
         workspaceFolders.forEach((folder) => {
             const folderPath = resolveFilePath(folder.uri);
-            const virtualFolderPath = resolveVirtualPath(folder.uri);
             glob.sync('**/*.mo', { cwd: folderPath, dot: true }).forEach(
                 (relativePath) => {
                     const path = join(folderPath, relativePath);
-                    const virtualPath = join(virtualFolderPath, relativePath);
+                    const virtualPath = resolveVirtualPath(
+                        folder.uri,
+                        relativePath,
+                    );
                     try {
                         console.log('*', virtualPath);
                         mo.write(virtualPath, readFileSync(path, 'utf8'));
