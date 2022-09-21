@@ -5,22 +5,6 @@
 [![Visual Studio Marketplace](https://img.shields.io/visual-studio-marketplace/v/dfinity-foundation.vscode-motoko?color=brightgreen&logo=visual-studio-code)](https://marketplace.visualstudio.com/items?itemName=dfinity-foundation.vscode-motoko)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/dfinity/prettier-plugin-motoko/issues)
 
-## Recent Changes
-
-We are currently in the process of revamping the Motoko VS Code extension.
-
-Projects using `dfx >= 0.11.1` use a new, experimental language server.
-
-To continue using the original language server, you can modify your `dfx.json` file to use version `0.11.0` or earlier:
-
-```json
-{
-  "dfx": "0.11.0"
-}
-```
-
-If you encounter any bugs, please [open a GitHub issue](https://github.com/dfinity/vscode-motoko/issues) with steps to reproduce so that we can fix the problem for everyone. 
-
 ## Features
 
 - Syntax highlighting
@@ -51,6 +35,22 @@ Get this extension through the [Visual Studio Marketplace](https://marketplace.v
 - `motoko.standaloneBinary`: The location of the `mo-ide` binary (when running in a non-dfx project)
 - `motoko.formatter`: The formatter used by the extension
 - `motoko.legacyDfxSupport`: Uses legacy `dfx`-dependent features when a `dfx.json` file is available
+
+## Recent Changes
+
+We are currently in the process of revamping the Motoko VS Code extension.
+
+Projects using `dfx >= 0.11.1` use a new, experimental language server.
+
+To continue using the original language server, you can modify your `dfx.json` file to use version `0.11.0` or earlier:
+
+```json
+{
+  "dfx": "0.11.0"
+}
+```
+
+If you encounter any bugs, please [open a GitHub issue](https://github.com/dfinity/vscode-motoko/issues) with steps to reproduce so that we can fix the problem for everyone. 
 
 ## Contributing
 
