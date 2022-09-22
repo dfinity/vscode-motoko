@@ -20,6 +20,7 @@ import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import * as glob from 'fast-glob';
 import { execSync } from 'child_process';
+import { preprocessMotoko } from './preprocessMotoko';
 
 interface Settings {
     motoko: MotokoSettings;
@@ -46,42 +47,25 @@ function resolveVirtualPath(uri: string, ...parts: string[]): string {
 
 interface DfxCanister {
     type?: string;
-    alias?: string;
+    main?: string;
 }
 
 interface DfxConfig {
     canisters: { [name: string]: DfxCanister };
 }
 
-async function loadDfxConfig(): Promise<DfxConfig | undefined> {
-    // if (!workspaceFolders) {
-    //     return;
-    // }
+// TODO: refactor
+async function loadPrimaryDfxConfig(): Promise<DfxConfig | undefined> {
+    if (!workspaceFolders?.length) {
+        return;
+    }
+    const folder = workspaceFolders[0];
     // for (const folder of workspaceFolders) {
-    //     const basePath = resolveFilePath(folder.uri);
-    //     const dfxPath = join(basePath, 'dfx.json');
-    //     if (existsSync(dfxPath)) {
-    //         const dfxJson = JSON.parse(
-    //             readFileSync(dfxPath, 'utf8'),
-    //         ) as DfxConfig;
-    //         if (dfxJson.canisters) {
-    //             // Configure actor aliases
-    //             const aliases: Record<string, string> = {};
-    //             for (const [name, canister] of Object.entries(
-    //                 dfxJson.canisters,
-    //             )) {
-    //                 if (
-    //                     (!canister.type || canister.type === 'motoko') &&
-    //                     canister.main
-    //                 ) {
-    //                     aliases[name] = ''// TODO
-    //                 }
-    //             }
-    //             // @ts-ignore
-    //             mo.setAliases(aliases);
-    //         }
-    //         return dfxJson;
-    //     }
+    const basePath = resolveFilePath(folder.uri);
+    const dfxPath = join(basePath, 'dfx.json');
+    if (existsSync(dfxPath)) {
+        return JSON.parse(readFileSync(dfxPath, 'utf8')) as DfxConfig;
+    }
     // }
     return;
 }
@@ -141,14 +125,25 @@ async function loadPackages() {
         });
     }
 
-    try {
-        const dfxConfig = await loadDfxConfig();
-        // @ts-ignore
-        dfxConfig;
-    } catch (err) {
-        console.error('Error while loading dfx.json:');
-        console.error(err);
-    }
+    // try {
+    //     const dfxConfig = await loadDfxConfig();
+    //     if (dfxConfig?.canisters) {
+    //         // Configure actor aliases
+    //         for (const [name, canister] of Object.entries(
+    //             dfxConfig.canisters,
+    //         )) {
+    //             if (
+    //                 (!canister.type || canister.type === 'motoko') &&
+    //                 canister.main
+    //             ) {
+    //                 // aliases[name] = ''// TODO
+    //             }
+    //         }
+    //     }
+    // } catch (err) {
+    //     console.error('Error while loading dfx.json:');
+    //     console.error(err);
+    // }
 }
 
 // Create a connection for the language server
@@ -273,7 +268,7 @@ function notifyWorkspace() {
                 );
                 try {
                     console.log('*', virtualPath);
-                    mo.write(virtualPath, readFileSync(path, 'utf8'));
+                    write(virtualPath, readFileSync(path, 'utf8'));
                 } catch (err) {
                     console.error(`Error while adding Motoko file ${path}:`);
                     console.error(err);
@@ -287,25 +282,49 @@ function notifyWorkspace() {
  * Type-checks all Motoko files in the current workspace.
  */
 function checkWorkspace() {
-    if (!workspaceFolders) {
-        return;
-    }
-    workspaceFolders.forEach((folder) => {
-        const folderPath = resolveFilePath(folder.uri);
-        glob.sync('**/*.mo', {
-            cwd: folderPath,
-            dot: false /* exclude directories such as `.vessel` */,
-        }).forEach((relativePath) => {
-            const path = join(folderPath, relativePath);
-            try {
-                check(URI.file(path).toString());
-            } catch (err) {
-                console.error(`Error while checking Motoko file ${path}:`);
-                console.error(err);
+    // if (!workspaceFolders) {
+    //     return;
+    // }
+    // workspaceFolders.forEach((folder) => {
+    //     const folderPath = resolveFilePath(folder.uri);
+    //     glob.sync('**/*.mo', {
+    //         cwd: folderPath,
+    //         dot: false /* exclude directories such as `.vessel` */,
+    //     }).forEach((relativePath) => {
+    //         const path = join(folderPath, relativePath);
+    //         try {
+    //             check(URI.file(path).toString());
+    //         } catch (err) {
+    //             console.error(`Error while checking Motoko file ${path}:`);
+    //             console.error(err);
+    //         }
+    //     });
+    // });
+
+    validateOpenDocuments();
+
+    loadPrimaryDfxConfig()
+        .then((dfxConfig) => {
+            if (!dfxConfig) {
+                return;
             }
-        });
-    });
-    validateOpenDocuments(); // TODO: remove or debounce
+            console.log('dfx.json:', JSON.stringify(dfxConfig));
+            Object.values(dfxConfig.canisters).forEach((canister) => {
+                if (
+                    (!canister.type || canister.type === 'motoko') &&
+                    canister.main
+                ) {
+                    const folder = workspaceFolders![0]; // temp
+                    const filePath = join(
+                        resolveFilePath(folder.uri),
+                        canister.main,
+                    );
+                    const uri = URI.file(filePath).toString();
+                    validate(uri);
+                }
+            });
+        })
+        .catch((err) => console.error(`Error while loading dfx.json: ${err}`));
 }
 
 /**
@@ -317,9 +336,9 @@ function validateOpenDocuments() {
     documents.all().forEach((document) => check(document));
 }
 
-function validate(document: TextDocument) {
-    notify(document);
-    check(document);
+function validate(uri: string | TextDocument) {
+    notify(uri);
+    check(uri);
 }
 
 /**
@@ -330,11 +349,11 @@ function notify(uri: string | TextDocument): boolean {
         const document = typeof uri === 'string' ? documents.get(uri) : uri;
         if (document) {
             const virtualPath = resolveVirtualPath(document.uri);
-            mo.write(virtualPath, document.getText());
+            write(virtualPath, document.getText());
         } else if (typeof uri === 'string') {
             const virtualPath = resolveVirtualPath(uri);
             const filePath = resolveFilePath(uri);
-            mo.write(virtualPath, readFileSync(filePath, 'utf8'));
+            write(virtualPath, readFileSync(filePath, 'utf8'));
         }
     } catch (err) {
         console.error(`Error while updating Motoko file: ${err}`);
@@ -346,6 +365,7 @@ function notify(uri: string | TextDocument): boolean {
  * Generates errors and warnings for a document.
  */
 function check(uri: string | TextDocument): boolean {
+    // TODO: debounce
     try {
         let virtualPath: string;
         const document = typeof uri === 'string' ? documents.get(uri) : uri;
@@ -413,6 +433,13 @@ function check(uri: string | TextDocument): boolean {
         });
     }
     return false;
+}
+
+function write(virtualPath: string, content: string) {
+    if (virtualPath.endsWith('.mo')) {
+        content = preprocessMotoko(content);
+    }
+    mo.write(virtualPath, content);
 }
 
 connection.onSignatureHelp((): SignatureHelp | null => {
