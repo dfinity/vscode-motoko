@@ -120,9 +120,17 @@ async function loadPackages() {
             }
         }
     } else {
-        await mo.loadPackages({
-            base: 'dfinity/motoko-base/master/src',
+        // const defaultPackages = {
+        //     base: 'dfinity/motoko-base/master/src',
+        // };
+        // await mo.loadPackages(defaultPackages);
+
+        const basePackage = await import('../generated/base.json');
+        const baseDirectory = 'base_library';
+        Object.entries(basePackage.files).forEach(([path, file]) => {
+            mo.write(`${baseDirectory}/${path}`, file.content);
         });
+        mo.addPackage('base', baseDirectory);
     }
 
     // try {
