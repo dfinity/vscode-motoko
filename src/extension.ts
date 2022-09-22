@@ -56,7 +56,7 @@ export function startServer(context: ExtensionContext) {
             if (err) {
                 console.log(err.message);
 
-                // Launch TypeScript language server
+                // Launch cross-platform language server
                 const module = context.asAbsolutePath(
                     path.join('out', 'server', 'server.js'),
                 );
