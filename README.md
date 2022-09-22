@@ -38,8 +38,6 @@ Get this extension through the [Visual Studio Marketplace](https://marketplace.v
 
 ## Recent Changes
 
-We are currently in the process of revamping the Motoko VS Code extension.
-
 Projects using `dfx >= 0.11.1` use a new, experimental language server.
 
 To continue using the original language server, you can modify your `dfx.json` file to use version `0.11.0` or earlier:
