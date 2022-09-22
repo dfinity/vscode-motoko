@@ -103,6 +103,14 @@ async function loadPackages() {
 
     mo.clearPackages();
 
+    // Add default base library
+    const basePackage = await import('../generated/baseLibrary.json');
+    const baseDirectory = 'base_library';
+    Object.entries(basePackage.files).forEach(([path, file]) => {
+        mo.write(`${baseDirectory}/${path}`, file.content);
+    });
+    mo.addPackage('base', baseDirectory);
+
     const vesselArgs = getVesselArgs();
     if (vesselArgs) {
         const { workspaceFolder, args } = vesselArgs;
@@ -119,18 +127,6 @@ async function loadPackages() {
                 mo.addPackage(name, path);
             }
         }
-    } else {
-        // const defaultPackages = {
-        //     base: 'dfinity/motoko-base/master/src',
-        // };
-        // await mo.loadPackages(defaultPackages);
-
-        const basePackage = await import('../generated/base.json');
-        const baseDirectory = 'base_library';
-        Object.entries(basePackage.files).forEach(([path, file]) => {
-            mo.write(`${baseDirectory}/${path}`, file.content);
-        });
-        mo.addPackage('base', baseDirectory);
     }
 
     // try {
