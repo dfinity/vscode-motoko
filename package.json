@@ -145,7 +145,8 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "rimraf ./out && tsc -p .",
+    "compile": "rimraf ./out && tsc -p . && npm run generate",
+    "generate": "node utils/downloadBaseLibrary.js",
     "lint": "tslint -p .",
     "package": "vsce package",
     "watch": "tsc -watch -p .",
