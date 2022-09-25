@@ -31,6 +31,10 @@ interface MotokoSettings {
     maxNumberOfProblems: number;
 }
 
+const ignoreGlobs = ['**/node_modules/**/*'];
+
+// const moFileSet = new Set();
+
 /**
  * Resolves the absolute file system path from the given URI.
  */
@@ -45,30 +49,30 @@ function resolveVirtualPath(uri: string, ...parts: string[]): string {
     return join(URI.parse(uri).path, ...parts).replace(/\\/g, '/');
 }
 
-interface DfxCanister {
-    type?: string;
-    main?: string;
-}
+// interface DfxCanister {
+//     type?: string;
+//     main?: string;
+// }
 
-interface DfxConfig {
-    canisters: { [name: string]: DfxCanister };
-}
+// interface DfxConfig {
+//     canisters: { [name: string]: DfxCanister };
+// }
 
 // TODO: refactor
-async function loadPrimaryDfxConfig(): Promise<DfxConfig | undefined> {
-    if (!workspaceFolders?.length) {
-        return;
-    }
-    const folder = workspaceFolders[0];
-    // for (const folder of workspaceFolders) {
-    const basePath = resolveFilePath(folder.uri);
-    const dfxPath = join(basePath, 'dfx.json');
-    if (existsSync(dfxPath)) {
-        return JSON.parse(readFileSync(dfxPath, 'utf8')) as DfxConfig;
-    }
-    // }
-    return;
-}
+// async function loadPrimaryDfxConfig(): Promise<DfxConfig | undefined> {
+//     if (!workspaceFolders?.length) {
+//         return;
+//     }
+//     const folder = workspaceFolders[0];
+//     // for (const folder of workspaceFolders) {
+//     const basePath = resolveFilePath(folder.uri);
+//     const dfxPath = join(basePath, 'dfx.json');
+//     if (existsSync(dfxPath)) {
+//         return JSON.parse(readFileSync(dfxPath, 'utf8')) as DfxConfig;
+//     }
+//     // }
+//     return;
+// }
 
 async function loadPackages() {
     function getVesselArgs():
@@ -234,11 +238,13 @@ connection.onDidChangeWatchedFiles((event) => {
     event.changes.forEach((change) => {
         try {
             if (change.type === 3 /* FileChangeType.Deleted */) {
+                // moFileSet.delete(change.uri);
                 const path = resolveVirtualPath(change.uri);
                 mo.delete(path);
             } else {
+                // moFileSet.add(change.uri);
                 notify(change.uri);
-                // check(document);
+                // check(change.uri);
             }
         } catch (err) {
             console.error('Error while handling Motoko file change:');
@@ -246,7 +252,8 @@ connection.onDidChangeWatchedFiles((event) => {
         }
     });
 
-    validateOpenDocuments();
+    // validateOpenDocuments();
+    checkWorkspace();
 });
 
 connection.onDidChangeConfiguration((event) => {
@@ -263,82 +270,93 @@ function notifyWorkspace() {
     }
     workspaceFolders.forEach((folder) => {
         const folderPath = resolveFilePath(folder.uri);
-        glob.sync('**/*.mo', { cwd: folderPath, dot: true }).forEach(
-            (relativePath) => {
-                const path = join(folderPath, relativePath);
+        glob.sync('**/*.mo', {
+            cwd: folderPath,
+            dot: true,
+        }).forEach((relativePath) => {
+            const path = join(folderPath, relativePath);
+            try {
                 const virtualPath = resolveVirtualPath(
                     folder.uri,
                     relativePath,
                 );
-                try {
-                    console.log('*', virtualPath);
-                    write(virtualPath, readFileSync(path, 'utf8'));
-                } catch (err) {
-                    console.error(`Error while adding Motoko file ${path}:`);
-                    console.error(err);
-                }
-            },
-        );
+                console.log('*', virtualPath);
+                write(virtualPath, readFileSync(path, 'utf8'));
+                // const uri = URI.file(
+                //     resolveFilePath(folder.uri, relativePath),
+                // );
+                // moFileSet.add(uri);
+            } catch (err) {
+                console.error(`Error while adding Motoko file ${path}:`);
+                console.error(err);
+            }
+        });
     });
 }
 
+let checkWorkspaceTimeout: ReturnType<typeof setTimeout>;
 /**
  * Type-checks all Motoko files in the current workspace.
  */
 function checkWorkspace() {
-    // if (!workspaceFolders) {
-    //     return;
-    // }
-    // workspaceFolders.forEach((folder) => {
-    //     const folderPath = resolveFilePath(folder.uri);
-    //     glob.sync('**/*.mo', {
-    //         cwd: folderPath,
-    //         dot: false /* exclude directories such as `.vessel` */,
-    //     }).forEach((relativePath) => {
-    //         const path = join(folderPath, relativePath);
-    //         try {
-    //             check(URI.file(path).toString());
-    //         } catch (err) {
-    //             console.error(`Error while checking Motoko file ${path}:`);
-    //             console.error(err);
-    //         }
-    //     });
-    // });
+    clearTimeout(checkWorkspaceTimeout);
+    checkWorkspaceTimeout = setTimeout(() => {
+        console.log('Checking workspace');
 
-    validateOpenDocuments();
-
-    loadPrimaryDfxConfig()
-        .then((dfxConfig) => {
-            if (!dfxConfig) {
-                return;
-            }
-            console.log('dfx.json:', JSON.stringify(dfxConfig));
-            Object.values(dfxConfig.canisters).forEach((canister) => {
-                if (
-                    (!canister.type || canister.type === 'motoko') &&
-                    canister.main
-                ) {
-                    const folder = workspaceFolders![0]; // temp
-                    const filePath = join(
-                        resolveFilePath(folder.uri),
-                        canister.main,
-                    );
-                    const uri = URI.file(filePath).toString();
-                    validate(uri);
+        workspaceFolders?.forEach((folder) => {
+            const folderPath = resolveFilePath(folder.uri);
+            glob.sync('**/*.mo', {
+                cwd: folderPath,
+                dot: false, // exclude directories such as `.vessel`
+                ignore: ignoreGlobs,
+            }).forEach((relativePath) => {
+                const path = join(folderPath, relativePath);
+                try {
+                    const file = URI.file(path).toString();
+                    // notify(file);
+                    check(file);
+                } catch (err) {
+                    console.error(`Error while checking Motoko file ${path}:`);
+                    console.error(err);
                 }
             });
-        })
-        .catch((err) => console.error(`Error while loading dfx.json: ${err}`));
+        });
+
+        // validateOpenDocuments();
+
+        // loadPrimaryDfxConfig()
+        //     .then((dfxConfig) => {
+        //         if (!dfxConfig) {
+        //             return;
+        //         }
+        //         console.log('dfx.json:', JSON.stringify(dfxConfig));
+        //         Object.values(dfxConfig.canisters).forEach((canister) => {
+        //             if (
+        //                 (!canister.type || canister.type === 'motoko') &&
+        //                 canister.main
+        //             ) {
+        //                 const folder = workspaceFolders![0]; // temp
+        //                 const filePath = join(
+        //                     resolveFilePath(folder.uri),
+        //                     canister.main,
+        //                 );
+        //                 const uri = URI.file(filePath).toString();
+        //                 validate(uri);
+        //             }
+        //         });
+        //     })
+        //     .catch((err) => console.error(`Error while loading dfx.json: ${err}`));
+    }, 500);
 }
 
-/**
- * Validates all Motoko files which are currently open in the editor.
- */
-function validateOpenDocuments() {
-    // TODO: validate all tabs
-    documents.all().forEach((document) => notify(document));
-    documents.all().forEach((document) => check(document));
-}
+// /**
+//  * Validates all Motoko files which are currently open in the editor.
+//  */
+// function validateOpenDocuments() {
+//     // TODO: validate all tabs
+//     documents.all().forEach((document) => notify(document));
+//     documents.all().forEach((document) => check(document));
+// }
 
 function validate(uri: string | TextDocument) {
     notify(uri);
