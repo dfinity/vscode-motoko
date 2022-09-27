@@ -389,6 +389,16 @@ function notify(uri: string | TextDocument): boolean {
 function check(uri: string | TextDocument): boolean {
     // TODO: debounce
     try {
+        const skipExtension = '.mo_';
+        const resolvedUri = typeof uri === 'string' ? uri : uri?.uri;
+        if (resolvedUri?.endsWith(skipExtension)) {
+            connection.sendDiagnostics({
+                uri: resolvedUri,
+                diagnostics: [],
+            });
+            return false;
+        }
+
         let virtualPath: string;
         const document = typeof uri === 'string' ? documents.get(uri) : uri;
         if (document) {
@@ -426,10 +436,12 @@ function check(uri: string | TextDocument): boolean {
         };
         diagnostics.forEach((diagnostic) => {
             const key = diagnostic.source || virtualPath;
-            (diagnosticMap[key] || (diagnosticMap[key] = [])).push({
-                ...diagnostic,
-                source: 'motoko',
-            });
+            if (!key.endsWith(skipExtension)) {
+                (diagnosticMap[key] || (diagnosticMap[key] = [])).push({
+                    ...diagnostic,
+                    source: 'motoko',
+                });
+            }
         });
 
         Object.entries(diagnosticMap).forEach(([path, diagnostics]) => {
