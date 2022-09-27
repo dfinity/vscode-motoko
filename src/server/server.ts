@@ -389,8 +389,8 @@ function notify(uri: string | TextDocument): boolean {
 function check(uri: string | TextDocument): boolean {
     // TODO: debounce
     try {
-        // Only check '*.mo' files
-        if (!(typeof uri === 'string' ? uri : uri?.uri).endsWith('.mo')) {
+        const skipExtension = '.mo_';
+        if ((typeof uri === 'string' ? uri : uri?.uri).endsWith(skipExtension)) {
             return false;
         }
 
@@ -431,10 +431,12 @@ function check(uri: string | TextDocument): boolean {
         };
         diagnostics.forEach((diagnostic) => {
             const key = diagnostic.source || virtualPath;
-            (diagnosticMap[key] || (diagnosticMap[key] = [])).push({
-                ...diagnostic,
-                source: 'motoko',
-            });
+            if (!key.endsWith(skipExtension)) {
+                (diagnosticMap[key] || (diagnosticMap[key] = [])).push({
+                    ...diagnostic,
+                    source: 'motoko',
+                });
+            }
         });
 
         Object.entries(diagnosticMap).forEach(([path, diagnostics]) => {

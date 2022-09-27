@@ -26,7 +26,7 @@
         ],
         "extensions": [
           ".mo",
-          ".mox"
+          ".mo_"
         ],
         "configuration": "./language-configuration.json"
       }
