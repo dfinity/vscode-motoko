@@ -127,7 +127,7 @@
     "fast-glob": "^3.2.11",
     "motoko": "^2.0.10",
     "prettier": "^2.7.1",
-    "prettier-plugin-motoko": "^0.1.8",
+    "prettier-plugin-motoko": "^0.1.9",
     "vscode-languageclient": "^8.0.2",
     "vscode-languageserver": "^8.0.2",
     "vscode-languageserver-textdocument": "^1.0.7",
