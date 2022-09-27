@@ -5,6 +5,12 @@
 [![Visual Studio Marketplace](https://img.shields.io/visual-studio-marketplace/v/dfinity-foundation.vscode-motoko?color=brightgreen&logo=visual-studio-code)](https://marketplace.visualstudio.com/items?itemName=dfinity-foundation.vscode-motoko)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/dfinity/prettier-plugin-motoko/issues)
 
+## Overview
+
+[Motoko](https://github.com/dfinity/motoko) is a high-level smart contract language for the [Internet Computer](https://internetcomputer.org/).
+
+This extension provides syntax highlighting, type checking, and code formatting for [Motoko canister development](https://internetcomputer.org/docs/current/developer-docs/build/cdks/motoko-dfinity/motoko/). 
+
 ## Features
 
 - Syntax highlighting
@@ -66,12 +72,12 @@ npm install
 npm run package
 ```
 
-This generates a file named `vscode-motoko-x.x.x.vsix` in the project root.
+This generates a file named `vscode-motoko-*.*.*.vsix` in the project root.
 
 ### Install your local extension in VS Code:
 
 ```bash
-code --install-extension vscode-motoko-x.x.x.vsix
+code --install-extension vscode-motoko-*.*.*.vsix
 ```
 
 Alternatively, right-click the `.vsix` file and then select the "Install Extension VSIX" option.
