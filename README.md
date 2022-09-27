@@ -22,7 +22,7 @@ This extension provides syntax highlighting, type checking, and code formatting 
 
 ## Installation
 
-Get this extension through the [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=dfinity-foundation.vscode-motoko), or alternatively the [Extensions panel](https://code.visualstudio.com/docs/editor/extension-marketplace) in your VS Code project.
+Get this extension through the [VS Marketplace](https://marketplace.visualstudio.com/items?itemName=dfinity-foundation.vscode-motoko), or alternatively the [Extensions panel](https://code.visualstudio.com/docs/editor/extension-marketplace) in your VS Code project.
 
 ## Integrations
 
@@ -31,7 +31,7 @@ Get this extension through the [Visual Studio Marketplace](https://marketplace.v
 
 ## Extension Commands
 
-- `motoko.startService`: Starts (or restarts) the language service. This is automatically triggered when opening a Motoko project.
+- `motoko.startService`: Starts (or restarts) the language service
 
 ## Extension Settings
 
