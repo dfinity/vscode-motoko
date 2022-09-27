@@ -389,6 +389,11 @@ function notify(uri: string | TextDocument): boolean {
 function check(uri: string | TextDocument): boolean {
     // TODO: debounce
     try {
+        // Only check '*.mo' files
+        if (!(typeof uri === 'string' ? uri : uri?.uri).endsWith('.mo')) {
+            return false;
+        }
+
         let virtualPath: string;
         const document = typeof uri === 'string' ? documents.get(uri) : uri;
         if (document) {

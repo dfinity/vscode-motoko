@@ -25,7 +25,8 @@
           "motoko"
         ],
         "extensions": [
-          ".mo"
+          ".mo",
+          ".mox"
         ],
         "configuration": "./language-configuration.json"
       }
