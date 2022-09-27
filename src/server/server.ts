@@ -390,7 +390,12 @@ function check(uri: string | TextDocument): boolean {
     // TODO: debounce
     try {
         const skipExtension = '.mo_';
-        if ((typeof uri === 'string' ? uri : uri?.uri).endsWith(skipExtension)) {
+        const resolvedUri = typeof uri === 'string' ? uri : uri?.uri;
+        if (resolvedUri?.endsWith(skipExtension)) {
+            connection.sendDiagnostics({
+                uri: resolvedUri,
+                diagnostics: [],
+            });
             return false;
         }
 
