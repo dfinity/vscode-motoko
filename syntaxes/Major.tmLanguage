@@ -865,15 +865,6 @@
 				</dict>
 			</array>
 		</dict>
-		<key>operator-declaration-modifier</key>
-		<dict>
-			<key>comment</key>
-			<string>operator-declaration</string>
-			<key>match</key>
-			<string>\b(operator|prefix|infix|postfix)\b</string>
-			<key>name</key>
-			<string>keyword.other.operator.motoko</string>
-		</dict>
 		<key>optional-type</key>
 		<dict>
 			<key>beginCaptures</key>
