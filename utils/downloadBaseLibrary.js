@@ -4,8 +4,14 @@ const fs = require('fs');
 const mo = require('motoko');
 
 (async () => {
-    const basePackage = await mo.fetchPackage('dfinity/motoko-base/master/src');
-    if (!basePackage.name || !Object.entries(basePackage.files).length) {
+    const basePackage = await mo.fetchPackage(
+        'base',
+        'dfinity/motoko-base/master/src',
+    );
+    if (
+        basePackage.version !== 'master' ||
+        !Object.entries(basePackage.files).length
+    ) {
         throw new Error('Unexpected package format');
     }
     fs.writeFileSync(
