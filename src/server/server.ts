@@ -11,6 +11,7 @@ import {
     TextDocumentSyncKind,
     // VersionedTextDocumentIdentifier,
     WorkspaceFolder,
+    FileChangeType,
 } from 'vscode-languageserver/node';
 import { URI } from 'vscode-uri';
 import { TextDocument } from 'vscode-languageserver-textdocument';
@@ -108,12 +109,7 @@ async function loadPackages() {
     mo.clearPackages();
 
     // Add default base library
-    const basePackage = await import('../generated/baseLibrary.json');
-    const baseDirectory = 'base_library';
-    Object.entries(basePackage.files).forEach(([path, file]) => {
-        mo.write(`${baseDirectory}/${path}`, file.content);
-    });
-    mo.addPackage('base', baseDirectory);
+    mo.loadPackage(await import('../generated/baseLibrary.json'));
 
     const vesselArgs = getVesselArgs();
     if (vesselArgs) {
@@ -128,7 +124,7 @@ async function loadPackages() {
                     args.shift()!,
                 );
                 console.log('Package:', name, '->', path);
-                mo.addPackage(name, path);
+                mo.usePackage(name, path);
             }
         }
     }
@@ -159,8 +155,17 @@ const connection = createConnection(ProposedFeatures.all);
 
 const forwardMessage =
     (send: (message: string) => void) =>
-    (...args: string[]): void => {
-        send(args.join(' '));
+    (...args: any[]): void => {
+        const toString = (value: any) => {
+            try {
+                return typeof value === 'string'
+                    ? value
+                    : JSON.stringify(value);
+            } catch (err) {
+                return `<${err}>`;
+            }
+        };
+        send(args.map(toString).join(' '));
     };
 
 console.log = forwardMessage(connection.console.log.bind(connection.console));
@@ -237,10 +242,14 @@ connection.onInitialized(() => {
 connection.onDidChangeWatchedFiles((event) => {
     event.changes.forEach((change) => {
         try {
-            if (change.type === 3 /* FileChangeType.Deleted */) {
+            if (change.type === FileChangeType.Deleted) {
                 // moFileSet.delete(change.uri);
                 const path = resolveVirtualPath(change.uri);
                 mo.delete(path);
+                connection.sendDiagnostics({
+                    uri: change.uri,
+                    diagnostics: [],
+                });
             } else {
                 // moFileSet.add(change.uri);
                 notify(change.uri);
@@ -475,6 +484,16 @@ function write(virtualPath: string, content: string) {
     }
     mo.write(virtualPath, content);
 }
+
+// connection.onCodeActionResolve((event )=>{
+// event.diagnostics?.forEach(diagnostic=>{
+// event.
+// })
+// })
+
+// connection.onCodeAction((event)=>{
+
+// }
 
 connection.onSignatureHelp((): SignatureHelp | null => {
     return null;
