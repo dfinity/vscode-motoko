@@ -46,7 +46,7 @@ const ignoreGlobs = ['**/node_modules/**/*'];
 const importCache = new ImportCache();
 Object.keys(baseLibrary.files).forEach((path) => {
     if (path.endsWith('.mo')) {
-        path = path.slice(0, -2);
+        path = path.slice(0, '.mo'.length);
         const name = /([a-zA-Z0-9_]+)$/.exec(path)?.[1];
         if (name) {
             importCache.set(name, `mo:base/${path}`);
@@ -516,7 +516,7 @@ connection.onCodeAction((event) => {
 
     event.context?.diagnostics?.forEach((diagnostic) => {
         const uri = event.textDocument.uri;
-        const name = /unbound variable ([a-zA-Z0-9_])+/i.exec(
+        const name = /unbound variable ([a-zA-Z0-9_]+)/i.exec(
             diagnostic.message,
         )?.[1];
         if (name) {
@@ -530,7 +530,7 @@ connection.onCodeAction((event) => {
                             [uri]: [
                                 TextEdit.insert(
                                     Position.create(0, 0),
-                                    `import ${name} "${path}";`,
+                                    `Add import from "${path}";\n`,
                                 ),
                             ],
                         },
