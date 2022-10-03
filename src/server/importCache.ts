@@ -1,4 +1,4 @@
-import MultiMap from 'mnemonist/multi-map';
+import { MultiMap } from 'mnemonist';
 
 export default class ImportCache {
     private _lookup = new MultiMap<string, string>(Set);
