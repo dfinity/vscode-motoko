@@ -521,6 +521,7 @@ connection.onCodeAction((event) => {
         )?.[1];
         if (name) {
             importProvider.resolve(name, uri).forEach((path) => {
+                // Add import suggestion
                 results.push({
                     kind: CodeActionKind.QuickFix,
                     isPreferred: true,
