@@ -37,6 +37,7 @@ interface MotokoSettings {
     maxNumberOfProblems: number;
 }
 
+// Always ignore `node_modules/` (often used in frontend canisters)
 const ignoreGlobs = ['**/node_modules/**/*'];
 
 // const moFileSet = new Set();
