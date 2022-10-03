@@ -26,7 +26,7 @@ import * as glob from 'fast-glob';
 import { execSync } from 'child_process';
 import { preprocessMotoko } from './preprocessMotoko';
 import * as baseLibrary from 'motoko/packages/latest/base.json';
-import ImportCache from './importCache';
+import ImportProvider from './importProvider';
 
 interface Settings {
     motoko: MotokoSettings;
@@ -43,13 +43,13 @@ const ignoreGlobs = ['**/node_modules/**/*'];
 // const moFileSet = new Set();
 
 // Set up import suggestions
-const importCache = new ImportCache();
+const importProvider = new ImportProvider();
 Object.keys(baseLibrary.files).forEach((path) => {
     if (path.endsWith('.mo')) {
         path = path.slice(0, '.mo'.length);
         const name = /([a-zA-Z0-9_]+)$/.exec(path)?.[1];
         if (name) {
-            importCache.set(name, `mo:base/${path}`);
+            importProvider.set(name, `mo:base/${path}`);
         }
     }
 });
@@ -520,7 +520,7 @@ connection.onCodeAction((event) => {
             diagnostic.message,
         )?.[1];
         if (name) {
-            importCache.resolve(name, uri).forEach((path) => {
+            importProvider.resolve(name, uri).forEach((path) => {
                 results.push({
                     kind: CodeActionKind.QuickFix,
                     isPreferred: true,
@@ -555,9 +555,9 @@ connection.onSignatureHelp((): SignatureHelp | null => {
 });
 
 connection.onCompletion(
-    (_textDocumentPosition: TextDocumentPositionParams): CompletionItem[] => {
-        let completionItems: CompletionItem[] = [];
-        // const document = documents.get(textDocumentPosition.textDocument.uri);
+    (_event: TextDocumentPositionParams): CompletionItem[] => {
+        const completionItems: CompletionItem[] = [];
+        // const document = documents.get(event.textDocument.uri);
         // const service = new CompletionService(rootPath);
 
         // completionItems = completionItems.concat(
