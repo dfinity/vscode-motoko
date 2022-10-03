@@ -3,7 +3,7 @@ import { MultiMap } from 'mnemonist';
 export default class ImportProvider {
     private _lookup = new MultiMap<string, string>(Set);
 
-    _validateUri(uri: any) {
+    private _validateUri(uri: any) {
         if (typeof uri !== 'string') {
             throw new Error('URI must be a string');
         }
