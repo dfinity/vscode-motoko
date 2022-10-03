@@ -9,19 +9,24 @@ import {
     Location,
     SignatureHelp,
     TextDocumentSyncKind,
-    // VersionedTextDocumentIdentifier,
     WorkspaceFolder,
     FileChangeType,
+    DiagnosticSeverity,
+    CodeAction,
+    CodeActionKind,
+    TextEdit,
+    Position,
 } from 'vscode-languageserver/node';
 import { URI } from 'vscode-uri';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-// import { FileChangeType } from 'vscode-languageclient';
 import mo from 'motoko';
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import * as glob from 'fast-glob';
 import { execSync } from 'child_process';
 import { preprocessMotoko } from './preprocessMotoko';
+import * as baseLibrary from 'motoko/packages/latest/base.json';
+import ImportCache from './importCache';
 
 interface Settings {
     motoko: MotokoSettings;
@@ -32,9 +37,22 @@ interface MotokoSettings {
     maxNumberOfProblems: number;
 }
 
+// Always ignore `node_modules/` (often used in frontend canisters)
 const ignoreGlobs = ['**/node_modules/**/*'];
 
 // const moFileSet = new Set();
+
+// Set up import suggestions
+const importCache = new ImportCache();
+Object.keys(baseLibrary.files).forEach((path) => {
+    if (path.endsWith('.mo')) {
+        path = path.slice(0, '.mo'.length);
+        const name = /([a-zA-Z0-9_]+)$/.exec(path)?.[1];
+        if (name) {
+            importCache.set(name, `mo:base/${path}`);
+        }
+    }
+});
 
 /**
  * Resolves the absolute file system path from the given URI.
@@ -75,41 +93,45 @@ function resolveVirtualPath(uri: string, ...parts: string[]): string {
 //     return;
 // }
 
-async function loadPackages() {
-    function getVesselArgs():
-        | { workspaceFolder: WorkspaceFolder; args: string[] }
-        | undefined {
-        try {
-            for (const folder of workspaceFolders || []) {
-                const uri = folder.uri;
-                if (!uri) {
-                    continue;
-                }
-                const ws = resolveFilePath(uri);
-                if (
-                    !existsSync(join(ws, 'vessel.dhall')) &&
-                    !existsSync(join(ws, 'vessel.json'))
-                ) {
-                    continue;
-                }
-                const flags = execSync('vessel sources', {
-                    cwd: ws,
-                }).toString('utf8');
-                return {
-                    workspaceFolder: folder,
-                    args: flags.split(' '),
-                };
+function getVesselArgs():
+    | { workspaceFolder: WorkspaceFolder; args: string[] }
+    | undefined {
+    try {
+        for (const folder of workspaceFolders || []) {
+            const uri = folder.uri;
+            if (!uri) {
+                continue;
             }
-        } catch (err) {
-            console.warn(err);
+            const ws = resolveFilePath(uri);
+            if (
+                !existsSync(join(ws, 'vessel.dhall')) &&
+                !existsSync(join(ws, 'vessel.json'))
+            ) {
+                continue;
+            }
+            const flags = execSync('vessel sources', {
+                cwd: ws,
+            }).toString('utf8');
+            return {
+                workspaceFolder: folder,
+                args: flags.split(' '),
+            };
         }
-        return;
+    } catch (err) {
+        console.warn(err);
     }
+    return;
+}
 
+async function loadPackages() {
     mo.clearPackages();
 
-    // Add default base library
-    mo.loadPackage(await import('../generated/baseLibrary.json'));
+    try {
+        // Load default base library
+        mo.loadPackage(baseLibrary);
+    } catch (err) {
+        console.error(`Error while loading base library: ${err}`);
+    }
 
     const vesselArgs = getVesselArgs();
     if (vesselArgs) {
@@ -189,7 +211,7 @@ connection.onInitialize((event): InitializeResult => {
                 triggerCharacters: ['.'],
             },
             // definitionProvider: true,
-            // codeActionProvider: true,
+            codeActionProvider: true,
             // declarationProvider: true,
             // hoverProvider: true,
             // diagnosticProvider: {
@@ -434,7 +456,7 @@ function check(uri: string | TextDocument): boolean {
             if (settings.hideWarningRegex?.trim()) {
                 diagnostics = diagnostics.filter(
                     ({ message, severity }) =>
-                        severity === 1 /* Error */ ||
+                        severity === DiagnosticSeverity.Error ||
                         // @ts-ignore
                         !new RegExp(settings.hideWarningRegex).test(message),
                 );
@@ -448,7 +470,7 @@ function check(uri: string | TextDocument): boolean {
             if (!key.endsWith(skipExtension)) {
                 (diagnosticMap[key] || (diagnosticMap[key] = [])).push({
                     ...diagnostic,
-                    source: 'motoko',
+                    source: 'Motoko',
                 });
             }
         });
@@ -485,15 +507,48 @@ function write(virtualPath: string, content: string) {
     mo.write(virtualPath, content);
 }
 
-// connection.onCodeActionResolve((event )=>{
-// event.diagnostics?.forEach(diagnostic=>{
-// event.
-// })
-// })
+connection.onCodeAction((event) => {
+    console.log('Code action');
 
-// connection.onCodeAction((event)=>{
+    console.log(event.context); ////
 
-// }
+    const results: CodeAction[] = [];
+
+    event.context?.diagnostics?.forEach((diagnostic) => {
+        const uri = event.textDocument.uri;
+        const name = /unbound variable ([a-zA-Z0-9_]+)/i.exec(
+            diagnostic.message,
+        )?.[1];
+        if (name) {
+            importCache.resolve(name, uri).forEach((path) => {
+                results.push({
+                    kind: CodeActionKind.QuickFix,
+                    isPreferred: true,
+                    title: `Import ${name} "${path}"`,
+                    edit: {
+                        changes: {
+                            [uri]: [
+                                TextEdit.insert(
+                                    Position.create(0, 0),
+                                    `Add import from "${path}";\n`,
+                                ),
+                            ],
+                        },
+                    },
+                });
+            });
+        }
+    });
+    return results;
+});
+
+connection.onCodeActionResolve((action) => {
+    console.log('Code action resolve');
+
+    console.log(action.data);
+
+    return action;
+});
 
 connection.onSignatureHelp((): SignatureHelp | null => {
     return null;

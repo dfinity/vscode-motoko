@@ -126,7 +126,8 @@
   "main": "./out/extension",
   "dependencies": {
     "fast-glob": "^3.2.11",
-    "motoko": "^3.0.0-beta2",
+    "mnemonist": "^0.39.2",
+    "motoko": "^3.0.0-beta4",
     "prettier": "^2.7.1",
     "prettier-plugin-motoko": "^0.2.1",
     "vscode-languageclient": "^8.0.2",
@@ -146,8 +147,7 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "rimraf ./out && tsc -p . && npm run generate",
-    "generate": "node utils/downloadBaseLibrary.js",
+    "compile": "rimraf ./out && tsc -p .",
     "lint": "tslint -p .",
     "package": "vsce package",
     "watch": "tsc -watch -p .",
