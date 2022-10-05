@@ -6,21 +6,21 @@ import { MultiMap } from 'mnemonist';
 //     }
 // }
 
-export default class ImportProvider {
-    private _lookup = new MultiMap<string, string>(Set);
+export default class ImportResolver {
+    private lookup_ = new MultiMap<string, string>(Set);
 
     clear() {
-        this._lookup.clear();
+        this.lookup_.clear();
     }
 
     set(name: string, uri: string) {
         // validateUri(uri);
-        this._lookup.set(name, uri);
+        this.lookup_.set(name, uri);
     }
 
     getImportPaths(name: string, _uri: string): string[] {
         // validateUri(uri);
-        const options = this._lookup.get(name);
+        const options = this.lookup_.get(name);
         if (!options) {
             return [];
         }
@@ -32,7 +32,7 @@ export default class ImportProvider {
      * @returns Array of `[name, path]` entries
      */
     getModuleEntries(_uri: string): [string, string][] {
-        return [...this._lookup.entries()];
+        return [...this.lookup_.entries()];
     }
 
     /**
@@ -41,12 +41,13 @@ export default class ImportProvider {
      */
     getFieldEntries(_uri: string): [string, string, string][] {
         // return [...this._lookup.entries()];
+        return [];
     }
 
     delete(uri: string): boolean {
         let changed = false;
-        for (const key of this._lookup.keys()) {
-            if (this._lookup.remove(key, uri)) {
+        for (const key of this.lookup_.keys()) {
+            if (this.lookup_.remove(key, uri)) {
                 changed = true;
             }
         }

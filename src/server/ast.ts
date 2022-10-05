@@ -9,11 +9,11 @@ export interface AstStatus {
     outdated: boolean;
 }
 
-export default class AstProvider {
-    private _cache = new Map<string, AstStatus>();
+export default class AstResolver {
+    private cache_ = new Map<string, AstStatus>();
 
     clear() {
-        this._cache.clear();
+        this.cache_.clear();
     }
 
     update(uri: string): boolean {
@@ -22,7 +22,7 @@ export default class AstProvider {
             this.delete(uri);
             return false;
         }
-        let status = this._cache.get(uri)!;
+        let status = this.cache_.get(uri)!;
         // this._cache.clear();
         if (!status) {
             status = {
@@ -30,7 +30,7 @@ export default class AstProvider {
                 text,
                 outdated: false,
             };
-            this._cache.set(uri, status);
+            this.cache_.set(uri, status);
         } else {
             status.text = text;
         }
@@ -45,10 +45,10 @@ export default class AstProvider {
     }
 
     resolve(uri: string): AstStatus | undefined {
-        return this._cache.get(uri);
+        return this.cache_.get(uri);
     }
 
     delete(uri: string): boolean {
-        return this._cache.delete(uri);
+        return this.cache_.delete(uri);
     }
 }

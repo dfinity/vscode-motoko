@@ -25,7 +25,7 @@ import { join } from 'path';
 import * as glob from 'fast-glob';
 import { execSync } from 'child_process';
 import * as baseLibrary from 'motoko/packages/latest/base.json';
-import ImportProvider from './importProvider';
+import ImportResolver from './imports';
 import { getText, resolveFilePath, resolveVirtualPath } from './utils';
 
 interface Settings {
@@ -43,18 +43,18 @@ const ignoreGlobs = ['**/node_modules/**/*'];
 // const moFileSet = new Set();
 
 // Set up import suggestions
-const importProvider = new ImportProvider();
+const importResolver = new ImportResolver();
 Object.keys(baseLibrary.files).forEach((path) => {
     if (path.endsWith('.mo')) {
         path = path.slice(0, -'.mo'.length);
         const name = /([a-zA-Z0-9_]+)$/.exec(path)?.[1];
         if (name) {
-            importProvider.set(name, `mo:base/${path}`);
+            importResolver.set(name, `mo:base/${path}`);
         }
     }
 });
 
-// const astProvider = new AstProvider();
+// const astResolver = new AstResolver();
 
 // interface DfxCanister {
 //     type?: string;
@@ -497,10 +497,6 @@ function write(virtualPath: string, content: string) {
 }
 
 connection.onCodeAction((event) => {
-    console.log('Code action');
-
-    console.log(event.context); ////
-
     const results: CodeAction[] = [];
 
     event.context?.diagnostics?.forEach((diagnostic) => {
@@ -509,7 +505,7 @@ connection.onCodeAction((event) => {
             diagnostic.message,
         )?.[1];
         if (name) {
-            importProvider.getImportPaths(name, uri).forEach((path) => {
+            importResolver.getImportPaths(name, uri).forEach((path) => {
                 // Add import suggestion
                 results.push({
                     kind: CodeActionKind.QuickFix,
@@ -559,7 +555,7 @@ connection.onCompletion((event) => {
         if (match) {
             const [, dot, identStart] = match;
             if (!dot) {
-                importProvider.getModuleEntries(uri).forEach(([name, path]) => {
+                importResolver.getModuleEntries(uri).forEach(([name, path]) => {
                     if (name.startsWith(identStart)) {
                         list.items.push({
                             label: name,
