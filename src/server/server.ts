@@ -27,6 +27,7 @@ import { execSync } from 'child_process';
 import * as baseLibrary from 'motoko/packages/latest/base.json';
 import ImportResolver from './imports';
 import { getText, resolveFilePath, resolveVirtualPath } from './utils';
+import DfxResolver from './dfx';
 
 interface Settings {
     motoko: MotokoSettings;
@@ -56,30 +57,20 @@ Object.keys(baseLibrary.files).forEach((path) => {
 
 // const astResolver = new AstResolver();
 
-// interface DfxCanister {
-//     type?: string;
-//     main?: string;
-// }
-
-// interface DfxConfig {
-//     canisters: { [name: string]: DfxCanister };
-// }
-
-// TODO: refactor
-// async function loadPrimaryDfxConfig(): Promise<DfxConfig | undefined> {
-//     if (!workspaceFolders?.length) {
-//         return;
-//     }
-//     const folder = workspaceFolders[0];
-//     // for (const folder of workspaceFolders) {
-//     const basePath = resolveFilePath(folder.uri);
-//     const dfxPath = join(basePath, 'dfx.json');
-//     if (existsSync(dfxPath)) {
-//         return JSON.parse(readFileSync(dfxPath, 'utf8')) as DfxConfig;
-//     }
-//     // }
-//     return;
-// }
+const dfxResolver = new DfxResolver(() => {
+    if (!workspaceFolders?.length) {
+        return;
+    }
+    const folder = workspaceFolders[0];
+    // for (const folder of workspaceFolders) {
+    const basePath = resolveFilePath(folder.uri);
+    const dfxPath = join(basePath, 'dfx.json');
+    if (!existsSync(dfxPath)) {
+        return;
+    }
+    return dfxPath;
+    // }
+});
 
 function getVesselArgs():
     | { workspaceFolder: WorkspaceFolder; args: string[] }
@@ -117,6 +108,9 @@ async function loadPackages() {
     try {
         // Load default base library
         mo.loadPackage(baseLibrary);
+
+        mo.write('abc/lib.mo', '123');
+        mo.usePackage('canister:abc', 'abc');
     } catch (err) {
         console.error(`Error while loading base library: ${err}`);
     }
@@ -241,6 +235,8 @@ connection.onInitialized(() => {
     });
 
     notifyWorkspace();
+
+    // loadPrimaryDfxConfig();
 
     loadPackages()
         .catch((err) => {
