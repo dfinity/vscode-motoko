@@ -21,7 +21,7 @@ import { URI } from 'vscode-uri';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import mo from 'motoko';
 import { existsSync, readFileSync } from 'fs';
-import { join } from 'path';
+import { join, dirname } from 'path';
 import * as glob from 'fast-glob';
 import { execSync } from 'child_process';
 import * as baseLibrary from 'motoko/packages/latest/base.json';
@@ -108,9 +108,6 @@ async function loadPackages() {
     try {
         // Load default base library
         mo.loadPackage(baseLibrary);
-
-        mo.write('abc/lib.mo', '123');
-        mo.usePackage('canister:abc', 'abc');
     } catch (err) {
         console.error(`Error while loading base library: ${err}`);
     }
@@ -133,25 +130,70 @@ async function loadPackages() {
         }
     }
 
-    // try {
-    //     const dfxConfig = await loadDfxConfig();
-    //     if (dfxConfig?.canisters) {
-    //         // Configure actor aliases
-    //         for (const [name, canister] of Object.entries(
-    //             dfxConfig.canisters,
-    //         )) {
-    //             if (
-    //                 (!canister.type || canister.type === 'motoko') &&
-    //                 canister.main
-    //             ) {
-    //                 // aliases[name] = ''// TODO
-    //             }
-    //         }
-    //     }
-    // } catch (err) {
-    //     console.error('Error while loading dfx.json:');
-    //     console.error(err);
-    // }
+    try {
+        const projectDir = await dfxResolver.getProjectDirectory();
+        const dfxConfig = await dfxResolver.getConfig();
+        if (projectDir && dfxConfig) {
+            if (dfxConfig.canisters) {
+                for (const [name, canister] of Object.entries(
+                    dfxConfig.canisters,
+                )) {
+                    try {
+                        const idsPath = join(
+                            projectDir,
+                            '.dfx/local/canister_ids.json',
+                        );
+                        if (existsSync(idsPath)) {
+                            const canisterIds = JSON.parse(
+                                readFileSync(idsPath, 'utf8'),
+                            );
+                            const aliases: Record<string, string> = {};
+                            Object.entries(canisterIds).forEach(
+                                ([name, id]) => {
+                                    const path = join(
+                                        projectDir,
+                                        `.dfx/local/lsp/${id}.did`,
+                                    );
+                                    if (!existsSync(path)) {
+                                        return;
+                                    }
+                                    const uri = URI.file(path).toString();
+                                    aliases[name] = resolveVirtualPath(uri);
+                                },
+                            );
+                            mo.setAliases(aliases);
+                        }
+                    } catch (err) {
+                        console.error(
+                            `Error while resolving canister '${name}': ${err}`,
+                        );
+                    }
+
+                    try {
+                        if (
+                            (!canister.type || canister.type === 'motoko') &&
+                            canister.main
+                        ) {
+                            const uri = URI.file(
+                                dirname(join(projectDir, canister.main)),
+                            ).toString();
+                            mo.usePackage(
+                                `canister:${name}`,
+                                resolveVirtualPath(uri),
+                            );
+                        }
+                    } catch (err) {
+                        console.error(
+                            `Error while adding sibling Motoko canister '${name}' as a package: ${err}`,
+                        );
+                    }
+                }
+            }
+        }
+    } catch (err) {
+        console.error('Error while loading dfx.json:');
+        console.error(err);
+    }
 }
 
 // Create a connection for the language server
