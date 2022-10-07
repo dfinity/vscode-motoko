@@ -17,10 +17,11 @@ type Cached<T> = T | undefined;
 export default class DfxResolver {
     private _path: Cached<string | null>;
     private _cache: Cached<DfxConfig | null>;
-    private _findDfx: () => string | null;
 
-    constructor(findDfx: () => string | null) {
-        this._findDfx = findDfx;
+    private _findPath: () => string | null;
+
+    constructor(findPath: () => string | null) {
+        this._findPath = findPath;
     }
 
     clear() {
@@ -57,14 +58,14 @@ export default class DfxResolver {
      */
     async getConfigPath(): Promise<Cached<string | null>> {
         if (this._path === undefined) {
-            this._path = this._findDfx();
+            this._path = this._findPath();
         }
         return this._path;
     }
 
-    // Directory with `dfx.json`
+    // Directory containing `dfx.json`
     async getProjectDirectory(): Promise<Cached<string | null>> {
-        const path = this.getConfigPath();
+        const path = await this.getConfigPath();
         return typeof path === 'string' ? dirname(path) : path;
     }
 

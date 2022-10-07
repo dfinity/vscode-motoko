@@ -127,7 +127,7 @@
     "dependencies": {
         "fast-glob": "^3.2.11",
         "mnemonist": "^0.39.2",
-        "motoko": "^3.0.0-beta4",
+        "motoko": "^3.0.0-beta5",
         "prettier": "^2.7.1",
         "prettier-plugin-motoko": "^0.2.1",
         "vscode-languageclient": "^8.0.2",

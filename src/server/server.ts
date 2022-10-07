@@ -1,33 +1,34 @@
+import { execSync } from 'child_process';
+import * as glob from 'fast-glob';
+import { existsSync, readFileSync } from 'fs';
+import mo from 'motoko';
+import * as baseLibrary from 'motoko/packages/latest/base.json';
+import { join } from 'path';
+import { TextDocument } from 'vscode-languageserver-textdocument';
 import {
-    createConnection,
-    TextDocuments,
-    InitializeResult,
-    Diagnostic,
-    ProposedFeatures,
-    TextDocumentPositionParams,
-    Location,
-    SignatureHelp,
-    TextDocumentSyncKind,
-    WorkspaceFolder,
-    FileChangeType,
-    DiagnosticSeverity,
     CodeAction,
     CodeActionKind,
-    TextEdit,
-    Position,
     CompletionList,
+    createConnection,
+    Diagnostic,
+    DiagnosticSeverity,
+    FileChangeType,
+    InitializeResult,
+    Location,
+    Position,
+    ProposedFeatures,
+    SignatureHelp,
+    TextDocumentPositionParams,
+    TextDocuments,
+    TextDocumentSyncKind,
+    TextEdit,
+    WorkspaceFolder,
 } from 'vscode-languageserver/node';
 import { URI } from 'vscode-uri';
-import { TextDocument } from 'vscode-languageserver-textdocument';
-import mo from 'motoko';
-import { existsSync, readFileSync } from 'fs';
-import { join, dirname } from 'path';
-import * as glob from 'fast-glob';
-import { execSync } from 'child_process';
-import * as baseLibrary from 'motoko/packages/latest/base.json';
+import { watchGlob as virtualFilePattern } from '../common/watchConfig';
+import DfxResolver from './dfx';
 import ImportResolver from './imports';
 import { getText, resolveFilePath, resolveVirtualPath } from './utils';
-import DfxResolver from './dfx';
 
 interface Settings {
     motoko: MotokoSettings;
@@ -135,58 +136,65 @@ async function loadPackages() {
         const dfxConfig = await dfxResolver.getConfig();
         if (projectDir && dfxConfig) {
             if (dfxConfig.canisters) {
-                for (const [name, canister] of Object.entries(
+                try {
+                    const idsPath = join(
+                        projectDir,
+                        '.dfx/local/canister_ids.json',
+                    );
+                    console.log('!!!', idsPath, existsSync(idsPath)); ///
+                    if (existsSync(idsPath)) {
+                        const canisterIds = JSON.parse(
+                            readFileSync(idsPath, 'utf8'),
+                        );
+                        const aliases: Record<string, string> = {};
+                        Object.entries(canisterIds).forEach(
+                            ([name, ids]: [string, any]) => {
+                                if ('local' in ids) {
+                                    // const path = join(
+                                    //     projectDir,
+                                    //     `.dfx/local/lsp/${ids.local}.did`,
+                                    // );
+                                    // console.log(name, ids.local, existsSync(path)); ///////
+                                    // if (!existsSync(path)) {
+                                    //     return;
+                                    // }
+                                    // const uri = URI.file(path).toString();
+                                    // aliases[name] = resolveVirtualPath(uri);
+                                    aliases[name] = ids.local;
+                                }
+                            },
+                        );
+                        const path = join(projectDir, `.dfx/local/lsp`);
+                        const uri = URI.file(path).toString();
+                        mo.setAliases(resolveVirtualPath(uri), aliases);
+                    }
+                } catch (err) {
+                    console.error(
+                        `Error while resolving canister aliases: ${err}`,
+                    );
+                }
+
+                for (const [_name, _canister] of Object.entries(
                     dfxConfig.canisters,
                 )) {
-                    try {
-                        const idsPath = join(
-                            projectDir,
-                            '.dfx/local/canister_ids.json',
-                        );
-                        if (existsSync(idsPath)) {
-                            const canisterIds = JSON.parse(
-                                readFileSync(idsPath, 'utf8'),
-                            );
-                            const aliases: Record<string, string> = {};
-                            Object.entries(canisterIds).forEach(
-                                ([name, id]) => {
-                                    const path = join(
-                                        projectDir,
-                                        `.dfx/local/lsp/${id}.did`,
-                                    );
-                                    if (!existsSync(path)) {
-                                        return;
-                                    }
-                                    const uri = URI.file(path).toString();
-                                    aliases[name] = resolveVirtualPath(uri);
-                                },
-                            );
-                            mo.setAliases(aliases);
-                        }
-                    } catch (err) {
-                        console.error(
-                            `Error while resolving canister '${name}': ${err}`,
-                        );
-                    }
-
-                    try {
-                        if (
-                            (!canister.type || canister.type === 'motoko') &&
-                            canister.main
-                        ) {
-                            const uri = URI.file(
-                                dirname(join(projectDir, canister.main)),
-                            ).toString();
-                            mo.usePackage(
-                                `canister:${name}`,
-                                resolveVirtualPath(uri),
-                            );
-                        }
-                    } catch (err) {
-                        console.error(
-                            `Error while adding sibling Motoko canister '${name}' as a package: ${err}`,
-                        );
-                    }
+                    // try {
+                    //     if (
+                    //         (!canister.type || canister.type === 'motoko') &&
+                    //         canister.main
+                    //     ) {
+                    //         const uri = URI.file(
+                    //             dirname(join(projectDir, canister.main)),
+                    //         ).toString();
+                    //         mo.usePackage(
+                    //             `canister:${name}`,
+                    //             resolveVirtualPath(uri),
+                    //         );
+                    //     }
+                    // } catch (err) {
+                    //     console.error(
+                    //         `Error while adding sibling Motoko canister '${name}' as a package: ${err}`,
+                    //     );
+                    // }
                 }
             }
         }
@@ -206,6 +214,8 @@ const forwardMessage =
             try {
                 return typeof value === 'string'
                     ? value
+                    : value instanceof Promise
+                    ? `<Promise>`
                     : JSON.stringify(value);
             } catch (err) {
                 return `<${err}>`;
@@ -328,7 +338,7 @@ function notifyWorkspace() {
     }
     workspaceFolders.forEach((folder) => {
         const folderPath = resolveFilePath(folder.uri);
-        glob.sync('**/*.mo', {
+        glob.sync(virtualFilePattern, {
             cwd: folderPath,
             dot: true,
         }).forEach((relativePath) => {

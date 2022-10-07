@@ -19,6 +19,7 @@ import {
     TransportKind,
 } from 'vscode-languageclient/node';
 import { formatDocument } from './formatter';
+import { watchGlob } from './common/watchConfig';
 
 const config = workspace.getConfiguration('motoko');
 
@@ -145,7 +146,7 @@ function launchClient(context: ExtensionContext, serverOptions: ServerOptions) {
             // Synchronize the setting section 'motoko' to the server
             configurationSection: 'motoko',
             // Notify the server about external changes to `.mo` workspace files
-            fileEvents: workspace.createFileSystemWatcher('**/*.mo'),
+            fileEvents: workspace.createFileSystemWatcher(watchGlob),
         },
     };
     client = new LanguageClient(
