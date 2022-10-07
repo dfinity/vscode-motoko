@@ -11,9 +11,9 @@ interface DfxConfig {
 
 export default class DfxResolver {
     private _cache: DfxConfig | undefined | null;
-    private _findDfx: () => string | undefined;
+    private _findDfx: () => string | null;
 
-    constructor(findDfx: () => string | undefined) {
+    constructor(findDfx: () => string | null) {
         this._findDfx = findDfx;
     }
 
@@ -21,7 +21,7 @@ export default class DfxResolver {
         this._cache = undefined;
     }
 
-    readConfigFile(filePath: string | undefined): DfxConfig | undefined | null {
+    readConfigFile(filePath: string | null): DfxConfig | undefined | null {
         if (!filePath) {
             return null;
         }

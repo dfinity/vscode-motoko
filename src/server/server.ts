@@ -59,16 +59,16 @@ Object.keys(baseLibrary.files).forEach((path) => {
 
 const dfxResolver = new DfxResolver(() => {
     if (!workspaceFolders?.length) {
-        return;
+        return null;
     }
     const folder = workspaceFolders[0];
     // for (const folder of workspaceFolders) {
     const basePath = resolveFilePath(folder.uri);
     const dfxPath = join(basePath, 'dfx.json');
-    if (!existsSync(dfxPath)) {
-        return;
+    if (existsSync(dfxPath)) {
+        return dfxPath;
     }
-    return dfxPath;
+    return null;
     // }
 });
 
