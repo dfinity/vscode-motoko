@@ -9,7 +9,7 @@ export interface AstStatus {
     outdated: boolean;
 }
 
-export default class AstProvider {
+export default class AstResolver {
     private _cache = new Map<string, AstStatus>();
 
     clear() {
@@ -17,7 +17,7 @@ export default class AstProvider {
     }
 
     update(uri: string): boolean {
-        let text = tryGetText(uri);
+        const text = tryGetText(uri);
         if (!text) {
             this.delete(uri);
             return false;

@@ -1,31 +1,33 @@
+import { execSync } from 'child_process';
+import * as glob from 'fast-glob';
+import { existsSync, readFileSync } from 'fs';
+import mo from 'motoko';
+import * as baseLibrary from 'motoko/packages/latest/base.json';
+import { join } from 'path';
+import { TextDocument } from 'vscode-languageserver-textdocument';
 import {
-    createConnection,
-    TextDocuments,
-    InitializeResult,
-    Diagnostic,
-    ProposedFeatures,
-    TextDocumentPositionParams,
-    Location,
-    SignatureHelp,
-    TextDocumentSyncKind,
-    WorkspaceFolder,
-    FileChangeType,
-    DiagnosticSeverity,
     CodeAction,
     CodeActionKind,
-    TextEdit,
-    Position,
     CompletionList,
+    createConnection,
+    Diagnostic,
+    DiagnosticSeverity,
+    FileChangeType,
+    InitializeResult,
+    Location,
+    Position,
+    ProposedFeatures,
+    SignatureHelp,
+    TextDocumentPositionParams,
+    TextDocuments,
+    TextDocumentSyncKind,
+    TextEdit,
+    WorkspaceFolder,
 } from 'vscode-languageserver/node';
 import { URI } from 'vscode-uri';
-import { TextDocument } from 'vscode-languageserver-textdocument';
-import mo from 'motoko';
-import { existsSync, readFileSync } from 'fs';
-import { join } from 'path';
-import * as glob from 'fast-glob';
-import { execSync } from 'child_process';
-import * as baseLibrary from 'motoko/packages/latest/base.json';
-import ImportProvider from './importProvider';
+import { watchGlob as virtualFilePattern } from '../common/watchConfig';
+import DfxResolver from './dfx';
+import ImportResolver from './imports';
 import { getText, resolveFilePath, resolveVirtualPath } from './utils';
 
 interface Settings {
@@ -43,43 +45,18 @@ const ignoreGlobs = ['**/node_modules/**/*'];
 // const moFileSet = new Set();
 
 // Set up import suggestions
-const importProvider = new ImportProvider();
+const importResolver = new ImportResolver();
 Object.keys(baseLibrary.files).forEach((path) => {
     if (path.endsWith('.mo')) {
         path = path.slice(0, -'.mo'.length);
         const name = /([a-zA-Z0-9_]+)$/.exec(path)?.[1];
         if (name) {
-            importProvider.set(name, `mo:base/${path}`);
+            importResolver.set(name, `mo:base/${path}`);
         }
     }
 });
 
-// const astProvider = new AstProvider();
-
-// interface DfxCanister {
-//     type?: string;
-//     main?: string;
-// }
-
-// interface DfxConfig {
-//     canisters: { [name: string]: DfxCanister };
-// }
-
-// TODO: refactor
-// async function loadPrimaryDfxConfig(): Promise<DfxConfig | undefined> {
-//     if (!workspaceFolders?.length) {
-//         return;
-//     }
-//     const folder = workspaceFolders[0];
-//     // for (const folder of workspaceFolders) {
-//     const basePath = resolveFilePath(folder.uri);
-//     const dfxPath = join(basePath, 'dfx.json');
-//     if (existsSync(dfxPath)) {
-//         return JSON.parse(readFileSync(dfxPath, 'utf8')) as DfxConfig;
-//     }
-//     // }
-//     return;
-// }
+// const astResolver = new AstResolver();
 
 function getVesselArgs():
     | { workspaceFolder: WorkspaceFolder; args: string[] }
@@ -139,25 +116,95 @@ async function loadPackages() {
         }
     }
 
-    // try {
-    //     const dfxConfig = await loadDfxConfig();
-    //     if (dfxConfig?.canisters) {
-    //         // Configure actor aliases
-    //         for (const [name, canister] of Object.entries(
-    //             dfxConfig.canisters,
-    //         )) {
-    //             if (
-    //                 (!canister.type || canister.type === 'motoko') &&
-    //                 canister.main
-    //             ) {
-    //                 // aliases[name] = ''// TODO
-    //             }
-    //         }
-    //     }
-    // } catch (err) {
-    //     console.error('Error while loading dfx.json:');
-    //     console.error(err);
-    // }
+    notifyDfxChange();
+}
+
+let dfxChangeTimeout: ReturnType<typeof setTimeout>;
+function notifyDfxChange() {
+    clearTimeout(dfxChangeTimeout);
+    setTimeout(async () => {
+        const dfxResolver = new DfxResolver(() => {
+            if (!workspaceFolders?.length) {
+                return null;
+            }
+            const folder = workspaceFolders[0];
+            // for (const folder of workspaceFolders) {
+            const basePath = resolveFilePath(folder.uri);
+            const dfxPath = join(basePath, 'dfx.json');
+            if (existsSync(dfxPath)) {
+                return dfxPath;
+            }
+            return null;
+            // }
+        });
+
+        try {
+            const projectDir = await dfxResolver.getProjectDirectory();
+            const dfxConfig = await dfxResolver.getConfig();
+            if (projectDir && dfxConfig) {
+                if (dfxConfig.canisters) {
+                    try {
+                        const idsPath = join(
+                            projectDir,
+                            '.dfx/local/canister_ids.json',
+                        );
+                        if (existsSync(idsPath)) {
+                            const canisterIds = JSON.parse(
+                                readFileSync(idsPath, 'utf8'),
+                            );
+                            const aliases: Record<string, string> = {};
+                            Object.entries(canisterIds).forEach(
+                                ([name, ids]: [string, any]) => {
+                                    const keys = Object.keys(ids);
+                                    // Choose the only principal (or 'local' if multiple are defined)
+                                    const key =
+                                        keys.length === 1 ? keys[0] : 'local';
+                                    if (key && key in ids) {
+                                        aliases[name] = ids[key];
+                                    }
+                                },
+                            );
+                            const path = join(projectDir, `.dfx/local/lsp`);
+                            const uri = URI.file(path).toString();
+                            mo.setAliases(resolveVirtualPath(uri), aliases);
+                        }
+                    } catch (err) {
+                        console.error(
+                            `Error while resolving canister aliases: ${err}`,
+                        );
+                    }
+
+                    for (const [_name, _canister] of Object.entries(
+                        dfxConfig.canisters,
+                    )) {
+                        // try {
+                        //     if (
+                        //         (!canister.type || canister.type === 'motoko') &&
+                        //         canister.main
+                        //     ) {
+                        //         const uri = URI.file(
+                        //             dirname(join(projectDir, canister.main)),
+                        //         ).toString();
+                        //         mo.usePackage(
+                        //             `canister:${name}`,
+                        //             resolveVirtualPath(uri),
+                        //         );
+                        //     }
+                        // } catch (err) {
+                        //     console.error(
+                        //         `Error while adding sibling Motoko canister '${name}' as a package: ${err}`,
+                        //     );
+                        // }
+                    }
+                }
+            }
+        } catch (err) {
+            console.error('Error while loading dfx.json:');
+            console.error(err);
+        }
+
+        checkWorkspace();
+    }, 100);
 }
 
 // Create a connection for the language server
@@ -170,6 +217,8 @@ const forwardMessage =
             try {
                 return typeof value === 'string'
                     ? value
+                    : value instanceof Promise
+                    ? `<Promise>`
                     : JSON.stringify(value);
             } catch (err) {
                 return `<${err}>`;
@@ -197,7 +246,7 @@ connection.onInitialize((event): InitializeResult => {
             completionProvider: {
                 resolveProvider: false,
                 triggerCharacters: ['.'],
-                allCommitCharacters: ['.'], ///
+                // allCommitCharacters: ['.'],
             },
             // definitionProvider: true,
             codeActionProvider: true,
@@ -242,12 +291,12 @@ connection.onInitialized(() => {
 
     notifyWorkspace();
 
-    loadPackages()
-        .catch((err) => {
-            console.error('Error while loading Motoko packages:');
-            console.error(err);
-        })
-        .then(() => checkWorkspace());
+    // loadPrimaryDfxConfig();
+
+    loadPackages().catch((err) => {
+        console.error('Error while loading Motoko packages:');
+        console.error(err);
+    });
 });
 
 connection.onDidChangeWatchedFiles((event) => {
@@ -266,9 +315,11 @@ connection.onDidChangeWatchedFiles((event) => {
                 notify(change.uri);
                 // check(change.uri);
             }
+            if (change.uri.endsWith('.did')) {
+                notifyDfxChange();
+            }
         } catch (err) {
-            console.error('Error while handling Motoko file change:');
-            console.error(err);
+            console.error(`Error while handling Motoko file change: ${err}`);
         }
     });
 
@@ -279,6 +330,7 @@ connection.onDidChangeWatchedFiles((event) => {
 connection.onDidChangeConfiguration((event) => {
     settings = (<Settings>event.settings).motoko;
     checkWorkspace();
+    notifyDfxChange();
 });
 
 /**
@@ -290,7 +342,7 @@ function notifyWorkspace() {
     }
     workspaceFolders.forEach((folder) => {
         const folderPath = resolveFilePath(folder.uri);
-        glob.sync('**/*.mo', {
+        glob.sync(virtualFilePattern, {
             cwd: folderPath,
             dot: true,
         }).forEach((relativePath) => {
@@ -497,10 +549,6 @@ function write(virtualPath: string, content: string) {
 }
 
 connection.onCodeAction((event) => {
-    console.log('Code action');
-
-    console.log(event.context); ////
-
     const results: CodeAction[] = [];
 
     event.context?.diagnostics?.forEach((diagnostic) => {
@@ -509,7 +557,7 @@ connection.onCodeAction((event) => {
             diagnostic.message,
         )?.[1];
         if (name) {
-            importProvider.getImportPaths(name, uri).forEach((path) => {
+            importResolver.getImportPaths(name, uri).forEach((path) => {
                 // Add import suggestion
                 results.push({
                     kind: CodeActionKind.QuickFix,
@@ -559,7 +607,7 @@ connection.onCompletion((event) => {
         if (match) {
             const [, dot, identStart] = match;
             if (!dot) {
-                importProvider.getModuleEntries(uri).forEach(([name, path]) => {
+                importResolver.getModuleEntries(uri).forEach(([name, path]) => {
                     if (name.startsWith(identStart)) {
                         list.items.push({
                             label: name,
