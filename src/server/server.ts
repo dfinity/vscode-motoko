@@ -8,6 +8,7 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import {
     CodeAction,
     CodeActionKind,
+    CompletionItemKind,
     CompletionList,
     createConnection,
     Diagnostic,
@@ -26,10 +27,16 @@ import {
 } from 'vscode-languageserver/node';
 import { URI } from 'vscode-uri';
 import { watchGlob as virtualFilePattern } from '../common/watchConfig';
+import AstResolver from './ast';
 import DfxResolver from './dfx';
 import ImportResolver from './imports';
 import { fromAST, Program } from './program';
-import { getText, resolveFilePath, resolveVirtualPath } from './utils';
+import {
+    getRelativeUri,
+    getText,
+    resolveFilePath,
+    resolveVirtualPath,
+} from './utils';
 
 interface Settings {
     motoko: MotokoSettings;
@@ -47,17 +54,20 @@ const ignoreGlobs = ['**/node_modules/**/*'];
 
 // Set up import suggestions
 const importResolver = new ImportResolver();
-Object.keys(baseLibrary.files).forEach((path) => {
-    if (path.endsWith('.mo')) {
-        path = path.slice(0, -'.mo'.length);
-        const name = /([a-zA-Z0-9_]+)$/.exec(path)?.[1];
-        if (name) {
-            importResolver.addModule(name, `mo:base/${path}`);
-        }
-    }
-});
+Object.entries(baseLibrary.files).forEach(
+    ([path, { content }]: [string, { content: string }]) => {
+        // if (path.endsWith('.mo')) {
+        //     path = path.slice(0, -'.mo'.length);
+        //     const name = /([a-z_][a-z0-9_]*)$/i.exec(path)?.[1];
+        //     if (name) {
+        //         importResolver.addName(name, `mo:base/${path}`);
+        //     }
+        // }
+        notifyWriteUri(`mo:base/${path}`, content);
+    },
+);
 
-// const astResolver = new AstResolver();
+const astResolver = new AstResolver();
 
 function getVesselArgs():
     | { workspaceFolder: WorkspaceFolder; args: string[] }
@@ -307,7 +317,7 @@ connection.onDidChangeWatchedFiles((event) => {
                 // moFileSet.delete(change.uri);
                 const path = resolveVirtualPath(change.uri);
                 deleteVirtual(path);
-                notifyDeleteURI(change.uri);
+                notifyDeleteUri(change.uri);
                 connection.sendDiagnostics({
                     uri: change.uri,
                     diagnostics: [],
@@ -360,7 +370,7 @@ function notifyWorkspace() {
                 const uri = URI.file(
                     resolveFilePath(folder.uri, relativePath),
                 ).toString();
-                notifyWriteURI(uri, content);
+                notifyWriteUri(uri, content);
                 // moFileSet.add(uri);
             } catch (err) {
                 console.error(`Error while adding Motoko file ${path}:`);
@@ -449,13 +459,13 @@ function notify(uri: string | TextDocument): boolean {
             const virtualPath = resolveVirtualPath(document.uri);
             const content = document.getText();
             writeVirtual(virtualPath, content);
-            notifyWriteURI(document.uri, content);
+            notifyWriteUri(document.uri, content);
         } else if (typeof uri === 'string') {
             const virtualPath = resolveVirtualPath(uri);
             const filePath = resolveFilePath(uri);
             const content = readFileSync(filePath, 'utf8');
             writeVirtual(virtualPath, content);
-            notifyWriteURI(uri, content);
+            notifyWriteUri(uri, content);
         }
     } catch (err) {
         console.error(`Error while updating Motoko file: ${err}`);
@@ -549,10 +559,11 @@ function check(uri: string | TextDocument): boolean {
     return false;
 }
 
-function notifyWriteURI(uri: string, content: string) {
+function notifyWriteUri(uri: string, _content: string) {
     if (uri.endsWith('.mo')) {
         uri = uri.slice(0, -'.mo'.length);
 
+        // TODO: only use top-level `.vessel` directory
         const match = /\.vessel\/([^/]+)\/[^/]+\/src\/(.+)/.exec(uri);
         if (match) {
             // Resolve `mo:` URI for Vessel packages
@@ -563,23 +574,25 @@ function notifyWriteURI(uri: string, content: string) {
             return;
         }
 
-        const name = /([a-z_][a-z0-9_]+)$/i.exec(uri)?.[1];
+        const name = /([a-z_][a-z0-9_]*)$/i.exec(uri)?.[1];
         if (name) {
-            importResolver.addModule(name, uri);
+            importResolver.addName(name, uri);
         }
 
-        try {
-            const ast = mo.parseMotoko(content);
-            const program = fromAST(ast) as Program;
-            console.log(program.imports.map((i) => [i.name, i.fields, i.path])); ////
-        } catch (err) {
-            console.error(`Error while parsing (${uri}): ${err}`);
-        }
+        // setTimeout(() => {
+        //     try {
+        //         const ast = mo.parseMotoko(content);
+        //         const program = fromAST(ast) as Program;
+        //     } catch (err) {
+        //         console.error(`Error while parsing (${uri}): ${err}`);
+        //     }
+        // }, 0);
     }
 }
 
-function notifyDeleteURI(uri: string) {
+function notifyDeleteUri(uri: string) {
     importResolver.delete(uri);
+    astResolver.delete(uri);
 }
 
 function writeVirtual(path: string, content: string) {
@@ -651,12 +664,15 @@ connection.onCompletion((event) => {
             ?.slice(1) ?? ['', ''];
 
         if (!dot) {
-            importResolver.getModuleEntries(uri).forEach(([name, path]) => {
+            importResolver.getNameEntries(uri).forEach(([name, path]) => {
                 if (name.startsWith(identStart)) {
                     list.items.push({
                         label: name,
-                        detail: path,
+                        detail: getRelativeUri(uri, path),
                         insertText: name,
+                        kind: path.startsWith('mo:')
+                            ? CompletionItemKind.Module
+                            : CompletionItemKind.Class, // TODO: resolve actors, classes, etc.
                         // additionalTextEdits: import
                     });
                 }

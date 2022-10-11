@@ -40,3 +40,7 @@ export function tryGetText(uri: string): string | null {
         return null;
     }
 }
+
+export function getRelativeUri(from: string, to: string) {
+    return require('url-relative')(from, to);
+}

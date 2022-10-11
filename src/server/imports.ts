@@ -7,7 +7,7 @@ export default class ImportResolver {
         this.moduleMap_.clear();
     }
 
-    addModule(name: string, uri: string) {
+    addName(name: string, uri: string) {
         this.moduleMap_.set(name, uri);
     }
 
@@ -27,7 +27,7 @@ export default class ImportResolver {
      * Finds all available module-level imports.
      * @returns Array of `[name, path]` entries
      */
-    getModuleEntries(_uri: string): [string, string][] {
+    getNameEntries(_uri: string): [string, string][] {
         return [...this.moduleMap_.entries()];
     }
 
