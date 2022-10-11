@@ -646,10 +646,9 @@ connection.onCompletion((event) => {
         const text = getText(uri);
         const lines = text.split(/\r?\n/g);
 
-        const [, dot, identStart]: RegExpExecArray | [any, string, string] =
-            /(\s*\.\s*)?([a-zA-Z_][a-zA-Z0-9_]*)$/.exec(
-                lines[position.line].substring(0, position.character),
-            ) || [null, '', ''];
+        const [dot, identStart] = /(\s*\.\s*)?([a-zA-Z_][a-zA-Z0-9_]*)$/
+            .exec(lines[position.line].substring(0, position.character))
+            ?.slice(1) ?? ['', ''];
 
         if (!dot) {
             importResolver.getModuleEntries(uri).forEach(([name, path]) => {
