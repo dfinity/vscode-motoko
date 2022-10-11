@@ -24,19 +24,20 @@ import {
     TextDocuments,
     TextDocumentSyncKind,
     TextEdit,
-    WorkspaceFolder,
+    WorkspaceFolder
 } from 'vscode-languageserver/node';
 import { URI } from 'vscode-uri';
 import { watchGlob as virtualFilePattern } from '../common/watchConfig';
 import AstResolver from './ast';
 import DfxResolver from './dfx';
 import ImportResolver from './imports';
+import { getAstInformation } from './information';
 import { findMostSpecificNode } from './program';
 import {
     getRelativeUri,
     getText,
     resolveFilePath,
-    resolveVirtualPath,
+    resolveVirtualPath
 } from './utils';
 
 interface Settings {
@@ -738,13 +739,18 @@ connection.onHover((event) => {
             value: node.type as any as string /* temp */,
         });
     }
+    const source = startLine.substring(
+        node.start[1],
+        node.start[0] === node.end[0] ? node.end[1] : startLine.length,
+    );
     contents.push({
         language: 'motoko',
-        value: startLine.substring(
-            node.start[1],
-            node.start[0] === node.end[0] ? node.end[1] : startLine.length,
-        ),
+        value: source,
     });
+    const info = getAstInformation(node, source);
+    if (info) {
+        contents.push(info);
+    }
     return {
         contents: contents,
     };
