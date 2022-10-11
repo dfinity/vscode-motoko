@@ -8,6 +8,7 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import {
     CodeAction,
     CodeActionKind,
+    CompletionItemKind,
     CompletionList,
     createConnection,
     Diagnostic,
@@ -15,6 +16,7 @@ import {
     FileChangeType,
     InitializeResult,
     Location,
+    MarkedString,
     Position,
     ProposedFeatures,
     SignatureHelp,
@@ -22,13 +24,21 @@ import {
     TextDocuments,
     TextDocumentSyncKind,
     TextEdit,
-    WorkspaceFolder,
+    WorkspaceFolder
 } from 'vscode-languageserver/node';
 import { URI } from 'vscode-uri';
 import { watchGlob as virtualFilePattern } from '../common/watchConfig';
+import AstResolver from './ast';
 import DfxResolver from './dfx';
 import ImportResolver from './imports';
-import { getText, resolveFilePath, resolveVirtualPath } from './utils';
+import { getAstInformation } from './information';
+import { findMostSpecificNode } from './program';
+import {
+    getRelativeUri,
+    getText,
+    resolveFilePath,
+    resolveVirtualPath
+} from './utils';
 
 interface Settings {
     motoko: MotokoSettings;
@@ -46,17 +56,13 @@ const ignoreGlobs = ['**/node_modules/**/*'];
 
 // Set up import suggestions
 const importResolver = new ImportResolver();
-Object.keys(baseLibrary.files).forEach((path) => {
-    if (path.endsWith('.mo')) {
-        path = path.slice(0, -'.mo'.length);
-        const name = /([a-zA-Z0-9_]+)$/.exec(path)?.[1];
-        if (name) {
-            importResolver.set(name, `mo:base/${path}`);
-        }
-    }
-});
+Object.entries(baseLibrary.files).forEach(
+    ([path, { content }]: [string, { content: string }]) => {
+        notifyWriteUri(`mo:base/${path}`, content);
+    },
+);
 
-// const astResolver = new AstResolver();
+const astResolver = new AstResolver();
 
 function getVesselArgs():
     | { workspaceFolder: WorkspaceFolder; args: string[] }
@@ -249,9 +255,9 @@ connection.onInitialize((event): InitializeResult => {
                 // allCommitCharacters: ['.'],
             },
             // definitionProvider: true,
-            codeActionProvider: true,
+            // codeActionProvider: true,
             // declarationProvider: true,
-            // hoverProvider: true,
+            hoverProvider: true,
             // diagnosticProvider: {
             //     documentSelector: ['motoko'],
             //     interFileDependencies: true,
@@ -305,7 +311,8 @@ connection.onDidChangeWatchedFiles((event) => {
             if (change.type === FileChangeType.Deleted) {
                 // moFileSet.delete(change.uri);
                 const path = resolveVirtualPath(change.uri);
-                mo.delete(path);
+                deleteVirtual(path);
+                notifyDeleteUri(change.uri);
                 connection.sendDiagnostics({
                     uri: change.uri,
                     diagnostics: [],
@@ -353,10 +360,12 @@ function notifyWorkspace() {
                     relativePath,
                 );
                 console.log('*', virtualPath);
-                write(virtualPath, readFileSync(path, 'utf8'));
-                // const uri = URI.file(
-                //     resolveFilePath(folder.uri, relativePath),
-                // );
+                const content = readFileSync(path, 'utf8');
+                writeVirtual(virtualPath, content);
+                const uri = URI.file(
+                    resolveFilePath(folder.uri, relativePath),
+                ).toString();
+                notifyWriteUri(uri, content);
                 // moFileSet.add(uri);
             } catch (err) {
                 console.error(`Error while adding Motoko file ${path}:`);
@@ -443,11 +452,15 @@ function notify(uri: string | TextDocument): boolean {
         const document = typeof uri === 'string' ? documents.get(uri) : uri;
         if (document) {
             const virtualPath = resolveVirtualPath(document.uri);
-            write(virtualPath, document.getText());
+            const content = document.getText();
+            writeVirtual(virtualPath, content);
+            notifyWriteUri(document.uri, content);
         } else if (typeof uri === 'string') {
             const virtualPath = resolveVirtualPath(uri);
             const filePath = resolveFilePath(uri);
-            write(virtualPath, readFileSync(filePath, 'utf8'));
+            const content = readFileSync(filePath, 'utf8');
+            writeVirtual(virtualPath, content);
+            notifyWriteUri(uri, content);
         }
     } catch (err) {
         console.error(`Error while updating Motoko file: ${err}`);
@@ -541,11 +554,52 @@ function check(uri: string | TextDocument): boolean {
     return false;
 }
 
-function write(virtualPath: string, content: string) {
+function notifyWriteUri(uri: string, _content: string) {
+    if (uri.endsWith('.mo')) {
+        uri = uri.slice(0, -'.mo'.length);
+
+        // TODO: only use top-level `.vessel` directory
+        const match = /\.vessel\/([^/]+)\/[^/]+\/src\/(.+)/.exec(uri);
+        if (match) {
+            // Resolve `mo:` URI for Vessel packages
+            const [, pkgName, path] = match;
+            uri = `mo:${pkgName}/${path}`;
+        } else if (/\.vessel\//.test(uri)) {
+            // Ignore everything else in `.vessel`
+            return;
+        }
+
+        const name = /([a-z_][a-z0-9_]*)$/i.exec(uri)?.[1];
+        if (name) {
+            importResolver.addName(name, uri);
+        }
+
+        // setTimeout(() => {
+        //     try {
+        //         const ast = mo.parseMotoko(content);
+        //         const program = fromAST(ast);
+        //         if (program instanceof Program) {}
+        //     } catch (err) {
+        //         console.error(`Error while parsing (${uri}): ${err}`);
+        //     }
+        // }, 0);
+    }
+}
+
+function notifyDeleteUri(uri: string) {
+    importResolver.delete(uri);
+    astResolver.delete(uri);
+}
+
+function writeVirtual(path: string, content: string) {
     // if (virtualPath.endsWith('.mo')) {
     //     content = preprocessMotoko(content);
     // }
-    mo.write(virtualPath, content);
+    mo.write(path, content);
+}
+
+function deleteVirtual(path: string) {
+    mo.delete(path);
 }
 
 connection.onCodeAction((event) => {
@@ -580,13 +634,11 @@ connection.onCodeAction((event) => {
     return results;
 });
 
-connection.onCodeActionResolve((action) => {
-    console.log('Code action resolve');
-
-    console.log(action.data);
-
-    return action;
-});
+// connection.onCodeActionResolve((action) => {
+//     console.log('Code action resolve');
+//     console.log(action.data);
+//     return action;
+// });
 
 connection.onSignatureHelp((): SignatureHelp | null => {
     return null;
@@ -601,50 +653,51 @@ connection.onCompletion((event) => {
         const text = getText(uri);
         const lines = text.split(/\r?\n/g);
 
-        const match = /(\s*\.\s*)?([a-zA-Z_][a-zA-Z0-9_]*)$/.exec(
-            lines[position.line].substring(0, position.character),
-        );
-        if (match) {
-            const [, dot, identStart] = match;
-            if (!dot) {
-                importResolver.getModuleEntries(uri).forEach(([name, path]) => {
-                    if (name.startsWith(identStart)) {
-                        list.items.push({
-                            label: name,
-                            detail: path,
-                            insertText: name,
-                            // additionalTextEdits: import
-                        });
-                    }
-                });
-            } else {
-                // const preMatch = /(\s*\.\s*)?([a-zA-Z_][a-zA-Z0-9_]*)$/.exec(
-                //     lines[position.line].substring(
-                //         0,
-                //         position.character - dot.length - identStart.length,
-                //     ),
-                // );
-                // if (preMatch) {
-                //     const [, preDot, preIdent] = preMatch;
-                //     if (!preDot) {
-                //         importProvider
-                //             .getFieldEntries()
-                //             .forEach(([name, field, path]) => {
-                //                 if (
-                //                     name === preIdent &&
-                //                     field.startsWith(identStart)
-                //                 ) {
-                //                     list.items.push({
-                //                         label: name,
-                //                         detail: path,
-                //                         insertText: name,
-                //                         // additionalTextEdits: import
-                //                     });
-                //                 }
-                //             });
-                //     }
-                // }
-            }
+        const [dot, identStart] = /(\s*\.\s*)?([a-zA-Z_][a-zA-Z0-9_]*)$/
+            .exec(lines[position.line].substring(0, position.character))
+            ?.slice(1) ?? ['', ''];
+
+        if (!dot) {
+            importResolver.getNameEntries(uri).forEach(([name, path]) => {
+                if (name.startsWith(identStart)) {
+                    list.items.push({
+                        label: name,
+                        detail: getRelativeUri(uri, path),
+                        insertText: name,
+                        kind: path.startsWith('mo:')
+                            ? CompletionItemKind.Module
+                            : CompletionItemKind.Class, // TODO: resolve actors, classes, etc.
+                        // additionalTextEdits: import
+                    });
+                }
+            });
+        } else {
+            // const preMatch = /(\s*\.\s*)?([a-zA-Z_][a-zA-Z0-9_]*)$/.exec(
+            //     lines[position.line].substring(
+            //         0,
+            //         position.character - dot.length - identStart.length,
+            //     ),
+            // );
+            // if (preMatch) {
+            //     const [, preDot, preIdent] = preMatch;
+            //     if (!preDot) {
+            //         importProvider
+            //             .getFieldEntries()
+            //             .forEach(([name, field, path]) => {
+            //                 if (
+            //                     name === preIdent &&
+            //                     field.startsWith(identStart)
+            //                 ) {
+            //                     list.items.push({
+            //                         label: name,
+            //                         detail: path,
+            //                         insertText: name,
+            //                         // additionalTextEdits: import
+            //                     });
+            //                 }
+            //             });
+            //     }
+            // }
         }
     } catch (err) {
         console.error('Error during autocompletion:');
@@ -653,8 +706,55 @@ connection.onCompletion((event) => {
     return list;
 });
 
-// connection.onCompletionResolve((item) => {
-// });
+connection.onHover((event) => {
+    const { position } = event;
+    const { uri } = event.textDocument;
+    const status = astResolver.request(uri);
+    if (!status?.ast) {
+        return;
+    }
+    const node = findMostSpecificNode(
+        status.ast,
+        (node) =>
+            node.start &&
+            node.end &&
+            node.start[0] - 1 <= position.line &&
+            node.end[0] - 1 >= position.line &&
+            node.start[1] <= position.character &&
+            node.end[1] >= position.character,
+    );
+    if (!node || !node.start || !node.end) {
+        return;
+    }
+
+    const text = getText(uri);
+    const lines = text.split(/\r?\n/g);
+
+    const startLine = lines[node.start[0] - 1];
+
+    const contents = [] as MarkedString[];
+    if (node.type) {
+        contents.push({
+            language: 'motoko',
+            value: node.type as any as string /* temp */,
+        });
+    }
+    const source = startLine.substring(
+        node.start[1],
+        node.start[0] === node.end[0] ? node.end[1] : startLine.length,
+    );
+    contents.push({
+        language: 'motoko',
+        value: source,
+    });
+    const info = getAstInformation(node, source);
+    if (info) {
+        contents.push(info);
+    }
+    return {
+        contents: contents,
+    };
+});
 
 connection.onDefinition(
     async (
@@ -676,11 +776,17 @@ connection.onDefinition(
 );
 
 let validatingTimeout: ReturnType<typeof setTimeout>;
+let validatingUri: string | undefined;
 documents.onDidChangeContent((event) => {
     const document = event.document;
-    clearTimeout(validatingTimeout);
-    validatingTimeout = setTimeout(() => validate(document), 300);
-    validate(document);
+    if (document.uri === validatingUri) {
+        clearTimeout(validatingTimeout);
+    }
+    validatingTimeout = setTimeout(() => {
+        validate(document);
+        astResolver.update(document.uri); /// TODO: also use for type checking?
+    }, 100);
+    validatingUri = document.uri;
 });
 
 // documents.onDidClose((event) =>

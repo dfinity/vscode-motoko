@@ -1,26 +1,22 @@
 import { MultiMap } from 'mnemonist';
 
-// function validateUri(uri: any) {
-//     if (typeof uri !== 'string') {
-//         throw new Error('URI must be a string');
-//     }
-// }
-
 export default class ImportResolver {
-    private lookup_ = new MultiMap<string, string>(Set);
+    private moduleMap_ = new MultiMap<string, string>(Set);
 
     clear() {
-        this.lookup_.clear();
+        this.moduleMap_.clear();
     }
 
-    set(name: string, uri: string) {
-        // validateUri(uri);
-        this.lookup_.set(name, uri);
+    addName(name: string, uri: string) {
+        this.moduleMap_.set(name, uri);
     }
+
+    // addField(name: string, alias: string, uri: string) {
+    //     return; ////
+    // }
 
     getImportPaths(name: string, _uri: string): string[] {
-        // validateUri(uri);
-        const options = this.lookup_.get(name);
+        const options = this.moduleMap_.get(name);
         if (!options) {
             return [];
         }
@@ -31,8 +27,8 @@ export default class ImportResolver {
      * Finds all available module-level imports.
      * @returns Array of `[name, path]` entries
      */
-    getModuleEntries(_uri: string): [string, string][] {
-        return [...this.lookup_.entries()];
+    getNameEntries(_uri: string): [string, string][] {
+        return [...this.moduleMap_.entries()];
     }
 
     /**
@@ -46,8 +42,8 @@ export default class ImportResolver {
 
     delete(uri: string): boolean {
         let changed = false;
-        for (const key of this.lookup_.keys()) {
-            if (this.lookup_.remove(key, uri)) {
+        for (const key of this.moduleMap_.keys()) {
+            if (this.moduleMap_.remove(key, uri)) {
                 changed = true;
             }
         }
