@@ -28,6 +28,7 @@ import { URI } from 'vscode-uri';
 import { watchGlob as virtualFilePattern } from '../common/watchConfig';
 import DfxResolver from './dfx';
 import ImportResolver from './imports';
+import { fromAST, Program } from './program';
 import { getText, resolveFilePath, resolveVirtualPath } from './utils';
 
 interface Settings {
@@ -51,7 +52,7 @@ Object.keys(baseLibrary.files).forEach((path) => {
         path = path.slice(0, -'.mo'.length);
         const name = /([a-zA-Z0-9_]+)$/.exec(path)?.[1];
         if (name) {
-            importResolver.set(name, `mo:base/${path}`);
+            importResolver.addModule(name, `mo:base/${path}`);
         }
     }
 });
@@ -305,7 +306,8 @@ connection.onDidChangeWatchedFiles((event) => {
             if (change.type === FileChangeType.Deleted) {
                 // moFileSet.delete(change.uri);
                 const path = resolveVirtualPath(change.uri);
-                mo.delete(path);
+                deleteVirtual(path);
+                notifyDeleteURI(change.uri);
                 connection.sendDiagnostics({
                     uri: change.uri,
                     diagnostics: [],
@@ -353,10 +355,12 @@ function notifyWorkspace() {
                     relativePath,
                 );
                 console.log('*', virtualPath);
-                write(virtualPath, readFileSync(path, 'utf8'));
-                // const uri = URI.file(
-                //     resolveFilePath(folder.uri, relativePath),
-                // );
+                const content = readFileSync(path, 'utf8');
+                writeVirtual(virtualPath, content);
+                const uri = URI.file(
+                    resolveFilePath(folder.uri, relativePath),
+                ).toString();
+                notifyWriteURI(uri, content);
                 // moFileSet.add(uri);
             } catch (err) {
                 console.error(`Error while adding Motoko file ${path}:`);
@@ -443,11 +447,15 @@ function notify(uri: string | TextDocument): boolean {
         const document = typeof uri === 'string' ? documents.get(uri) : uri;
         if (document) {
             const virtualPath = resolveVirtualPath(document.uri);
-            write(virtualPath, document.getText());
+            const content = document.getText();
+            writeVirtual(virtualPath, content);
+            notifyWriteURI(document.uri, content);
         } else if (typeof uri === 'string') {
             const virtualPath = resolveVirtualPath(uri);
             const filePath = resolveFilePath(uri);
-            write(virtualPath, readFileSync(filePath, 'utf8'));
+            const content = readFileSync(filePath, 'utf8');
+            writeVirtual(virtualPath, content);
+            notifyWriteURI(uri, content);
         }
     } catch (err) {
         console.error(`Error while updating Motoko file: ${err}`);
@@ -541,11 +549,48 @@ function check(uri: string | TextDocument): boolean {
     return false;
 }
 
-function write(virtualPath: string, content: string) {
+function notifyWriteURI(uri: string, content: string) {
+    if (uri.endsWith('.mo')) {
+        uri = uri.slice(0, -'.mo'.length);
+
+        const match = /\.vessel\/([^/]+)\/[^/]+\/src\/(.+)/.exec(uri);
+        if (match) {
+            // Resolve `mo:` URI for Vessel packages
+            const [, pkgName, path] = match;
+            uri = `mo:${pkgName}/${path}`;
+        } else if (/\.vessel\//.test(uri)) {
+            // Ignore everything else in `.vessel`
+            return;
+        }
+
+        const name = /([a-z_][a-z0-9_]+)$/i.exec(uri)?.[1];
+        if (name) {
+            importResolver.addModule(name, uri);
+        }
+
+        try {
+            const ast = mo.parseMotoko(content);
+            const program = fromAST(ast) as Program;
+            console.log(program.imports.map((i) => [i.name, i.fields, i.path])); ////
+        } catch (err) {
+            console.error(`Error while parsing (${uri}): ${err}`);
+        }
+    }
+}
+
+function notifyDeleteURI(uri: string) {
+    importResolver.delete(uri);
+}
+
+function writeVirtual(path: string, content: string) {
     // if (virtualPath.endsWith('.mo')) {
     //     content = preprocessMotoko(content);
     // }
-    mo.write(virtualPath, content);
+    mo.write(path, content);
+}
+
+function deleteVirtual(path: string) {
+    mo.delete(path);
 }
 
 connection.onCodeAction((event) => {
@@ -601,50 +646,49 @@ connection.onCompletion((event) => {
         const text = getText(uri);
         const lines = text.split(/\r?\n/g);
 
-        const match = /(\s*\.\s*)?([a-zA-Z_][a-zA-Z0-9_]*)$/.exec(
-            lines[position.line].substring(0, position.character),
-        );
-        if (match) {
-            const [, dot, identStart] = match;
-            if (!dot) {
-                importResolver.getModuleEntries(uri).forEach(([name, path]) => {
-                    if (name.startsWith(identStart)) {
-                        list.items.push({
-                            label: name,
-                            detail: path,
-                            insertText: name,
-                            // additionalTextEdits: import
-                        });
-                    }
-                });
-            } else {
-                // const preMatch = /(\s*\.\s*)?([a-zA-Z_][a-zA-Z0-9_]*)$/.exec(
-                //     lines[position.line].substring(
-                //         0,
-                //         position.character - dot.length - identStart.length,
-                //     ),
-                // );
-                // if (preMatch) {
-                //     const [, preDot, preIdent] = preMatch;
-                //     if (!preDot) {
-                //         importProvider
-                //             .getFieldEntries()
-                //             .forEach(([name, field, path]) => {
-                //                 if (
-                //                     name === preIdent &&
-                //                     field.startsWith(identStart)
-                //                 ) {
-                //                     list.items.push({
-                //                         label: name,
-                //                         detail: path,
-                //                         insertText: name,
-                //                         // additionalTextEdits: import
-                //                     });
-                //                 }
-                //             });
-                //     }
-                // }
-            }
+        const [, dot, identStart]: RegExpExecArray | [any, string, string] =
+            /(\s*\.\s*)?([a-zA-Z_][a-zA-Z0-9_]*)$/.exec(
+                lines[position.line].substring(0, position.character),
+            ) || [null, '', ''];
+
+        if (!dot) {
+            importResolver.getModuleEntries(uri).forEach(([name, path]) => {
+                if (name.startsWith(identStart)) {
+                    list.items.push({
+                        label: name,
+                        detail: path,
+                        insertText: name,
+                        // additionalTextEdits: import
+                    });
+                }
+            });
+        } else {
+            // const preMatch = /(\s*\.\s*)?([a-zA-Z_][a-zA-Z0-9_]*)$/.exec(
+            //     lines[position.line].substring(
+            //         0,
+            //         position.character - dot.length - identStart.length,
+            //     ),
+            // );
+            // if (preMatch) {
+            //     const [, preDot, preIdent] = preMatch;
+            //     if (!preDot) {
+            //         importProvider
+            //             .getFieldEntries()
+            //             .forEach(([name, field, path]) => {
+            //                 if (
+            //                     name === preIdent &&
+            //                     field.startsWith(identStart)
+            //                 ) {
+            //                     list.items.push({
+            //                         label: name,
+            //                         detail: path,
+            //                         insertText: name,
+            //                         // additionalTextEdits: import
+            //                     });
+            //                 }
+            //             });
+            //     }
+            // }
         }
     } catch (err) {
         console.error('Error during autocompletion:');

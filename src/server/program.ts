@@ -1,4 +1,4 @@
-import { AST } from 'motoko/lib/ast';
+import { AST, Node } from 'motoko/lib/ast';
 
 export function fromAST(ast: AST): ASTWrapper {
     if (
@@ -13,7 +13,27 @@ export function fromAST(ast: AST): ASTWrapper {
         ast.args?.forEach((a) => {
             matchNode(a, 'LetD', (pat, exp) => {
                 matchNode(exp, 'ImportE', (path) => {
-                    console.log(pat, exp, path); ////
+                    const import_ = new Import(exp, path);
+                    // Variable pattern name
+                    import_.name = matchNode(pat, 'VarP', (name) => name);
+                    // Object pattern fields
+                    import_.fields = matchNode(
+                        pat,
+                        'ObjP',
+                        (...args) =>
+                            args.map((field: Node & { args: [Node] }) => {
+                                const name = field.name;
+                                const alias = matchNode(
+                                    field.args[0],
+                                    'VarP',
+                                    (alias) => alias,
+                                    name,
+                                );
+                                return [name, alias];
+                            }),
+                        [],
+                    );
+                    prog.imports.push(import_);
                 });
             });
         });
@@ -27,6 +47,7 @@ function matchNode<T>(
     ast: AST,
     name: string,
     fn: (...args: any) => T,
+    defaultValue?: T,
 ): T | undefined {
     if (
         !!ast &&
@@ -36,7 +57,7 @@ function matchNode<T>(
     ) {
         return ast.args ? fn(...ast.args) : fn();
     }
-    return;
+    return defaultValue;
 }
 
 export class ASTWrapper {
@@ -49,12 +70,12 @@ export class ASTWrapper {
 
 export class Program extends ASTWrapper {
     imports: Import[] = [];
-    types: Type[] = [];
+    export: ASTWrapper | undefined;
 }
 
 export class Import extends ASTWrapper {
     name: string | undefined;
-    aliases: [string, string][] = [];
+    fields: [string, string][] = [];
     path: string;
 
     constructor(ast: AST, path: string) {
