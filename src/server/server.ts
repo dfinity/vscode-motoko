@@ -16,7 +16,7 @@ import {
     FileChangeType,
     InitializeResult,
     Location,
-    MarkedString,
+    MarkupKind,
     Position,
     ProposedFeatures,
     SignatureHelp,
@@ -24,7 +24,7 @@ import {
     TextDocuments,
     TextDocumentSyncKind,
     TextEdit,
-    WorkspaceFolder
+    WorkspaceFolder,
 } from 'vscode-languageserver/node';
 import { URI } from 'vscode-uri';
 import { watchGlob as virtualFilePattern } from '../common/watchConfig';
@@ -37,8 +37,9 @@ import {
     getRelativeUri,
     getText,
     resolveFilePath,
-    resolveVirtualPath
+    resolveVirtualPath,
 } from './utils';
+import { keywords } from 'motoko/lib/keywords';
 
 interface Settings {
     motoko: MotokoSettings;
@@ -671,6 +672,19 @@ connection.onCompletion((event) => {
                     });
                 }
             });
+
+            if (identStart) {
+                keywords.forEach((keyword) => {
+                    if (keyword.startsWith(identStart)) {
+                        list.items.push({
+                            label: keyword,
+                            // detail: , // TODO: explanation of each keyword
+                            insertText: keyword,
+                            kind: CompletionItemKind.Keyword,
+                        });
+                    }
+                });
+            }
         } else {
             // const preMatch = /(\s*\.\s*)?([a-zA-Z_][a-zA-Z0-9_]*)$/.exec(
             //     lines[position.line].substring(
@@ -716,13 +730,20 @@ connection.onHover((event) => {
     const node = findMostSpecificNode(
         status.ast,
         (node) =>
+            !(
+                node.name === 'FuncE' &&
+                console.log('<func>', node.start, node.end)
+            ) &&
             node.start &&
             node.end &&
-            node.start[0] - 1 <= position.line &&
-            node.end[0] - 1 >= position.line &&
-            node.start[1] <= position.character &&
-            node.end[1] >= position.character,
+            // position.line >= node.start[0] - 1 &&
+            // position.line <= node.end[0] - 1 &&
+            position.line == node.start[0] - 1 &&
+            position.character >= node.start[1] &&
+            (node.start[0] !== node.end[0] ||
+                position.character <= node.end[1]),
     );
+    console.log(node?.name, node?.start, node?.end); ////
     if (!node || !node.start || !node.end) {
         return;
     }
@@ -732,27 +753,35 @@ connection.onHover((event) => {
 
     const startLine = lines[node.start[0] - 1];
 
-    const contents = [] as MarkedString[];
+    const codeSnippet = (source: string) => `\`\`\`motoko\n${source}\n\`\`\``;
+    const docs: string[] = [];
     if (node.type) {
-        contents.push({
-            language: 'motoko',
-            value: node.type as any as string /* temp */,
-        });
+        docs.push(codeSnippet(node.type as any as string /* temp */));
     }
     const source = startLine.substring(
         node.start[1],
         node.start[0] === node.end[0] ? node.end[1] : startLine.length,
     );
-    contents.push({
-        language: 'motoko',
-        value: source,
-    });
+    // docs.push(codeSnippet(source));
     const info = getAstInformation(node, source);
     if (info) {
-        contents.push(info);
+        docs.push(info);
     }
     return {
-        contents: contents,
+        contents: {
+            kind: MarkupKind.Markdown,
+            value: docs.join('\n\n---\n\n'),
+        },
+        range: {
+            start: {
+                line: node.start[0] - 1,
+                character: node.start[1],
+            },
+            end: {
+                line: node.end[0] - 1,
+                character: node.end[1],
+            },
+        },
     };
 });
 
