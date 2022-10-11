@@ -16,7 +16,7 @@ import {
     FileChangeType,
     InitializeResult,
     Location,
-    MarkedString,
+    MarkupKind,
     Position,
     ProposedFeatures,
     SignatureHelp,
@@ -24,7 +24,7 @@ import {
     TextDocuments,
     TextDocumentSyncKind,
     TextEdit,
-    WorkspaceFolder
+    WorkspaceFolder,
 } from 'vscode-languageserver/node';
 import { URI } from 'vscode-uri';
 import { watchGlob as virtualFilePattern } from '../common/watchConfig';
@@ -37,7 +37,7 @@ import {
     getRelativeUri,
     getText,
     resolveFilePath,
-    resolveVirtualPath
+    resolveVirtualPath,
 } from './utils';
 
 interface Settings {
@@ -732,27 +732,35 @@ connection.onHover((event) => {
 
     const startLine = lines[node.start[0] - 1];
 
-    const contents = [] as MarkedString[];
+    const codeSnippet = (source: string) => `\`\`\`motoko\n${source}\n\`\`\``;
+    const docs: string[] = [];
     if (node.type) {
-        contents.push({
-            language: 'motoko',
-            value: node.type as any as string /* temp */,
-        });
+        docs.push(codeSnippet(node.type as any as string /* temp */));
     }
     const source = startLine.substring(
         node.start[1],
         node.start[0] === node.end[0] ? node.end[1] : startLine.length,
     );
-    contents.push({
-        language: 'motoko',
-        value: source,
-    });
+    // docs.push(codeSnippet(source));
     const info = getAstInformation(node, source);
     if (info) {
-        contents.push(info);
+        docs.push(info);
     }
     return {
-        contents: contents,
+        contents: {
+            kind: MarkupKind.Markdown,
+            value: docs.join('\n\n---\n\n'),
+        },
+        range: {
+            start: {
+                line: node.start[0] - 1,
+                character: node.start[1],
+            },
+            end: {
+                line: node.end[0] - 1,
+                character: node.end[1],
+            },
+        },
     };
 });
 
