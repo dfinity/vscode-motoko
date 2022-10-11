@@ -1,5 +1,5 @@
 import { AST } from 'motoko/lib/ast';
-import { tryGetText } from './utils';
+import { resolveVirtualPath, tryGetText } from './utils';
 import mo from 'motoko';
 
 export interface AstStatus {
@@ -35,7 +35,8 @@ export default class AstResolver {
             status.text = text;
         }
         try {
-            status.ast = mo.parseMotoko(text);
+            // status.ast = mo.parseMotoko(text);
+            status.ast = mo.parseMotokoTyped(resolveVirtualPath(uri)).ast;
             status.outdated = false;
             return true;
         } catch (err) {
@@ -44,7 +45,10 @@ export default class AstResolver {
         }
     }
 
-    resolve(uri: string): AstStatus | undefined {
+    request(uri: string): AstStatus | undefined {
+        if (!this._cache.has(uri) && !this.update(uri)) {
+            return;
+        }
         return this._cache.get(uri);
     }
 

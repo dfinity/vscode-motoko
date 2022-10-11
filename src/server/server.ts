@@ -16,6 +16,7 @@ import {
     FileChangeType,
     InitializeResult,
     Location,
+    MarkedString,
     Position,
     ProposedFeatures,
     SignatureHelp,
@@ -30,7 +31,7 @@ import { watchGlob as virtualFilePattern } from '../common/watchConfig';
 import AstResolver from './ast';
 import DfxResolver from './dfx';
 import ImportResolver from './imports';
-import { fromAST, Program } from './program';
+import { findMostSpecificNode } from './program';
 import {
     getRelativeUri,
     getText,
@@ -56,13 +57,6 @@ const ignoreGlobs = ['**/node_modules/**/*'];
 const importResolver = new ImportResolver();
 Object.entries(baseLibrary.files).forEach(
     ([path, { content }]: [string, { content: string }]) => {
-        // if (path.endsWith('.mo')) {
-        //     path = path.slice(0, -'.mo'.length);
-        //     const name = /([a-z_][a-z0-9_]*)$/i.exec(path)?.[1];
-        //     if (name) {
-        //         importResolver.addName(name, `mo:base/${path}`);
-        //     }
-        // }
         notifyWriteUri(`mo:base/${path}`, content);
     },
 );
@@ -260,9 +254,9 @@ connection.onInitialize((event): InitializeResult => {
                 // allCommitCharacters: ['.'],
             },
             // definitionProvider: true,
-            codeActionProvider: true,
+            // codeActionProvider: true,
             // declarationProvider: true,
-            // hoverProvider: true,
+            hoverProvider: true,
             // diagnosticProvider: {
             //     documentSelector: ['motoko'],
             //     interFileDependencies: true,
@@ -582,7 +576,8 @@ function notifyWriteUri(uri: string, _content: string) {
         // setTimeout(() => {
         //     try {
         //         const ast = mo.parseMotoko(content);
-        //         const program = fromAST(ast) as Program;
+        //         const program = fromAST(ast);
+        //         if (program instanceof Program) {}
         //     } catch (err) {
         //         console.error(`Error while parsing (${uri}): ${err}`);
         //     }
@@ -638,13 +633,11 @@ connection.onCodeAction((event) => {
     return results;
 });
 
-connection.onCodeActionResolve((action) => {
-    console.log('Code action resolve');
-
-    console.log(action.data);
-
-    return action;
-});
+// connection.onCodeActionResolve((action) => {
+//     console.log('Code action resolve');
+//     console.log(action.data);
+//     return action;
+// });
 
 connection.onSignatureHelp((): SignatureHelp | null => {
     return null;
@@ -712,8 +705,57 @@ connection.onCompletion((event) => {
     return list;
 });
 
-// connection.onCompletionResolve((item) => {
-// });
+connection.onHover((event) => {
+    const { position } = event;
+    const { uri } = event.textDocument;
+    const status = astResolver.request(uri);
+    if (!status?.ast) {
+        return;
+    }
+    // console.log(status); /////
+    const node = findMostSpecificNode(
+        status.ast,
+        (node) =>
+            node.start &&
+            node.end &&
+            node.start[0] - 1 <= position.line &&
+            node.end[0] - 1 >= position.line &&
+            node.start[1] <= position.character &&
+            node.end[1] >= position.character,
+    );
+    console.log(node?.name); /////
+    if (!node || !node.start || !node.end) {
+        return;
+        // return { contents: [JSON.stringify(node, null, 1)] };
+    }
+
+    const text = getText(uri);
+    const lines = text.split(/\r?\n/g);
+
+    const startLine = lines[node.start[0] - 1];
+
+    // console.log(lines[position.line]);
+
+    console.log(node.start, node.end); ///
+
+    const contents = [] as MarkedString[];
+    if (node.type) {
+        contents.push({
+            language: 'motoko',
+            value: node.type as any as string /* temp */,
+        });
+    }
+    contents.push({
+        language: 'motoko',
+        value: startLine.substring(
+            node.start[1],
+            node.start[0] === node.end[0] ? node.end[1] : startLine.length,
+        ),
+    });
+    return {
+        contents: contents,
+    };
+});
 
 connection.onDefinition(
     async (
@@ -735,11 +777,17 @@ connection.onDefinition(
 );
 
 let validatingTimeout: ReturnType<typeof setTimeout>;
+let validatingUri: string | undefined;
 documents.onDidChangeContent((event) => {
     const document = event.document;
-    clearTimeout(validatingTimeout);
-    validatingTimeout = setTimeout(() => validate(document), 300);
-    validate(document);
+    if (document.uri === validatingUri) {
+        clearTimeout(validatingTimeout);
+    }
+    validatingTimeout = setTimeout(() => {
+        validate(document);
+        astResolver.update(document.uri); /// TODO: also use for type checking?
+    }, 100);
+    validatingUri = document.uri;
 });
 
 // documents.onDidClose((event) =>
