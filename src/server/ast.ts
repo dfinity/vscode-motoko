@@ -38,6 +38,7 @@ export default class AstResolver {
             // status.ast = mo.parseMotoko(text);
             status.ast = mo.parseMotokoTyped(resolveVirtualPath(uri)).ast;
             status.outdated = false;
+            console.log('Parsed typed AST');
             return true;
         } catch (err) {
             status.outdated = true;

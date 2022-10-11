@@ -712,7 +712,6 @@ connection.onHover((event) => {
     if (!status?.ast) {
         return;
     }
-    // console.log(status); /////
     const node = findMostSpecificNode(
         status.ast,
         (node) =>
@@ -723,20 +722,14 @@ connection.onHover((event) => {
             node.start[1] <= position.character &&
             node.end[1] >= position.character,
     );
-    console.log(node?.name); /////
     if (!node || !node.start || !node.end) {
         return;
-        // return { contents: [JSON.stringify(node, null, 1)] };
     }
 
     const text = getText(uri);
     const lines = text.split(/\r?\n/g);
 
     const startLine = lines[node.start[0] - 1];
-
-    // console.log(lines[position.line]);
-
-    console.log(node.start, node.end); ///
 
     const contents = [] as MarkedString[];
     if (node.type) {
