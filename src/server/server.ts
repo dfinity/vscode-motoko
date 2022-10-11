@@ -39,6 +39,7 @@ import {
     resolveFilePath,
     resolveVirtualPath,
 } from './utils';
+import { keywords } from 'motoko/lib/keywords';
 
 interface Settings {
     motoko: MotokoSettings;
@@ -671,6 +672,19 @@ connection.onCompletion((event) => {
                     });
                 }
             });
+
+            if (identStart) {
+                keywords.forEach((keyword) => {
+                    if (keyword.startsWith(identStart)) {
+                        list.items.push({
+                            label: keyword,
+                            // detail: , // TODO: explanation of each keyword
+                            insertText: keyword,
+                            kind: CompletionItemKind.Keyword,
+                        });
+                    }
+                });
+            }
         } else {
             // const preMatch = /(\s*\.\s*)?([a-zA-Z_][a-zA-Z0-9_]*)$/.exec(
             //     lines[position.line].substring(
@@ -716,13 +730,20 @@ connection.onHover((event) => {
     const node = findMostSpecificNode(
         status.ast,
         (node) =>
+            !(
+                node.name === 'FuncE' &&
+                console.log('<func>', node.start, node.end)
+            ) &&
             node.start &&
             node.end &&
-            node.start[0] - 1 <= position.line &&
-            node.end[0] - 1 >= position.line &&
-            node.start[1] <= position.character &&
-            node.end[1] >= position.character,
+            // position.line >= node.start[0] - 1 &&
+            // position.line <= node.end[0] - 1 &&
+            position.line == node.start[0] - 1 &&
+            position.character >= node.start[1] &&
+            (node.start[0] !== node.end[0] ||
+                position.character <= node.end[1]),
     );
+    console.log(node?.name, node?.start, node?.end); ////
     if (!node || !node.start || !node.end) {
         return;
     }
