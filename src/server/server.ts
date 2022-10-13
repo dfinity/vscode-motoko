@@ -735,6 +735,7 @@ connection.onHover((event) => {
         const nChars = n.end![1] - n.start![1];
         if (
             !node ||
+            (n.type && !node.type) ||
             nLines < nodeLines ||
             (nLines == nodeLines && nChars < nodeChars)
         ) {
@@ -751,20 +752,19 @@ connection.onHover((event) => {
     const lines = text.split(/\r?\n/g);
 
     const startLine = lines[node.start[0] - 1];
+    const isSameLine = node.start[0] === node.end[0];
 
     const codeSnippet = (source: string) => `\`\`\`motoko\n${source}\n\`\`\``;
     const docs: string[] = [];
     const source = (
-        node.start[0] === node.end[0]
-            ? startLine.substring(node.start[1], node.end[1])
-            : startLine
+        isSameLine ? startLine.substring(node.start[1], node.end[1]) : startLine
     ).trim();
     if (node.type) {
         docs.push(codeSnippet(node.type as any as string /* temp */));
     } else {
         docs.push(codeSnippet(source));
     }
-    const info = getAstInformation(node, source);
+    const info = getAstInformation(node /* , source */);
     if (info) {
         docs.push(info);
     }
@@ -795,7 +795,7 @@ connection.onHover((event) => {
         range: {
             start: {
                 line: node.start[0] - 1,
-                character: node.start[1],
+                character: isSameLine ? node.start[1] : 0,
             },
             end: {
                 line: node.end[0] - 1,
