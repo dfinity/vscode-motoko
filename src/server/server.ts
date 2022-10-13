@@ -768,7 +768,7 @@ connection.onHover((event) => {
     ).trim();
     if (node.type) {
         docs.push(codeSnippet(node.type));
-    } else {
+    } else if (!isSameLine) {
         docs.push(codeSnippet(source));
     }
     const info = getAstInformation(node /* , source */);
