@@ -1,11 +1,13 @@
 import { AST } from 'motoko/lib/ast';
 import { resolveVirtualPath, tryGetFileText } from './utils';
 import mo from 'motoko';
+import { fromAST, Program } from './program';
 
 export interface AstStatus {
     uri: string;
     text: string | null;
     ast?: AST;
+    program?: Program;
     outdated: boolean;
 }
 
@@ -46,13 +48,18 @@ export default class AstResolver {
             status.text = text;
         }
         try {
-            // status.ast = mo.parseMotoko(text);
-            const virtualPath = resolveVirtualPath(uri);
-            status.ast = typed
-                ? mo.parseMotokoTyped(virtualPath).ast
-                : mo.parseMotoko(mo.read(virtualPath));
+            const ast = typed
+                ? mo.parseMotokoTyped(resolveVirtualPath(uri)).ast
+                : mo.parseMotoko(text);
+            status.ast = ast;
+            const program = fromAST(ast);
+            if (program instanceof Program) {
+                status.program = program;
+            }
             status.outdated = false;
-            console.log('Parsed typed AST');
+            if (typed) {
+                console.log('Parsed typed AST');
+            }
             return true;
         } catch (err) {
             status.outdated = true;

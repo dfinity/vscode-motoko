@@ -26,7 +26,7 @@ import {
     TextDocuments,
     TextDocumentSyncKind,
     TextEdit,
-    WorkspaceFolder,
+    WorkspaceFolder
 } from 'vscode-languageserver/node';
 import { URI } from 'vscode-uri';
 import { watchGlob as virtualFilePattern } from '../common/watchConfig';
@@ -34,7 +34,7 @@ import AstResolver from './ast';
 import DfxResolver from './dfx';
 import ImportResolver from './imports';
 import { getAstInformation } from './information';
-import { findNodes, fromAST, Program } from './program';
+import { findNodes, Program } from './program';
 import { getFileText, resolveFilePath, resolveVirtualPath } from './utils';
 
 interface Settings {
@@ -552,27 +552,23 @@ function check(uri: string | TextDocument): boolean {
 }
 
 function notifyWriteUri(uri: string, content: string) {
-   if(uri.endsWith('.mo')){
-    astResolver.notify(uri,content);
-
-    let program: Program | undefined;
-    try {
-        let result = fromAST(mo.parseMotoko(content));
-        if (result instanceof Program) {
-            program = result;
+    if (uri.endsWith('.mo')) {
+        let program: Program | undefined;
+        try {
+            astResolver.notify(uri, content);
+            program = astResolver.request(uri)?.program;
+        } catch (err) {
+            console.error(`Error while parsing (${uri}): ${err}`);
         }
-    } catch (err) {
-        console.error(`Error while parsing (${uri}): ${err}`);
+        importResolver.update(uri, program);
     }
-    importResolver.update(uri, program);
-   }
 }
 
 function notifyDeleteUri(uri: string) {
-   if(uri.endsWith('.mo')){
-    astResolver.delete(uri);
-    importResolver.delete(uri);
-   }
+    if (uri.endsWith('.mo')) {
+        astResolver.delete(uri);
+        importResolver.delete(uri);
+    }
 }
 
 function writeVirtual(path: string, content: string) {
@@ -706,7 +702,7 @@ connection.onCompletion((event) => {
 connection.onHover((event) => {
     const { position } = event;
     const { uri } = event.textDocument;
-    const status = astResolver.request(uri);
+    const status = astResolver.requestTyped(uri);
     if (!status?.ast) {
         return;
     }
