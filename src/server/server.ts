@@ -700,7 +700,7 @@ connection.onCompletion((event) => {
     return list;
 });
 
-const ignoredAstNodes = ['AsyncE', 'LetD'];
+// const ignoredAstNodes = ['AsyncE', 'LetD'];
 connection.onHover((event) => {
     const { position } = event;
     const { uri } = event.textDocument;
@@ -712,6 +712,7 @@ connection.onHover((event) => {
     const nodes = findNodes(
         status.ast,
         (node) =>
+            !node.file &&
             node.start &&
             node.end &&
             position.line >= node.start[0] - 1 &&
@@ -728,9 +729,9 @@ connection.onHover((event) => {
     let nodeLines: number;
     let nodeChars: number;
     nodes.forEach((n: Node) => {
-        if (ignoredAstNodes.includes(n.name)) {
-            return;
-        }
+        // if (ignoredAstNodes.includes(n.name)) {
+        //     return;
+        // }
         const nLines = n.end![0] - n.start![0];
         const nChars = n.end![1] - n.start![1];
         if (
@@ -760,7 +761,7 @@ connection.onHover((event) => {
         isSameLine ? startLine.substring(node.start[1], node.end[1]) : startLine
     ).trim();
     if (node.type) {
-        docs.push(codeSnippet(node.type as any as string /* temp */));
+        docs.push(codeSnippet(node.type));
     } else {
         docs.push(codeSnippet(source));
     }
