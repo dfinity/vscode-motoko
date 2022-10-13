@@ -42,5 +42,8 @@ export function tryGetText(uri: string): string | null {
 }
 
 export function getRelativeUri(from: string, to: string) {
+    if (from === to) {
+        return '.';
+    }
     return require('url-relative')(from, to);
 }
