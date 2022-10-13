@@ -700,6 +700,7 @@ connection.onCompletion((event) => {
     return list;
 });
 
+const ignoredAstNodes = ['AsyncE', 'LetD'];
 connection.onHover((event) => {
     const { position } = event;
     const { uri } = event.textDocument;
@@ -727,6 +728,9 @@ connection.onHover((event) => {
     let nodeLines: number;
     let nodeChars: number;
     nodes.forEach((n: Node) => {
+        if (ignoredAstNodes.includes(n.name)) {
+            return;
+        }
         const nLines = n.end![0] - n.start![0];
         const nChars = n.end![1] - n.start![1];
         if (
@@ -750,30 +754,33 @@ connection.onHover((event) => {
 
     const codeSnippet = (source: string) => `\`\`\`motoko\n${source}\n\`\`\``;
     const docs: string[] = [];
+    const source = (
+        node.start[0] === node.end[0]
+            ? startLine.substring(node.start[1], node.end[1])
+            : startLine
+    ).trim();
     if (node.type) {
         docs.push(codeSnippet(node.type as any as string /* temp */));
+    } else {
+        docs.push(codeSnippet(source));
     }
-    const source = startLine.substring(
-        node.start[1],
-        node.start[0] === node.end[0] ? node.end[1] : startLine.length,
-    );
     const info = getAstInformation(node, source);
     if (info) {
         docs.push(info);
     }
     if (settings?.debugHover) {
-        // Show AST debug information
         let debugText = `\n${node.name}`;
         if (node.args?.length) {
+            // Show AST debug information
             debugText += ` [${node.args
                 .map(
-                    (a) =>
+                    (arg) =>
                         `\n  ${
-                            typeof a === 'object'
-                                ? Array.isArray(a)
+                            typeof arg === 'object'
+                                ? Array.isArray(arg)
                                     ? '[...]'
-                                    : a?.name
-                                : JSON.stringify(a)
+                                    : arg?.name
+                                : JSON.stringify(arg)
                         }`,
                 )
                 .join('')}\n]`;

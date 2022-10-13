@@ -22,11 +22,11 @@ function findNodes_(
         return;
     }
 
-    if (ast.args) {
-        findNodes_(ast.args, condition, nodes);
-    }
     if (condition?.(ast)) {
         nodes.push(ast);
+    }
+    if (ast.args) {
+        findNodes_(ast.args, condition, nodes);
     }
 }
 
