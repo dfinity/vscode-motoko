@@ -557,7 +557,7 @@ function notifyWriteUri(uri: string, content: string) {
         let program: Program | undefined;
         try {
             astResolver.notify(uri, content);
-            program = astResolver.request(uri)?.program;
+            // program = astResolver.request(uri)?.program; // TODO: re-enable for field imports
         } catch (err) {
             console.error(`Error while parsing (${uri}): ${err}`);
         }
@@ -665,34 +665,40 @@ connection.onCompletion((event) => {
                     }
                 });
             }
-        } else {
-            // const preMatch = /(\s*\.\s*)?([a-zA-Z_][a-zA-Z0-9_]*)$/.exec(
-            //     lines[position.line].substring(
-            //         0,
-            //         position.character - dot.length - identStart.length,
-            //     ),
-            // );
-            // if (preMatch) {
-            //     const [, preDot, preIdent] = preMatch;
-            //     if (!preDot) {
-            //         importProvider
-            //             .getFieldEntries()
-            //             .forEach(([name, field, path]) => {
-            //                 if (
-            //                     name === preIdent &&
-            //                     field.startsWith(identStart)
-            //                 ) {
-            //                     list.items.push({
-            //                         label: name,
-            //                         detail: path,
-            //                         insertText: name,
-            //                         // additionalTextEdits: import
-            //                     });
-            //                 }
-            //             });
-            //     }
-            // }
         }
+        // else {
+        //     // Check for an identifier before the dot (e.g. `Module.abc`)
+        //     const end = position.character - dot.length - identStart.length;
+        //     const preMatch = /(\s*\.\s*)?([a-zA-Z_][a-zA-Z0-9_]*)$/.exec(
+        //         lines[position.line].substring(0, end),
+        //     );
+        //     if (preMatch) {
+        //         const [, preDot, preIdent] = preMatch;
+        //         if (!preDot) {
+        //             const program = astResolver.request(uri)?.program;
+        //             importResolver
+        //                 .getNameEntries(preIdent)
+        //                 .forEach(([name, uri]) => {
+        //                     const importUri = program?.imports.find()?.path;
+        //                     importResolver
+        //                         .getFields(uri)
+        //                         .forEach(([{ name }, path]) => {
+        //                             if (name.startsWith(identStart)) {
+        //                                 list.items.push({
+        //                                     label: name,
+        //                                     detail: path,
+        //                                     insertText: name,
+        //                                     kind: path.startsWith('mo:')
+        //                                         ? CompletionItemKind.Module
+        //                                         : CompletionItemKind.Class, // TODO: resolve actors, classes, etc.
+        //                                     // additionalTextEdits: import
+        //                                 });
+        //                             }
+        //                         });
+        //                 });
+        //         }
+        //     }
+        // }
     } catch (err) {
         console.error('Error during autocompletion:');
         console.error(err);
@@ -705,7 +711,7 @@ connection.onHover((event) => {
     const { position } = event;
     const { uri } = event.textDocument;
     const status = astResolver.requestTyped(uri);
-    if (!status?.ast) {
+    if (!status || status.outdated || !status.ast) {
         return;
     }
     // Find AST nodes which include the cursor position
@@ -810,17 +816,6 @@ connection.onDefinition(
     async (
         _handler: TextDocumentPositionParams,
     ): Promise<Location | Location[]> => {
-        // const provider = new SolidityDefinitionProvider(
-        //     rootPath,
-        //     packageDefaultDependenciesDirectory,
-        //     packageDefaultDependenciesContractsDirectory,
-        //     remappings,
-        // );
-        // return provider.provideDefinition(
-        //     documents.get(handler.textDocument.uri),
-        //     handler.position,
-        // );
-
         return [];
     },
 );

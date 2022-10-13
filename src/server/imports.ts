@@ -1,63 +1,100 @@
 import { MultiMap } from 'mnemonist';
 import { getRelativeUri } from './utils';
-import { Program } from './syntax';
+import { matchNode, Program } from './syntax';
+import { Node, AST } from 'motoko/lib/ast';
+
+interface ResolvedField {
+    name: string;
+    visibility: string;
+    ast: AST;
+}
 
 export default class ImportResolver {
-    private _moduleMap = new MultiMap<string, string>(Set);
-    private _fieldMap = new MultiMap<string, string>(Set);
+    // (module name -> uri)
+    private _moduleNameUriMap = new MultiMap<string, string>(Set);
+    // (uri -> resolved field)
+    private _fieldMap = new MultiMap<string, ResolvedField>(Set);
 
     clear() {
-        this._moduleMap.clear();
+        this._moduleNameUriMap.clear();
     }
 
-    // addModule(name: string, uri: string) {
-    //     this._moduleMap.set(name, motokoUri);
-    // }
-
-    // addField(field: string, uri: string) {
-    //     this._fieldMap.set(field, motokoUri);
-    // }
-
     update(uri: string, program: Program | undefined): boolean {
-        let motokoUri = getImportUri(uri);
+        const motokoUri = getImportUri(uri);
         if (!motokoUri) {
             return false;
         }
         const name = /([a-z_][a-z0-9_]*)$/i.exec(motokoUri)?.[1];
         if (name) {
-            this._moduleMap.set(name, motokoUri);
+            this._moduleNameUriMap.set(name, motokoUri);
         }
-        if (program) {
-            if (program.export) {
-                console.log(program.export.ast, '\n'); ////
-                // this._fieldMap.set(field, motokoUri);
+        if (program?.export) {
+            // Resolve field names
+            const { ast } = program.export;
+            const node =
+                matchNode(ast, 'LetD', (_pat: Node, exp: Node) => exp) || // Named
+                matchNode(ast, 'ExpD', (exp: Node) => exp); // Unnamed
+            if (node) {
+                matchNode(
+                    node,
+                    'ObjBlockE',
+                    (_type: string, ...fields: Node[]) => {
+                        this._fieldMap.delete(uri);
+                        fields.forEach((field) => {
+                            if (field.name !== 'DecField') {
+                                console.error(
+                                    'Error: expected `DecField`, received',
+                                    field.name,
+                                );
+                                return;
+                            }
+                            const [dec, visibility] = field.args!;
+                            // TODO: `system` visibility
+                            if (visibility !== 'Public') {
+                                return;
+                            }
+                            matchNode(dec, 'LetD', (pat: Node, exp: Node) => {
+                                const name = matchNode(
+                                    pat,
+                                    'VarP',
+                                    (field: string) => field,
+                                );
+                                if (name) {
+                                    this._fieldMap.set(uri, {
+                                        name,
+                                        visibility,
+                                        ast: exp,
+                                    });
+                                }
+                            });
+                        });
+                    },
+                );
             }
         }
         return true;
     }
 
     delete(uri: string): boolean {
-        let motokoUri = getImportUri(uri);
+        const motokoUri = getImportUri(uri);
         if (!motokoUri) {
             return false;
         }
 
         let changed = false;
-        for (const key of this._moduleMap.keys()) {
-            if (this._moduleMap.remove(key, motokoUri)) {
+        for (const key of this._moduleNameUriMap.keys()) {
+            if (this._moduleNameUriMap.remove(key, motokoUri)) {
                 changed = true;
             }
         }
-        for (const key of this._fieldMap.keys()) {
-            if (this._fieldMap.remove(key, motokoUri)) {
-                changed = true;
-            }
+        if (this._fieldMap.delete(uri)) {
+            changed = true;
         }
         return changed;
     }
 
     getImportPaths(name: string, uri: string): string[] {
-        const options = this._moduleMap.get(name);
+        const options = this._moduleNameUriMap.get(name);
         if (!options) {
             return [];
         }
@@ -69,21 +106,30 @@ export default class ImportResolver {
      * @returns Array of `[name, path]` entries
      */
     getNameEntries(uri: string): [string, string][] {
-        return [...this._moduleMap.entries()].map(([k, v]) => [
-            k,
-            getRelativeUri(uri, v),
+        return [...this._moduleNameUriMap.entries()].map(([name, path]) => [
+            name,
+            getRelativeUri(uri, path),
         ]);
     }
 
+    // /**
+    //  * Finds all importable fields.
+    //  * @returns Array of `[name, field, path]` entries
+    //  */
+    // getFieldEntries(uri: string): [ResolvedField, string][] {
+    //     return [...this._fieldMap.entries()].map(([path, field]) => [
+    //         field,
+    //         getRelativeUri(uri, path),
+    //     ]);
+    // }
+
     /**
-     * Finds all importable fields.
+     * Finds all importable fields for a given document.
      * @returns Array of `[name, field, path]` entries
      */
-    getFieldEntries(uri: string): [string, string][] {
-        return [...this._fieldMap.entries()].map(([k, v]) => [
-            k,
-            getRelativeUri(uri, v),
-        ]);
+    getFields(uri: string): ResolvedField[] {
+        const fields = this._fieldMap.get(uri);
+        return fields ? [...fields] : [];
     }
 }
 

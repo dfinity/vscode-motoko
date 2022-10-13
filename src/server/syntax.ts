@@ -79,7 +79,7 @@ export function fromAST(ast: AST): Syntax {
     }
 }
 
-function matchNode<T>(
+export function matchNode<T>(
     ast: AST,
     name: string,
     fn: (...args: any) => T,
