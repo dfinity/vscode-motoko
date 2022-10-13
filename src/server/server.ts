@@ -2,6 +2,8 @@ import { execSync } from 'child_process';
 import * as glob from 'fast-glob';
 import { existsSync, readFileSync } from 'fs';
 import mo from 'motoko';
+import { Node } from 'motoko/lib/ast';
+import { keywords } from 'motoko/lib/keywords';
 import * as baseLibrary from 'motoko/packages/latest/base.json';
 import { join } from 'path';
 import { TextDocument } from 'vscode-languageserver-textdocument';
@@ -32,14 +34,8 @@ import AstResolver from './ast';
 import DfxResolver from './dfx';
 import ImportResolver from './imports';
 import { getAstInformation } from './information';
-import { findMostSpecificNode } from './program';
-import {
-    getRelativeUri,
-    getText,
-    resolveFilePath,
-    resolveVirtualPath,
-} from './utils';
-import { keywords } from 'motoko/lib/keywords';
+import { findNodes, Program } from './syntax';
+import { getFileText, resolveFilePath, resolveVirtualPath } from './utils';
 
 interface Settings {
     motoko: MotokoSettings;
@@ -48,6 +44,7 @@ interface Settings {
 interface MotokoSettings {
     hideWarningRegex: string;
     maxNumberOfProblems: number;
+    debugHover: boolean;
 }
 
 // Always ignore `node_modules/` (often used in frontend canisters)
@@ -256,8 +253,8 @@ connection.onInitialize((event): InitializeResult => {
                 // allCommitCharacters: ['.'],
             },
             // definitionProvider: true,
-            // codeActionProvider: true,
             // declarationProvider: true,
+            codeActionProvider: true,
             hoverProvider: true,
             // diagnosticProvider: {
             //     documentSelector: ['motoko'],
@@ -555,41 +552,24 @@ function check(uri: string | TextDocument): boolean {
     return false;
 }
 
-function notifyWriteUri(uri: string, _content: string) {
+function notifyWriteUri(uri: string, content: string) {
     if (uri.endsWith('.mo')) {
-        uri = uri.slice(0, -'.mo'.length);
-
-        // TODO: only use top-level `.vessel` directory
-        const match = /\.vessel\/([^/]+)\/[^/]+\/src\/(.+)/.exec(uri);
-        if (match) {
-            // Resolve `mo:` URI for Vessel packages
-            const [, pkgName, path] = match;
-            uri = `mo:${pkgName}/${path}`;
-        } else if (/\.vessel\//.test(uri)) {
-            // Ignore everything else in `.vessel`
-            return;
+        let program: Program | undefined;
+        try {
+            astResolver.notify(uri, content);
+            program = astResolver.request(uri)?.program;
+        } catch (err) {
+            console.error(`Error while parsing (${uri}): ${err}`);
         }
-
-        const name = /([a-z_][a-z0-9_]*)$/i.exec(uri)?.[1];
-        if (name) {
-            importResolver.addName(name, uri);
-        }
-
-        // setTimeout(() => {
-        //     try {
-        //         const ast = mo.parseMotoko(content);
-        //         const program = fromAST(ast);
-        //         if (program instanceof Program) {}
-        //     } catch (err) {
-        //         console.error(`Error while parsing (${uri}): ${err}`);
-        //     }
-        // }, 0);
+        importResolver.update(uri, program);
     }
 }
 
 function notifyDeleteUri(uri: string) {
-    importResolver.delete(uri);
-    astResolver.delete(uri);
+    if (uri.endsWith('.mo')) {
+        astResolver.delete(uri);
+        importResolver.delete(uri);
+    }
 }
 
 function writeVirtual(path: string, content: string) {
@@ -608,7 +588,7 @@ connection.onCodeAction((event) => {
 
     event.context?.diagnostics?.forEach((diagnostic) => {
         const uri = event.textDocument.uri;
-        const name = /unbound variable ([a-zA-Z0-9_]+)/i.exec(
+        const name = /unbound variable ([a-z0-9_]+)/i.exec(
             diagnostic.message,
         )?.[1];
         if (name) {
@@ -651,7 +631,7 @@ connection.onCompletion((event) => {
 
     const list = CompletionList.create([], true);
     try {
-        const text = getText(uri);
+        const text = getFileText(uri);
         const lines = text.split(/\r?\n/g);
 
         const [dot, identStart] = /(\s*\.\s*)?([a-zA-Z_][a-zA-Z0-9_]*)$/
@@ -663,7 +643,7 @@ connection.onCompletion((event) => {
                 if (name.startsWith(identStart)) {
                     list.items.push({
                         label: name,
-                        detail: getRelativeUri(uri, path),
+                        detail: path,
                         insertText: name,
                         kind: path.startsWith('mo:')
                             ? CompletionItemKind.Module
@@ -720,52 +700,93 @@ connection.onCompletion((event) => {
     return list;
 });
 
+// const ignoredAstNodes = ['AsyncE', 'LetD'];
 connection.onHover((event) => {
     const { position } = event;
     const { uri } = event.textDocument;
-    const status = astResolver.request(uri);
+    const status = astResolver.requestTyped(uri);
     if (!status?.ast) {
         return;
     }
-    const node = findMostSpecificNode(
+    // Find AST nodes which include the cursor position
+    const nodes = findNodes(
         status.ast,
         (node) =>
-            !(
-                node.name === 'FuncE' &&
-                console.log('<func>', node.start, node.end)
-            ) &&
+            !node.file &&
             node.start &&
             node.end &&
-            // position.line >= node.start[0] - 1 &&
-            // position.line <= node.end[0] - 1 &&
-            position.line == node.start[0] - 1 &&
-            position.character >= node.start[1] &&
-            (node.start[0] !== node.end[0] ||
-                position.character <= node.end[1]),
+            position.line >= node.start[0] - 1 &&
+            position.line <= node.end[0] - 1 &&
+            // position.line == node.start[0] - 1 &&
+            (position.line !== node.start[0] - 1 ||
+                position.character >= node.start[1]) &&
+            (position.line !== node.end[0] - 1 ||
+                position.character < node.end[1]),
     );
-    console.log(node?.name, node?.start, node?.end); ////
+
+    // Find the most specific AST node for the cursor position
+    let node: Node | undefined;
+    let nodeLines: number;
+    let nodeChars: number;
+    nodes.forEach((n: Node) => {
+        // if (ignoredAstNodes.includes(n.name)) {
+        //     return;
+        // }
+        const nLines = n.end![0] - n.start![0];
+        const nChars = n.end![1] - n.start![1];
+        if (
+            !node ||
+            (n.type && !node.type) ||
+            nLines < nodeLines ||
+            (nLines == nodeLines && nChars < nodeChars)
+        ) {
+            node = n;
+            nodeLines = nLines;
+            nodeChars = nChars;
+        }
+    });
     if (!node || !node.start || !node.end) {
         return;
     }
 
-    const text = getText(uri);
+    const text = getFileText(uri);
     const lines = text.split(/\r?\n/g);
 
     const startLine = lines[node.start[0] - 1];
+    const isSameLine = node.start[0] === node.end[0];
 
     const codeSnippet = (source: string) => `\`\`\`motoko\n${source}\n\`\`\``;
     const docs: string[] = [];
+    const source = (
+        isSameLine ? startLine.substring(node.start[1], node.end[1]) : startLine
+    ).trim();
     if (node.type) {
-        docs.push(codeSnippet(node.type as any as string /* temp */));
+        docs.push(codeSnippet(node.type));
+    } else {
+        docs.push(codeSnippet(source));
     }
-    const source = startLine.substring(
-        node.start[1],
-        node.start[0] === node.end[0] ? node.end[1] : startLine.length,
-    );
-    // docs.push(codeSnippet(source));
-    const info = getAstInformation(node, source);
+    const info = getAstInformation(node /* , source */);
     if (info) {
         docs.push(info);
+    }
+    if (settings?.debugHover) {
+        let debugText = `\n${node.name}`;
+        if (node.args?.length) {
+            // Show AST debug information
+            debugText += ` [${node.args
+                .map(
+                    (arg) =>
+                        `\n  ${
+                            typeof arg === 'object'
+                                ? Array.isArray(arg)
+                                    ? '[...]'
+                                    : arg?.name
+                                : JSON.stringify(arg)
+                        }`,
+                )
+                .join('')}\n]`;
+        }
+        docs.push(codeSnippet(debugText));
     }
     return {
         contents: {
@@ -775,7 +796,7 @@ connection.onHover((event) => {
         range: {
             start: {
                 line: node.start[0] - 1,
-                character: node.start[1],
+                character: isSameLine ? node.start[1] : 0,
             },
             end: {
                 line: node.end[0] - 1,
@@ -813,7 +834,7 @@ documents.onDidChangeContent((event) => {
     }
     validatingTimeout = setTimeout(() => {
         validate(document);
-        astResolver.update(document.uri); /// TODO: also use for type checking?
+        astResolver.update(document.uri, true); /// TODO: also use for type checking?
     }, 100);
     validatingUri = document.uri;
 });
