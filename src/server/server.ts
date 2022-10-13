@@ -2,6 +2,8 @@ import { execSync } from 'child_process';
 import * as glob from 'fast-glob';
 import { existsSync, readFileSync } from 'fs';
 import mo from 'motoko';
+import { Node } from 'motoko/lib/ast';
+import { keywords } from 'motoko/lib/keywords';
 import * as baseLibrary from 'motoko/packages/latest/base.json';
 import { join } from 'path';
 import { TextDocument } from 'vscode-languageserver-textdocument';
@@ -32,14 +34,13 @@ import AstResolver from './ast';
 import DfxResolver from './dfx';
 import ImportResolver from './imports';
 import { getAstInformation } from './information';
-import { findMostSpecificNode } from './program';
+import { findNodes } from './program';
 import {
     getRelativeUri,
     getText,
     resolveFilePath,
     resolveVirtualPath,
 } from './utils';
-import { keywords } from 'motoko/lib/keywords';
 
 interface Settings {
     motoko: MotokoSettings;
@@ -727,26 +728,45 @@ connection.onHover((event) => {
     if (!status?.ast) {
         return;
     }
-    const node = findMostSpecificNode(
+    console.log('position', position); ////
+    // Find AST nodes which include the cursor position
+    const nodes = findNodes(
         status.ast,
         (node) =>
-            !(
-                node.name === 'FuncE' &&
-                console.log('<func>', node.start, node.end)
-            ) &&
             node.start &&
             node.end &&
-            // position.line >= node.start[0] - 1 &&
-            // position.line <= node.end[0] - 1 &&
-            position.line == node.start[0] - 1 &&
-            position.character >= node.start[1] &&
-            (node.start[0] !== node.end[0] ||
+            position.line >= node.start[0] - 1 &&
+            position.line <= node.end[0] - 1 &&
+            // position.line == node.start[0] - 1 &&
+            (position.line !== node.start[0] - 1 ||
+                position.character >= node.start[1]) &&
+            (position.line !== node.end[0] - 1 ||
                 position.character <= node.end[1]),
     );
-    console.log(node?.name, node?.start, node?.end); ////
+
+    // Find the AST node with the fewest
+    let node: Node | undefined;
+    let nodeLines: number;
+    let nodeChars: number;
+    nodes.forEach((n: Node) => {
+        const nLines = n.end![0] - n.start![0];
+        const nChars = n.end![1] - n.start![1];
+        if (
+            !node ||
+            nLines < nodeLines ||
+            (nLines == nodeLines && nChars < nodeChars)
+        ) {
+            console.log(n.start, n.end); ////
+            node = n;
+            nodeLines = nLines;
+            nodeChars = nChars;
+        }
+    });
+
     if (!node || !node.start || !node.end) {
         return;
     }
+    // console.log(node?.name, node?.start, node?.end); ///////
 
     const text = getText(uri);
     const lines = text.split(/\r?\n/g);

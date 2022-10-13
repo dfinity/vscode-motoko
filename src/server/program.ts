@@ -1,30 +1,33 @@
 import { AST, Node } from 'motoko/lib/ast';
 
-export function findMostSpecificNode(
+export function findNodes(ast: AST, condition?: (node: Node) => any): Node[] {
+    const nodes: Node[] = [];
+    findNodes_(ast, condition, nodes);
+    return nodes;
+}
+
+function findNodes_(
     ast: AST,
-    condition: (node: Node) => any,
-): Node | undefined {
-    if (
-        !ast ||
-        Array.isArray(ast) ||
-        typeof ast === 'string' ||
-        typeof ast === 'number'
-    ) {
+    condition: ((node: Node) => any) | undefined,
+    nodes: Node[] = [],
+) {
+    if (!ast || typeof ast === 'string' || typeof ast === 'number') {
         return;
     }
-    // if (!condition(ast)) {
-    //     return;
-    // }
-    if (ast.args) {
-        for (const arg of ast.args) {
-            const result = findMostSpecificNode(arg, condition);
-            if (result) {
-                return result;
-            }
+    if (Array.isArray(ast)) {
+        for (let i = 0; i < ast.length; i++) {
+            const arg = ast[i];
+            findNodes_(arg, condition, nodes);
         }
+        return;
     }
-    return condition(ast) ? ast : undefined;
-    // return ast;
+
+    if (ast.args) {
+        findNodes_(ast.args, condition, nodes);
+    }
+    if (condition?.(ast)) {
+        nodes.push(ast);
+    }
 }
 
 export function fromAST(ast: AST): ASTWrapper {
