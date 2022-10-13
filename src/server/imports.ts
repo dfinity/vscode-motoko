@@ -15,7 +15,7 @@ export default class ImportResolver {
     //     return; ////
     // }
 
-    getImportPaths(name: string, _uri: string): string[] {
+    getImportPaths(name: string): string[] {
         const options = this.moduleMap_.get(name);
         if (!options) {
             return [];

@@ -257,8 +257,8 @@ connection.onInitialize((event): InitializeResult => {
                 // allCommitCharacters: ['.'],
             },
             // definitionProvider: true,
-            // codeActionProvider: true,
             // declarationProvider: true,
+            codeActionProvider: true,
             hoverProvider: true,
             // diagnosticProvider: {
             //     documentSelector: ['motoko'],
@@ -609,28 +609,31 @@ connection.onCodeAction((event) => {
 
     event.context?.diagnostics?.forEach((diagnostic) => {
         const uri = event.textDocument.uri;
-        const name = /unbound variable ([a-zA-Z0-9_]+)/i.exec(
+        const name = /unbound variable ([a-z0-9_]+)/i.exec(
             diagnostic.message,
         )?.[1];
         if (name) {
-            importResolver.getImportPaths(name, uri).forEach((path) => {
-                // Add import suggestion
-                results.push({
-                    kind: CodeActionKind.QuickFix,
-                    isPreferred: true,
-                    title: `Import "${path}"`,
-                    edit: {
-                        changes: {
-                            [uri]: [
-                                TextEdit.insert(
-                                    Position.create(0, 0),
-                                    `import ${name} "${path}";\n`,
-                                ),
-                            ],
+            importResolver
+                .getImportPaths(name)
+                .map((path) => getRelativeUri(uri, path))
+                .forEach((path) => {
+                    // Add import suggestion
+                    results.push({
+                        kind: CodeActionKind.QuickFix,
+                        isPreferred: true,
+                        title: `Import "${path}"`,
+                        edit: {
+                            changes: {
+                                [uri]: [
+                                    TextEdit.insert(
+                                        Position.create(0, 0),
+                                        `import ${name} "${path}";\n`,
+                                    ),
+                                ],
+                            },
                         },
-                    },
+                    });
                 });
-            });
         }
     });
     return results;
