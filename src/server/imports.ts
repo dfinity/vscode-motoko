@@ -1,6 +1,6 @@
 import { MultiMap } from 'mnemonist';
 import { getRelativeUri } from './utils';
-import { Program } from './program';
+import { Program } from './syntax';
 
 export default class ImportResolver {
     private _moduleMap = new MultiMap<string, string>(Set);

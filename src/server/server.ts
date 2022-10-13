@@ -26,7 +26,7 @@ import {
     TextDocuments,
     TextDocumentSyncKind,
     TextEdit,
-    WorkspaceFolder
+    WorkspaceFolder,
 } from 'vscode-languageserver/node';
 import { URI } from 'vscode-uri';
 import { watchGlob as virtualFilePattern } from '../common/watchConfig';
@@ -34,7 +34,7 @@ import AstResolver from './ast';
 import DfxResolver from './dfx';
 import ImportResolver from './imports';
 import { getAstInformation } from './information';
-import { findNodes, Program } from './program';
+import { findNodes, Program } from './syntax';
 import { getFileText, resolveFilePath, resolveVirtualPath } from './utils';
 
 interface Settings {
@@ -44,6 +44,7 @@ interface Settings {
 interface MotokoSettings {
     hideWarningRegex: string;
     maxNumberOfProblems: number;
+    debugHover: boolean;
 }
 
 // Always ignore `node_modules/` (often used in frontend canisters)
@@ -759,6 +760,25 @@ connection.onHover((event) => {
     const info = getAstInformation(node, source);
     if (info) {
         docs.push(info);
+    }
+    if (settings?.debugHover) {
+        // Show AST debug information
+        let debugText = `\n${node.name}`;
+        if (node.args?.length) {
+            debugText += ` [${node.args
+                .map(
+                    (a) =>
+                        `\n  ${
+                            typeof a === 'object'
+                                ? Array.isArray(a)
+                                    ? '[...]'
+                                    : a?.name
+                                : JSON.stringify(a)
+                        }`,
+                )
+                .join('')}\n]`;
+        }
+        docs.push(codeSnippet(debugText));
     }
     return {
         contents: {
