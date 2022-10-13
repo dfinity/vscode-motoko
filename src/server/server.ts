@@ -717,7 +717,7 @@ connection.onHover((event) => {
             (position.line !== node.start[0] - 1 ||
                 position.character >= node.start[1]) &&
             (position.line !== node.end[0] - 1 ||
-                position.character <= node.end[1]),
+                position.character < node.end[1]),
     );
 
     // Find the AST node with the fewest
