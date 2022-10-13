@@ -35,7 +35,7 @@ import DfxResolver from './dfx';
 import ImportResolver from './imports';
 import { getAstInformation } from './information';
 import { findNodes, fromAST, Program } from './program';
-import { getText, resolveFilePath, resolveVirtualPath } from './utils';
+import { getFileText, resolveFilePath, resolveVirtualPath } from './utils';
 
 interface Settings {
     motoko: MotokoSettings;
@@ -552,6 +552,9 @@ function check(uri: string | TextDocument): boolean {
 }
 
 function notifyWriteUri(uri: string, content: string) {
+   if(uri.endsWith('.mo')){
+    astResolver.notify(uri,content);
+
     let program: Program | undefined;
     try {
         let result = fromAST(mo.parseMotoko(content));
@@ -562,11 +565,14 @@ function notifyWriteUri(uri: string, content: string) {
         console.error(`Error while parsing (${uri}): ${err}`);
     }
     importResolver.update(uri, program);
+   }
 }
 
 function notifyDeleteUri(uri: string) {
+   if(uri.endsWith('.mo')){
     astResolver.delete(uri);
     importResolver.delete(uri);
+   }
 }
 
 function writeVirtual(path: string, content: string) {
@@ -628,7 +634,7 @@ connection.onCompletion((event) => {
 
     const list = CompletionList.create([], true);
     try {
-        const text = getText(uri);
+        const text = getFileText(uri);
         const lines = text.split(/\r?\n/g);
 
         const [dot, identStart] = /(\s*\.\s*)?([a-zA-Z_][a-zA-Z0-9_]*)$/
@@ -740,7 +746,7 @@ connection.onHover((event) => {
         return;
     }
 
-    const text = getText(uri);
+    const text = getFileText(uri);
     const lines = text.split(/\r?\n/g);
 
     const startLine = lines[node.start[0] - 1];
@@ -804,7 +810,7 @@ documents.onDidChangeContent((event) => {
     }
     validatingTimeout = setTimeout(() => {
         validate(document);
-        astResolver.update(document.uri); /// TODO: also use for type checking?
+        astResolver.update(document.uri, true); /// TODO: also use for type checking?
     }, 100);
     validatingUri = document.uri;
 });

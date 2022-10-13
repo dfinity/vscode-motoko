@@ -20,7 +20,7 @@ export function resolveVirtualPath(uri: string, ...parts: string[]): string {
 /**
  * Reads a file from the given URI.
  */
-export function getText(uri: string): string {
+export function getFileText(uri: string): string {
     const document = documents.get(uri);
     if (document) {
         return document.getText();
@@ -33,9 +33,9 @@ export function getText(uri: string): string {
 /**
  * Attempts to read a file. Returns null if not found.
  */
-export function tryGetText(uri: string): string | null {
+export function tryGetFileText(uri: string): string | null {
     try {
-        return getText(uri);
+        return getFileText(uri);
     } catch (err) {
         return null;
     }
