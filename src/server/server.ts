@@ -34,13 +34,8 @@ import AstResolver from './ast';
 import DfxResolver from './dfx';
 import ImportResolver from './imports';
 import { getAstInformation } from './information';
-import { findNodes } from './program';
-import {
-    getRelativeUri,
-    getText,
-    resolveFilePath,
-    resolveVirtualPath,
-} from './utils';
+import { findNodes, fromAST, Program } from './program';
+import { getText, resolveFilePath, resolveVirtualPath } from './utils';
 
 interface Settings {
     motoko: MotokoSettings;
@@ -556,41 +551,22 @@ function check(uri: string | TextDocument): boolean {
     return false;
 }
 
-function notifyWriteUri(uri: string, _content: string) {
-    if (uri.endsWith('.mo')) {
-        uri = uri.slice(0, -'.mo'.length);
-
-        // TODO: only use top-level `.vessel` directory
-        const match = /\.vessel\/([^/]+)\/[^/]+\/src\/(.+)/.exec(uri);
-        if (match) {
-            // Resolve `mo:` URI for Vessel packages
-            const [, pkgName, path] = match;
-            uri = `mo:${pkgName}/${path}`;
-        } else if (/\.vessel\//.test(uri)) {
-            // Ignore everything else in `.vessel`
-            return;
+function notifyWriteUri(uri: string, content: string) {
+    let program: Program | undefined;
+    try {
+        let result = fromAST(mo.parseMotoko(content));
+        if (result instanceof Program) {
+            program = result;
         }
-
-        const name = /([a-z_][a-z0-9_]*)$/i.exec(uri)?.[1];
-        if (name) {
-            importResolver.addName(name, uri);
-        }
-
-        // setTimeout(() => {
-        //     try {
-        //         const ast = mo.parseMotoko(content);
-        //         const program = fromAST(ast);
-        //         if (program instanceof Program) {}
-        //     } catch (err) {
-        //         console.error(`Error while parsing (${uri}): ${err}`);
-        //     }
-        // }, 0);
+    } catch (err) {
+        console.error(`Error while parsing (${uri}): ${err}`);
     }
+    importResolver.update(uri, program);
 }
 
 function notifyDeleteUri(uri: string) {
-    importResolver.delete(uri);
     astResolver.delete(uri);
+    importResolver.delete(uri);
 }
 
 function writeVirtual(path: string, content: string) {
@@ -613,27 +589,24 @@ connection.onCodeAction((event) => {
             diagnostic.message,
         )?.[1];
         if (name) {
-            importResolver
-                .getImportPaths(name)
-                .map((path) => getRelativeUri(uri, path))
-                .forEach((path) => {
-                    // Add import suggestion
-                    results.push({
-                        kind: CodeActionKind.QuickFix,
-                        isPreferred: true,
-                        title: `Import "${path}"`,
-                        edit: {
-                            changes: {
-                                [uri]: [
-                                    TextEdit.insert(
-                                        Position.create(0, 0),
-                                        `import ${name} "${path}";\n`,
-                                    ),
-                                ],
-                            },
+            importResolver.getImportPaths(name, uri).forEach((path) => {
+                // Add import suggestion
+                results.push({
+                    kind: CodeActionKind.QuickFix,
+                    isPreferred: true,
+                    title: `Import "${path}"`,
+                    edit: {
+                        changes: {
+                            [uri]: [
+                                TextEdit.insert(
+                                    Position.create(0, 0),
+                                    `import ${name} "${path}";\n`,
+                                ),
+                            ],
                         },
-                    });
+                    },
                 });
+            });
         }
     });
     return results;
@@ -667,7 +640,7 @@ connection.onCompletion((event) => {
                 if (name.startsWith(identStart)) {
                     list.items.push({
                         label: name,
-                        detail: getRelativeUri(uri, path),
+                        detail: path,
                         insertText: name,
                         kind: path.startsWith('mo:')
                             ? CompletionItemKind.Module
