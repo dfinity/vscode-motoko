@@ -704,7 +704,6 @@ connection.onHover((event) => {
     if (!status?.ast) {
         return;
     }
-    console.log('position', position); ////
     // Find AST nodes which include the cursor position
     const nodes = findNodes(
         status.ast,
@@ -720,7 +719,7 @@ connection.onHover((event) => {
                 position.character < node.end[1]),
     );
 
-    // Find the AST node with the fewest
+    // Find the most specific AST node for the cursor position
     let node: Node | undefined;
     let nodeLines: number;
     let nodeChars: number;
@@ -732,17 +731,14 @@ connection.onHover((event) => {
             nLines < nodeLines ||
             (nLines == nodeLines && nChars < nodeChars)
         ) {
-            console.log(n.start, n.end); ////
             node = n;
             nodeLines = nLines;
             nodeChars = nChars;
         }
     });
-
     if (!node || !node.start || !node.end) {
         return;
     }
-    // console.log(node?.name, node?.start, node?.end); ///////
 
     const text = getText(uri);
     const lines = text.split(/\r?\n/g);
@@ -758,7 +754,6 @@ connection.onHover((event) => {
         node.start[1],
         node.start[0] === node.end[0] ? node.end[1] : startLine.length,
     );
-    // docs.push(codeSnippet(source));
     const info = getAstInformation(node, source);
     if (info) {
         docs.push(info);
