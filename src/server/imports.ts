@@ -2,6 +2,7 @@ import { MultiMap } from 'mnemonist';
 import { getRelativeUri } from './utils';
 import { matchNode, Program } from './syntax';
 import { Node, AST } from 'motoko/lib/ast';
+import { pascalCase } from 'change-case';
 
 interface ResolvedField {
     name: string;
@@ -24,7 +25,7 @@ export default class ImportResolver {
         if (!motokoUri) {
             return false;
         }
-        const name = /([a-z_][a-z0-9_]*)$/i.exec(motokoUri)?.[1];
+        const name = pascalCase(/([^/]+)$/i.exec(motokoUri)?.[1]||'');
         if (name) {
             this._moduleNameUriMap.set(name, motokoUri);
         }
