@@ -250,7 +250,6 @@ connection.onInitialize((event): InitializeResult => {
             completionProvider: {
                 resolveProvider: false,
                 triggerCharacters: ['.'],
-                // allCommitCharacters: ['.'],
             },
             // definitionProvider: true,
             // declarationProvider: true,
@@ -633,8 +632,9 @@ connection.onCompletion((event) => {
     try {
         const text = getFileText(uri);
         const lines = text.split(/\r?\n/g);
+        const program = astResolver.request(uri)?.program;
 
-        const [dot, identStart] = /(\s*\.\s*)?([a-zA-Z_][a-zA-Z0-9_]*)$/
+        const [dot, identStart] = /(\s*\.\s*)?([a-zA-Z_]?[a-zA-Z0-9_]*)$/
             .exec(lines[position.line].substring(0, position.character))
             ?.slice(1) ?? ['', ''];
 
@@ -665,6 +665,26 @@ connection.onCompletion((event) => {
                     }
                 });
             }
+
+            if (program) {
+                // TODO: only show relevant identifiers
+                const idents = new Set<string>();
+                findNodes(program.ast, (node) => node.name === 'VarP').forEach(
+                    (node) => {
+                        const ident = node.args?.[0];
+                        if (typeof ident === 'string') {
+                            idents.add(ident);
+                        }
+                    },
+                );
+                idents.forEach((ident) => {
+                    list.items.push({
+                        label: ident,
+                        insertText: ident,
+                        kind: CompletionItemKind.Variable,
+                    });
+                });
+            }
         }
         // else {
         //     // Check for an identifier before the dot (e.g. `Module.abc`)
@@ -675,7 +695,6 @@ connection.onCompletion((event) => {
         //     if (preMatch) {
         //         const [, preDot, preIdent] = preMatch;
         //         if (!preDot) {
-        //             const program = astResolver.request(uri)?.program;
         //             importResolver
         //                 .getNameEntries(preIdent)
         //                 .forEach(([name, uri]) => {
