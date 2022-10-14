@@ -730,7 +730,7 @@ connection.onCompletion((event) => {
     return list;
 });
 
-// const ignoredAstNodes = ['AsyncE', 'LetD'];
+// const ignoredAstNodes = [];
 connection.onHover((event) => {
     const { position } = event;
     const { uri } = event.textDocument;
