@@ -2,6 +2,8 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { URI } from 'vscode-uri';
 import { documents } from './server';
+import * as prettier from 'prettier/standalone';
+import * as motokoPlugin from 'prettier-plugin-motoko';
 
 /**
  * Resolves the absolute file system path from the given URI.
@@ -38,6 +40,18 @@ export function tryGetFileText(uri: string): string | null {
         return getFileText(uri);
     } catch (err) {
         return null;
+    }
+}
+
+export function formatMotoko(source: string): string {
+    try {
+        return prettier.format(source, {
+            plugins: [motokoPlugin],
+            filepath: '*.mo',
+        });
+    } catch (err) {
+        console.error(`Error while formatting \`${source}\`: ${err}`);
+        return source;
     }
 }
 

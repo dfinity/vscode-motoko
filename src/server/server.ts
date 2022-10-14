@@ -35,7 +35,12 @@ import DfxResolver from './dfx';
 import ImportResolver from './imports';
 import { getAstInformation } from './information';
 import { findNodes, Program } from './syntax';
-import { getFileText, resolveFilePath, resolveVirtualPath } from './utils';
+import {
+    formatMotoko,
+    getFileText,
+    resolveFilePath,
+    resolveVirtualPath,
+} from './utils';
 
 interface Settings {
     motoko: MotokoSettings;
@@ -786,7 +791,7 @@ connection.onHover((event) => {
         isSameLine ? startLine.substring(node.start[1], node.end[1]) : startLine
     ).trim();
     if (node.type) {
-        docs.push(codeSnippet(node.type));
+        docs.push(codeSnippet(formatMotoko(node.type)));
     } else if (!isSameLine) {
         docs.push(codeSnippet(source));
     }
