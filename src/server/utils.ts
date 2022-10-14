@@ -41,9 +41,10 @@ export function tryGetFileText(uri: string): string | null {
     }
 }
 
-export function getRelativeUri(from: string, to: string) {
+export function getRelativeUri(from: string, to: string): string {
     if (from === to) {
-        return '.';
+        // Fix vulnerability with `url-relative` package (https://security.snyk.io/vuln/SNYK-JS-URLRELATIVE-173691)
+        return from.substring(from.lastIndexOf('/') + 1);
     }
     return require('url-relative')(from, to);
 }

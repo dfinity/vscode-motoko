@@ -1,7 +1,7 @@
 import { AST } from 'motoko/lib/ast';
 import { resolveVirtualPath, tryGetFileText } from './utils';
-import mo from 'motoko';
 import { fromAST, Program } from './syntax';
+import mo from 'motoko';
 
 export interface AstStatus {
     uri: string;
@@ -68,14 +68,16 @@ export default class AstResolver {
     }
 
     request(uri: string): AstStatus | undefined {
-        if (!this._cache.has(uri) && !this.update(uri, false)) {
+        const status = this._cache.get(uri);
+        if ((!status || status.outdated) && !this.update(uri, false)) {
             return;
         }
         return this._cache.get(uri);
     }
 
     requestTyped(uri: string): AstStatus | undefined {
-        if (!this._typedCache.has(uri) && !this.update(uri, true)) {
+        const status = this._typedCache.get(uri);
+        if ((!status || status.outdated) && !this.update(uri, true)) {
             return;
         }
         return this._typedCache.get(uri);
