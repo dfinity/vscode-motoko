@@ -524,6 +524,18 @@ function check(uri: string | TextDocument): boolean {
         diagnostics.forEach((diagnostic) => {
             const key = diagnostic.source || virtualPath;
             if (!key.endsWith(skipExtension)) {
+                if (
+                    /canister alias "([^"]+)" not defined/.test(
+                        diagnostic.message || '',
+                    )
+                ) {
+                    // Extra debugging information for `canister:` import errors
+                    diagnostic = {
+                        ...diagnostic,
+                        message: `${diagnostic.message}. This is usually fixed by running \`dfx deploy\``,
+                    };
+                }
+
                 (diagnosticMap[key] || (diagnosticMap[key] = [])).push({
                     ...diagnostic,
                     source: 'Motoko',
@@ -590,6 +602,7 @@ function deleteVirtual(path: string) {
 connection.onCodeAction((event) => {
     const results: CodeAction[] = [];
 
+    // Automatic imports
     event.context?.diagnostics?.forEach((diagnostic) => {
         const uri = event.textDocument.uri;
         const name = /unbound variable ([a-z0-9_]+)/i.exec(
