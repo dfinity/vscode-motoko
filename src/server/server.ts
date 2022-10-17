@@ -59,13 +59,13 @@ const ignoreGlobs = ['**/node_modules/**/*'];
 
 // Set up import suggestions
 const importResolver = new ImportResolver();
+const astResolver = new AstResolver();
+
 Object.entries(baseLibrary.files).forEach(
     ([path, { content }]: [string, { content: string }]) => {
         notifyWriteUri(`mo:base/${path}`, content);
     },
 );
-
-const astResolver = new AstResolver();
 
 function getVesselArgs():
     | { workspaceFolder: WorkspaceFolder; args: string[] }
