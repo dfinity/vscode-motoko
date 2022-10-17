@@ -501,10 +501,11 @@ function check(uri: string | TextDocument): boolean {
 
         console.log('~', virtualPath);
 
-        let diagnostics = [];
+        let diagnostics: Diagnostic[] = [];
+        let regularTypeCheck = true;
 
-        // Check for a `// @viper` comment at the top of a Motoko file
-        if (/^\s*\/\/ *@viper *\r?\n/i.test(getFileText(resolvedUri))) {
+        // Check for a `// @viper` comment at the beginning of the Motoko file
+        if (/^\s*\/\/ *@viper/i.test(getFileText(resolvedUri))) {
             const viperFile = resolveFilePath(
                 resolvedUri.replace(/\.mo$/, '.vpr'),
             );
@@ -514,20 +515,23 @@ function check(uri: string | TextDocument): boolean {
                 console.log('Viper file:', viperFile);
                 if (viper.diagnostics) {
                     diagnostics = viper.diagnostics;
-                    console.log(viper.diagnostics); ///
                 }
                 if (viper.code) {
                     writeFileSync(viperFile, viper.code, 'utf8');
                 } else if (existsSync(viperFile)) {
                     unlinkSync(viperFile);
                 }
+                regularTypeCheck = false; // Already type checked via `mo.compiler.viper()`
             } catch (err) {
                 console.error(`Error while translating to Viper: ${err}`);
                 writeFileSync(viperFile, err?.toString() || '', 'utf8');
             }
         }
 
-        diagnostics = mo.check(virtualPath) as any as Diagnostic[];
+        if (regularTypeCheck) {
+            diagnostics = mo.check(virtualPath) as any as Diagnostic[];
+        }
+
         if (settings) {
             if (settings.maxNumberOfProblems > 0) {
                 diagnostics = diagnostics.slice(
