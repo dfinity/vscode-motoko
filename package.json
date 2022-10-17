@@ -155,6 +155,9 @@
         "typescript": "^4.8.2",
         "vsce": "^2.11.0"
     },
+    "extensionDependencies": [
+        "viper-admin.viper"
+    ],
     "scripts": {
         "vscode:prepublish": "npm run generate && npm run compile",
         "generate": "cd ../motoko && nix-shell --command 'make -C src moc.js' && cp -vL src/moc.js ../vscode-motoko/src/generated",
