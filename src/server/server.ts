@@ -1,7 +1,7 @@
 import { execSync } from 'child_process';
 import * as glob from 'fast-glob';
-import { existsSync, readFileSync } from 'fs';
-import mo from 'motoko';
+import { existsSync, readFileSync, writeFileSync } from 'fs';
+import mo from './motoko';
 import { Node } from 'motoko/lib/ast';
 import { keywords } from 'motoko/lib/keywords';
 import * as baseLibrary from 'motoko/packages/latest/base.json';
@@ -500,6 +500,27 @@ function check(uri: string | TextDocument): boolean {
         }
 
         console.log('~', virtualPath);
+
+        try {
+            // @ts-ignore
+            const viper = mo.compiler.viper([virtualPath]);
+
+            const viperFile = resolveFilePath(
+                resolvedUri.replace(/\.mo$/, '.vpr'),
+            );
+            console.log('Viper file:', viperFile);
+
+            writeFileSync(
+                viperFile,
+                typeof viper === 'string'
+                    ? viper
+                    : JSON.stringify(viper, null, 1),
+                'utf8',
+            );
+        } catch (err) {
+            console.error(`Error while translating to Viper: ${err}`);
+        }
+
         let diagnostics = mo.check(virtualPath) as any as Diagnostic[];
 
         if (settings) {

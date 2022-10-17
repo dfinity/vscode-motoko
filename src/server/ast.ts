@@ -1,7 +1,7 @@
 import { AST } from 'motoko/lib/ast';
 import { resolveVirtualPath, tryGetFileText } from './utils';
 import { fromAST, Program } from './syntax';
-import mo from 'motoko';
+import mo from './motoko';
 
 export interface AstStatus {
     uri: string;
