@@ -156,9 +156,9 @@
         "vsce": "^2.11.0"
     },
     "scripts": {
-        "vscode:prepublish": "npm run compile && npm run generate",
-        "generate": "node utils/generate",
-        "compile": "rimraf ./out && tsc -p . && cp -r src/generated out/generated",
+        "vscode:prepublish": "npm run generate && npm run compile",
+        "generate": "cd ../motoko && nix-shell --command 'make -C src moc.js' && cp -vL src/moc.js ../vscode-motoko/src/generated",
+        "compile": "rimraf ./out && tsc -p . && cp -vr src/generated out/generated",
         "test": "jest",
         "lint": "tslint -p .",
         "package": "vsce package",

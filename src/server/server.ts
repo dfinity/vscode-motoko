@@ -1,6 +1,6 @@
 import { execSync } from 'child_process';
 import * as glob from 'fast-glob';
-import { existsSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'fs';
 import mo from './motoko';
 import { Node } from 'motoko/lib/ast';
 import { keywords } from 'motoko/lib/keywords';
@@ -59,13 +59,13 @@ const ignoreGlobs = ['**/node_modules/**/*'];
 
 // Set up import suggestions
 const importResolver = new ImportResolver();
+const astResolver = new AstResolver();
+
 Object.entries(baseLibrary.files).forEach(
     ([path, { content }]: [string, { content: string }]) => {
         notifyWriteUri(`mo:base/${path}`, content);
     },
 );
-
-const astResolver = new AstResolver();
 
 function getVesselArgs():
     | { workspaceFolder: WorkspaceFolder; args: string[] }
@@ -501,28 +501,33 @@ function check(uri: string | TextDocument): boolean {
 
         console.log('~', virtualPath);
 
-        try {
-            // @ts-ignore
-            const viper = mo.compiler.viper([virtualPath]);
+        let diagnostics = [];
 
+        // Check for a `// @viper` comment at the top of a Motoko file
+        if (/^\s*\/\/ *@viper *\r?\n/i.test(getFileText(resolvedUri))) {
             const viperFile = resolveFilePath(
                 resolvedUri.replace(/\.mo$/, '.vpr'),
             );
-            console.log('Viper file:', viperFile);
-
-            writeFileSync(
-                viperFile,
-                typeof viper === 'string'
-                    ? viper
-                    : JSON.stringify(viper, null, 1),
-                'utf8',
-            );
-        } catch (err) {
-            console.error(`Error while translating to Viper: ${err}`);
+            try {
+                // @ts-ignore
+                const viper = mo.compiler.viper([virtualPath]);
+                console.log('Viper file:', viperFile);
+                if (viper.diagnostics) {
+                    diagnostics = viper.diagnostics;
+                    console.log(viper.diagnostics); ///
+                }
+                if (viper.code) {
+                    writeFileSync(viperFile, viper.code, 'utf8');
+                } else if (existsSync(viperFile)) {
+                    unlinkSync(viperFile);
+                }
+            } catch (err) {
+                console.error(`Error while translating to Viper: ${err}`);
+                writeFileSync(viperFile, err?.toString() || '', 'utf8');
+            }
         }
 
-        let diagnostics = mo.check(virtualPath) as any as Diagnostic[];
-
+        diagnostics = mo.check(virtualPath) as any as Diagnostic[];
         if (settings) {
             if (settings.maxNumberOfProblems > 0) {
                 diagnostics = diagnostics.slice(
