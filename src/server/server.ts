@@ -507,12 +507,11 @@ function check(uri: string | TextDocument): boolean {
 
         // Check for a `// @viper` comment at the beginning of the Motoko file
         if (/^\s*\/\/ *@viper/i.test(getFileText(resolvedUri))) {
-            const viperFile = resolveFilePath(
-                resolvedUri.replace(/\.mo$/, '.vpr'),
-            );
+            const viperUri = resolvedUri.replace(/\.mo$/, '.vpr');
+            const viperFile = resolveFilePath(viperUri);
             try {
                 // @ts-ignore
-                const result = compileViper(resolvedUri, virtualPath);
+                const result = compileViper(virtualPath, viperUri);
                 console.log('Viper file:', viperFile);
                 if (result.diagnostics) {
                     diagnostics = result.diagnostics;
