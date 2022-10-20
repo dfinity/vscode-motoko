@@ -41,6 +41,7 @@ import {
     resolveFilePath,
     resolveVirtualPath,
 } from './utils';
+import { compileViper, invalidateViper } from './viper';
 
 interface Settings {
     motoko: MotokoSettings;
@@ -511,17 +512,18 @@ function check(uri: string | TextDocument): boolean {
             );
             try {
                 // @ts-ignore
-                const viper = mo.compiler.viper([virtualPath]);
+                const result = compileViper(resolvedUri, virtualPath);
                 console.log('Viper file:', viperFile);
-                if (viper.diagnostics) {
-                    diagnostics = viper.diagnostics;
+                if (result.diagnostics) {
+                    diagnostics = result.diagnostics;
                 }
-                if (viper.code) {
-                    writeFileSync(viperFile, viper.code, 'utf8');
+                if (result.code) {
+                    const [source, _lookup] = result.code;
+                    writeFileSync(viperFile, source, 'utf8');
                 } else if (existsSync(viperFile)) {
                     unlinkSync(viperFile);
                 }
-                regularTypeCheck = false; // Already type checked via `mo.compiler.viper()`
+                regularTypeCheck = false; // Already type checked in `compileViper()`
             } catch (err) {
                 console.error(`Error while translating to Viper: ${err}`);
                 writeFileSync(viperFile, err?.toString() || '', 'utf8');
@@ -623,10 +625,12 @@ function writeVirtual(path: string, content: string) {
     //     content = preprocessMotoko(content);
     // }
     mo.write(path, content);
+    invalidateViper(path);
 }
 
 function deleteVirtual(path: string) {
     mo.delete(path);
+    invalidateViper(path);
 }
 
 connection.onCodeAction((event) => {

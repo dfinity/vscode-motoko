@@ -2,3 +2,5 @@
 /out/
 result
 *.vsix
+
+/src/generated/**/*
