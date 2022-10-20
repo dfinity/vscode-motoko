@@ -511,7 +511,12 @@ function check(uri: string | TextDocument): boolean {
             const viperFile = resolveFilePath(viperUri);
             try {
                 // @ts-ignore
-                const result = compileViper(virtualPath, viperUri);
+                const result = compileViper(
+                    resolvedUri,
+                    virtualPath,
+                    viperUri,
+                    connection,
+                );
                 console.log('Viper file:', viperFile);
                 if (result.diagnostics) {
                     diagnostics = result.diagnostics;
