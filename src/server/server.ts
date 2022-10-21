@@ -554,8 +554,8 @@ function check(uri: string | TextDocument): boolean {
         let diagnostics: Diagnostic[] = [];
         let regularTypeCheck = true;
 
-        // Check for a `// @viper` comment at the beginning of the Motoko file
-        if (/^\s*\/\/ *@viper/i.test(getFileText(resolvedUri))) {
+        // Check for a `// @verify` comment at the beginning of the Motoko file
+        if (/^\s*\/\/ *@verify/i.test(getFileText(resolvedUri))) {
             const initialDiagnostics = compileViper(resolvedUri);
             if (initialDiagnostics) {
                 diagnostics = initialDiagnostics;
