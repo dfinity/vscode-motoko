@@ -177,7 +177,11 @@ function getMotokoSourceRange(
     if (!result) {
         return;
     }
-    return result.lookup(motokoPath, [a, b, c, d]); // TODO: directly pass range
+    const range = result.lookup(/* motokoPath */ '', [a, b, c, d]); // TODO: directly pass range
+    if (!range || (!range.end.line && !range.end.character)) {
+        return;
+    }
+    return range;
 }
 
 export function getViperUri(motokoUri: string) {
