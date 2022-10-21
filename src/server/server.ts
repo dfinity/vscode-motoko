@@ -1,7 +1,6 @@
 import { execSync } from 'child_process';
 import * as glob from 'fast-glob';
-import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'fs';
-import mo from './motoko';
+import { existsSync, readFileSync } from 'fs';
 import { Node } from 'motoko/lib/ast';
 import { keywords } from 'motoko/lib/keywords';
 import * as baseLibrary from 'motoko/packages/latest/base.json';
@@ -34,6 +33,7 @@ import AstResolver from './ast';
 import DfxResolver from './dfx';
 import ImportResolver from './imports';
 import { getAstInformation } from './information';
+import mo from './motoko';
 import { findNodes, Program } from './syntax';
 import {
     formatMotoko,
@@ -55,6 +55,7 @@ interface MotokoSettings {
 
 // Always ignore `node_modules/` (often used in frontend canisters)
 const ignoreGlobs = ['**/node_modules/**/*'];
+const skipExtension = '.mo_';
 
 // const moFileSet = new Set();
 
@@ -471,13 +472,66 @@ function notify(uri: string | TextDocument): boolean {
     return false;
 }
 
+// Send diagnostics from `moc.js`
+export function sendDiagnostics(
+    virtualPath: string,
+    diagnostics: Diagnostic[],
+    ignoreOtherPaths: boolean = false, // Ignore diagnostics from other virtual paths
+) {
+    if (settings) {
+        if (settings.maxNumberOfProblems > 0) {
+            diagnostics = diagnostics.slice(0, settings.maxNumberOfProblems);
+        }
+        if (settings.hideWarningRegex?.trim()) {
+            diagnostics = diagnostics.filter(
+                ({ message, severity }) =>
+                    severity === DiagnosticSeverity.Error ||
+                    // @ts-ignore
+                    !new RegExp(settings.hideWarningRegex).test(message),
+            );
+        }
+    }
+    const diagnosticMap: Record<string, Diagnostic[]> = {
+        [virtualPath]: [], // Start with empty diagnostics for the main file
+    };
+    diagnostics.forEach((diagnostic) => {
+        const key = diagnostic.source || virtualPath;
+        if (!key.endsWith(skipExtension)) {
+            if (
+                /canister alias "([^"]+)" not defined/.test(
+                    diagnostic.message || '',
+                )
+            ) {
+                // Extra debugging information for `canister:` import errors
+                diagnostic = {
+                    ...diagnostic,
+                    message: `${diagnostic.message}. This is usually fixed by running \`dfx deploy\``,
+                };
+            }
+
+            if (ignoreOtherPaths && !diagnosticMap.hasOwnProperty(key)) {
+                return;
+            }
+            (diagnosticMap[key] || (diagnosticMap[key] = [])).push({
+                ...diagnostic,
+                source: 'Motoko',
+            });
+        }
+    });
+    Object.entries(diagnosticMap).forEach(([path, diagnostics]) => {
+        connection.sendDiagnostics({
+            uri: URI.file(path).toString(),
+            diagnostics,
+        });
+    });
+}
+
 /**
  * Generates errors and warnings for a document.
  */
 function check(uri: string | TextDocument): boolean {
     // TODO: debounce
     try {
-        const skipExtension = '.mo_';
         const resolvedUri = typeof uri === 'string' ? uri : uri?.uri;
         if (resolvedUri?.endsWith(skipExtension)) {
             connection.sendDiagnostics({
@@ -507,84 +561,17 @@ function check(uri: string | TextDocument): boolean {
 
         // Check for a `// @viper` comment at the beginning of the Motoko file
         if (/^\s*\/\/ *@viper/i.test(getFileText(resolvedUri))) {
-            const viperUri = resolvedUri.replace(/\.mo$/, '.vpr');
-            const viperFile = resolveFilePath(viperUri);
-            try {
-                // @ts-ignore
-                const result = compileViper(
-                    resolvedUri,
-                    virtualPath,
-                    viperUri,
-                    connection,
-                );
-                console.log('Viper file:', viperFile);
-                if (result.diagnostics) {
-                    diagnostics = result.diagnostics;
-                }
-                if (result.code) {
-                    const [source, _lookup] = result.code;
-                    writeFileSync(viperFile, source, 'utf8');
-                } else if (existsSync(viperFile)) {
-                    unlinkSync(viperFile);
-                }
-                regularTypeCheck = false; // Already type checked in `compileViper()`
-            } catch (err) {
-                console.error(`Error while translating to Viper: ${err}`);
-                writeFileSync(viperFile, err?.toString() || '', 'utf8');
+            const initialDiagnostics = compileViper(resolvedUri);
+            if (initialDiagnostics) {
+                diagnostics = initialDiagnostics;
+                // Already type checked via `compileViper()`
+                regularTypeCheck = false;
             }
         }
-
         if (regularTypeCheck) {
             diagnostics = mo.check(virtualPath) as any as Diagnostic[];
         }
-
-        if (settings) {
-            if (settings.maxNumberOfProblems > 0) {
-                diagnostics = diagnostics.slice(
-                    0,
-                    settings.maxNumberOfProblems,
-                );
-            }
-            if (settings.hideWarningRegex?.trim()) {
-                diagnostics = diagnostics.filter(
-                    ({ message, severity }) =>
-                        severity === DiagnosticSeverity.Error ||
-                        // @ts-ignore
-                        !new RegExp(settings.hideWarningRegex).test(message),
-                );
-            }
-        }
-        const diagnosticMap: Record<string, Diagnostic[]> = {
-            [virtualPath]: [], // Start with empty diagnostics for the main file
-        };
-        diagnostics.forEach((diagnostic) => {
-            const key = diagnostic.source || virtualPath;
-            if (!key.endsWith(skipExtension)) {
-                if (
-                    /canister alias "([^"]+)" not defined/.test(
-                        diagnostic.message || '',
-                    )
-                ) {
-                    // Extra debugging information for `canister:` import errors
-                    diagnostic = {
-                        ...diagnostic,
-                        message: `${diagnostic.message}. This is usually fixed by running \`dfx deploy\``,
-                    };
-                }
-
-                (diagnosticMap[key] || (diagnosticMap[key] = [])).push({
-                    ...diagnostic,
-                    source: 'Motoko',
-                });
-            }
-        });
-
-        Object.entries(diagnosticMap).forEach(([path, diagnostics]) => {
-            connection.sendDiagnostics({
-                uri: URI.file(path).toString(),
-                diagnostics: diagnostics,
-            });
-        });
+        sendDiagnostics(virtualPath, diagnostics);
         return true;
     } catch (err) {
         console.error(`Error while compiling Motoko file: ${err}`);

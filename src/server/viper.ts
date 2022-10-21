@@ -1,16 +1,18 @@
 // Load custom `moc.js` with Viper integration
-import { Span } from 'motoko/lib/ast';
 import mo from './motoko';
 import { spawn } from 'child_process';
 import * as rpc from 'vscode-jsonrpc/node';
 import { resolve } from 'path';
 import { connect } from 'net';
-import { resolveFilePath } from './utils';
-import { createConnection, Diagnostic } from 'vscode-languageserver';
+import { resolveFilePath, resolveVirtualPath } from './utils';
+import { Diagnostic, Range } from 'vscode-languageserver';
+import { existsSync, unlinkSync, writeFileSync } from 'fs';
+import { sendDiagnostics } from './server';
 
 const serverPort = 54816; // TODO: config
 const z3Path = '/nix/store/3dpbapw0ia9q835pqbf7khdi9rps2rm2-z3-4.8.15/bin/z3'; // TODO: detect
 
+// Viper LSP server connection
 let connection: rpc.MessageConnection | undefined;
 
 try {
@@ -54,9 +56,33 @@ try {
     });
 
     connection.onNotification(
-        new rpc.NotificationType('StateChange'),
-        (params) => {
-            console.log('StateChange:', params); ///
+        new rpc.NotificationType<
+            object & { uri: string; diagnostics: Diagnostic[] }
+        >('StateChange'),
+        ({ uri, diagnostics }) => {
+            if (diagnostics) {
+                const allDiagnostics = [
+                    ...(mocViperCache.get(uri)?.diagnostics || []),
+                    ...diagnostics.map((diagnostic) => {
+                        const range: Range = getMotokoSourceRange(
+                            uri,
+                            diagnostic.range,
+                        ) || {
+                            start: { line: 0, character: 0 },
+                            end: { line: 0, character: 0 },
+                        };
+                        return {
+                            ...diagnostic,
+                            range,
+                        };
+                    }),
+                ];
+                sendDiagnostics(
+                    resolveVirtualPath(getMotokoUri(uri)),
+                    allDiagnostics,
+                    true,
+                );
+            }
         },
     );
 
@@ -121,84 +147,114 @@ try {
     console.error(`Error while initializing Viper LSP: ${err}`);
 }
 
-type Range = { start: Span; end: Span };
 type CompilerRange = [number, number, number, number];
 export type Lookup = (pos: CompilerRange) => CompilerRange;
 
 // Viper -> Motoko source map cache
-const sourceLookupMap = new Map<string, Lookup>();
+const mocViperCache = new Map<
+    string,
+    { source: string; lookup: Lookup; diagnostics: Diagnostic[] }
+>();
 
-export function getMotokoSourceRange(
+function getMotokoSourceRange(
     virtualPath: string,
-    { start: [a, b], end: [c, d] }: Range,
+    { start: { line: a, character: b }, end: { line: c, character: d } }: Range,
 ): Range | undefined {
-    const lookup = sourceLookupMap.get(virtualPath);
-    if (!lookup) {
-        return;
-    }
-    const result = lookup([a, b, c, d]);
+    const result = mocViperCache.get(virtualPath);
     if (!result) {
         return;
     }
+    const { lookup } = result;
+    const compilerRange = lookup([a, b, c, d]);
+    if (!compilerRange) {
+        return;
+    }
     return {
-        start: [result[0], result[1]],
-        end: [result[2], result[3]],
+        start: { line: compilerRange[0], character: compilerRange[1] },
+        end: { line: compilerRange[2], character: compilerRange[3] },
     };
 }
 
-export function compileViper(
-    _motokoUri: string,
-    motokoPath: string,
-    uri: string,
-    _serverConnection: ReturnType<typeof createConnection>,
-) {
-    const result = mo.compiler.viper([motokoPath]);
-    const lookup = result?.code?.[1];
-    if (lookup) {
-        sourceLookupMap.set(motokoPath, lookup);
-    }
-    if (connection) {
-        // TODO
-        connection.sendNotification(
-            new rpc.NotificationType('textDocument/didOpen'),
-            {
-                textDocument: {
-                    languageId: 'viper',
-                    version: 0,
-                    uri: uri,
-                },
-            },
-        );
-        connection.sendNotification(
-            new rpc.NotificationType('textDocument/didSave'),
-            {
-                textDocument: { uri: uri },
-            },
-        );
-        connection
-            ?.sendRequest(new rpc.RequestType('Verify'), {
-                uri: uri,
-                backend: 'silicon',
-                customArgs: [
-                    // '--z3Exe',
-                    // `"${z3Path}"`, // TODO
-                    '--logLevel WARN',
-                    `"${resolveFilePath(uri)}"`,
-                ].join(' '),
-                manuallyTriggered: false,
-            })
-            .then((result) => {
-                console.log('RESULT:', result);
-            })
-            .catch((err) => {
-                console.error(`Error while verifying Motoko file: ${err}`);
-                console.error(err.data);
-            });
-    }
+export function getViperUri(motokoUri: string) {
+    // Ensure a `.vpr` extension
+    return `${motokoUri /* .replace(/\.mo$/, '') */}.vpr`;
+}
 
-    return result;
+export function getMotokoUri(viperUri: string) {
+    // Reversible from `getViperUri()`
+    return viperUri.replace(/\.vpr$/, '');
+}
+
+export function compileViper(motokoUri: string): Diagnostic[] | undefined {
+    const viperUri = getViperUri(motokoUri);
+    const viperFile = resolveFilePath(viperUri);
+    const motokoPath = resolveVirtualPath(motokoUri);
+    let diagnostics: Diagnostic[] | undefined;
+    try {
+        const result = mo.compiler.viper([motokoPath]);
+        if (result?.diagnostics) {
+            diagnostics = result.diagnostics;
+        }
+        if (result?.code) {
+            const [source, lookup] = result.code;
+            mocViperCache.set(motokoPath, {
+                source,
+                lookup,
+                diagnostics: result.diagnostics || [],
+            });
+            writeFileSync(viperFile, source, 'utf8');
+
+            if (connection) {
+                Promise.resolve(connection)
+                    .then(async (connection) => {
+                        await connection.sendNotification(
+                            new rpc.NotificationType('textDocument/didOpen'),
+                            {
+                                textDocument: {
+                                    languageId: 'viper',
+                                    version: 0,
+                                    uri: viperUri,
+                                },
+                            },
+                        );
+                        await connection.sendNotification(
+                            new rpc.NotificationType('textDocument/didSave'),
+                            {
+                                textDocument: { uri: viperUri },
+                            },
+                        );
+                        await connection.sendRequest(
+                            new rpc.RequestType('Verify'),
+                            {
+                                uri: viperUri,
+                                backend: 'silicon',
+                                customArgs: [
+                                    // '--z3Exe',
+                                    // `"${z3Path}"`, // TODO
+                                    '--logLevel WARN',
+                                    `"${resolveFilePath(viperUri)}"`,
+                                ].join(' '),
+                                manuallyTriggered: false,
+                            },
+                        );
+                    })
+                    .catch((err) =>
+                        console.error(
+                            `Error while communicating with Viper LSP: ${err}`,
+                        ),
+                    );
+            }
+        } else if (existsSync(viperFile)) {
+            unlinkSync(viperFile);
+        }
+        return result.diagnostics;
+    } catch (err) {
+        console.error(`Error while translating to Viper: ${err}`);
+        writeFileSync(viperFile, err?.toString() || '', 'utf8');
+    }
+    return diagnostics;
 }
 
 export function invalidateViper(motokoPath: string) {
-    sourceLookupMap.delete(motokoPath);
+    mocViperCache.delete(motokoPath);
 }
