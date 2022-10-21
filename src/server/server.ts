@@ -509,7 +509,7 @@ export function sendDiagnostics(
             }
             (diagnosticMap[key] || (diagnosticMap[key] = [])).push({
                 ...diagnostic,
-                source: diagnostic.source || 'Motoko',
+                source: 'Motoko',
             });
         }
     });

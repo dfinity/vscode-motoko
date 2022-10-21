@@ -88,12 +88,12 @@ try {
                                 source: motokoPath,
                                 relatedInformation: [
                                     {
-                                        // Original Viper location
+                                        // Viper source location
                                         location: {
                                             uri,
                                             range: diagnostic.range,
                                         },
-                                        message: 'View in context',
+                                        message: 'view in context',
                                     },
                                 ],
                             };
@@ -173,13 +173,13 @@ function getMotokoSourceRange(
         return;
     }
     const { lookup } = result;
-    const compilerRange = lookup([a, b, c, d]);
+    const compilerRange = lookup([a + 1, b, c + 1, d]);
     if (!compilerRange) {
         return;
     }
     return {
-        start: { line: compilerRange[0], character: compilerRange[1] },
-        end: { line: compilerRange[2], character: compilerRange[3] },
+        start: { line: compilerRange[0] - 1, character: compilerRange[1] },
+        end: { line: compilerRange[2] - 1, character: compilerRange[3] },
     };
 }
 
