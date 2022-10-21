@@ -9,8 +9,9 @@ import { Diagnostic, Range } from 'vscode-languageserver';
 import { existsSync, unlinkSync, writeFileSync } from 'fs';
 import { sendDiagnostics } from './server';
 
-const serverPort = 54816; // TODO: config
-const z3Path = '/nix/store/3dpbapw0ia9q835pqbf7khdi9rps2rm2-z3-4.8.15/bin/z3'; // TODO: detect
+const serverPort = 54816; // TODO: choose automatically, or reuse server from Viper extension
+const viperServerPath = resolve(__dirname, '../generated/viperserver.jar'); // TODO: detect from Viper extension
+const z3Path = resolve(__dirname, '../generated/z3'); // TODO: detect from Viper extension
 const verificationDebounce = 500; // TODO: config
 
 // Viper LSP server connection
@@ -23,7 +24,7 @@ try {
             '-Xmx2048m',
             '-Xss16m',
             '-jar',
-            resolve(__dirname, '../generated/viperserver.jar'),
+            viperServerPath,
             '--singleClient',
             '--serverMode',
             'LSP',
@@ -130,7 +131,7 @@ try {
 
     const showMessageTypes = [
         'warnings_during_parsing',
-        'configuration_confirmation',
+        // 'configuration_confirmation',
         'ast_construction_result',
     ];
     connection.onNotification(
@@ -143,7 +144,7 @@ try {
             if (showMessageTypes.includes(msgType)) {
                 console.log(msg);
             } else {
-                console.log('[Unhandled]', msgType);
+                console.log(`[${msgType}]`);
             }
         },
     );
@@ -155,8 +156,9 @@ try {
     console.error(`Error while initializing Viper LSP: ${err}`);
 }
 
-type CompilerRange = [number, number, number, number];
-export type Lookup = (pos: CompilerRange) => CompilerRange;
+// Temporary range input format for `moc.js`
+type FlattenedRange = [number, number, number, number];
+export type Lookup = (pos: FlattenedRange) => Range;
 
 // Viper -> Motoko source map cache
 const mocViperCache = new Map<
@@ -173,14 +175,7 @@ function getMotokoSourceRange(
         return;
     }
     const { lookup } = result;
-    const compilerRange = lookup([a + 1, b, c + 1, d]);
-    if (!compilerRange) {
-        return;
-    }
-    return {
-        start: { line: compilerRange[0] - 1, character: compilerRange[1] },
-        end: { line: compilerRange[2] - 1, character: compilerRange[3] },
-    };
+    return lookup([a, b, c, d]); // TODO: directly pass range
 }
 
 export function getViperUri(motokoUri: string) {
@@ -246,8 +241,6 @@ export function compileViper(motokoUri: string): Diagnostic[] | undefined {
                                     uri: viperUri,
                                     backend: 'silicon',
                                     customArgs: [
-                                        // '--z3Exe',
-                                        // `"${z3Path}"`, // TODO
                                         '--logLevel WARN',
                                         `"${resolveFilePath(viperUri)}"`,
                                     ].join(' '),

@@ -159,9 +159,10 @@
         "viper-admin.viper"
     ],
     "scripts": {
-        "vscode:prepublish": "npm run generate && npm run compile",
-        "generate": "npm run download && cd ../motoko && nix-shell --command 'make -C src moc.js' && cp -vL src/moc.js ../vscode-motoko/src/generated",
-        "download": "curl -L -o src/generated/viperserver.jar https://github.com/viperproject/viperserver/releases/download/v-2022-10-18-0728/viperserver.jar -C -",
+        "vscode:prepublish": "run-s generate compile",
+        "generate:viper": "cd ../motoko && nix-shell --command 'cd ../vscode-motoko/src/generated && cp -vf $VIPER_SERVER viperserver.jar && rm -f z3 && cp -v $(which z3) .'",
+        "generate:moc": "cd ../motoko && nix-shell --command 'make -C src moc.js && cp -vfL src/moc.js ../vscode-motoko/src/generated/moc.js'",
+        "generate": "run-s generate:moc generate:viper",
         "compile": "rimraf ./out && tsc -p . && cp -vr src/generated out/generated",
         "test": "jest",
         "lint": "tslint -p .",
