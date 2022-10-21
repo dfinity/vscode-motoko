@@ -62,45 +62,49 @@ try {
             object & { uri: string; diagnostics: Diagnostic[] }
         >('StateChange'),
         ({ uri, diagnostics }) => {
-            if (diagnostics) {
-                const motokoPath = resolveVirtualPath(getMotokoUri(uri));
-                const allDiagnostics = [
-                    ...(mocViperCache.get(uri)?.diagnostics.filter(
-                        // Only update type checking diagnostics for the original file
-                        (d) => !d.source || d.source === motokoPath,
-                    ) || []),
-                    ...diagnostics
-                        .filter(
-                            (d) =>
-                                d.message !==
-                                'Verification aborted exceptionally',
-                        )
-                        .map((diagnostic) => {
-                            const range: Range = getMotokoSourceRange(
-                                uri,
-                                diagnostic.range,
-                            ) || {
-                                start: { line: 0, character: 0 },
-                                end: { line: 0, character: 0 },
-                            };
-                            return <Diagnostic>{
-                                ...diagnostic,
-                                range,
-                                source: motokoPath,
-                                relatedInformation: [
-                                    {
-                                        // Viper source location
-                                        location: {
-                                            uri,
-                                            range: diagnostic.range,
+            try {
+                if (diagnostics) {
+                    const motokoPath = resolveVirtualPath(getMotokoUri(uri));
+                    const allDiagnostics = [
+                        ...(mocViperCache.get(uri)?.diagnostics.filter(
+                            // Only update type checking diagnostics for the original file
+                            (d) => !d.source || d.source === motokoPath,
+                        ) || []),
+                        ...diagnostics
+                            .filter(
+                                (d) =>
+                                    d.message !==
+                                    'Verification aborted exceptionally',
+                            )
+                            .map((diagnostic) => {
+                                const range: Range = getMotokoSourceRange(
+                                    motokoPath,
+                                    diagnostic.range,
+                                ) || {
+                                    start: { line: 0, character: 0 },
+                                    end: { line: 0, character: 100 }, // Highlight the `// @viper` comment by default
+                                };
+                                return <Diagnostic>{
+                                    ...diagnostic,
+                                    range,
+                                    source: motokoPath,
+                                    relatedInformation: [
+                                        {
+                                            // Viper source location
+                                            location: {
+                                                uri,
+                                                range: diagnostic.range,
+                                            },
+                                            message: 'view in context',
                                         },
-                                        message: 'view in context',
-                                    },
-                                ],
-                            };
-                        }),
-                ];
-                sendDiagnostics(motokoPath, allDiagnostics);
+                                    ],
+                                };
+                            }),
+                    ];
+                    sendDiagnostics(motokoPath, allDiagnostics);
+                }
+            } catch (err) {
+                console.error(`Error while sending Viper diagnostics: ${err}`);
             }
         },
     );
@@ -111,7 +115,7 @@ try {
     //         diagnostics: Diagnostic[];
     //     }>('textDocument/publishDiagnostics'),
     //     ({ uri, diagnostics }) => {
-    //         console.log('DIAGNOSTICS:', uri, diagnostics);
+    //         console.log('Diagnostics:', uri, diagnostics);
     //     },
     // );
 
@@ -148,34 +152,30 @@ try {
             }
         },
     );
-
-    // socket.on('data', (data) => {
-    //     console.log('DATA:', data.toString('utf8'));
-    // });
 } catch (err) {
     console.error(`Error while initializing Viper LSP: ${err}`);
 }
 
 // Temporary range input format for `moc.js`
 type FlattenedRange = [number, number, number, number];
-export type Lookup = (pos: FlattenedRange) => Range;
 
 // Viper -> Motoko source map cache
-const mocViperCache = new Map<
-    string,
-    { source: string; lookup: Lookup; diagnostics: Diagnostic[] }
->();
+interface ViperResult {
+    source: string;
+    lookup(motokoPath: string, pos: FlattenedRange): Range;
+    diagnostics: Diagnostic[];
+}
+const mocViperCache = new Map<string, ViperResult>();
 
 function getMotokoSourceRange(
-    virtualPath: string,
+    motokoPath: string,
     { start: { line: a, character: b }, end: { line: c, character: d } }: Range,
 ): Range | undefined {
-    const result = mocViperCache.get(virtualPath);
+    const result = mocViperCache.get(motokoPath);
     if (!result) {
         return;
     }
-    const { lookup } = result;
-    return lookup([a, b, c, d]); // TODO: directly pass range
+    return result.lookup(motokoPath, [a, b, c, d]); // TODO: directly pass range
 }
 
 export function getViperUri(motokoUri: string) {
@@ -200,7 +200,7 @@ export function compileViper(motokoUri: string): Diagnostic[] | undefined {
             diagnostics = result.diagnostics;
         }
         if (result?.code) {
-            const [source, lookup] = result.code;
+            const { viper: source, lookup } = result.code;
             mocViperCache.set(motokoPath, {
                 source,
                 lookup,
