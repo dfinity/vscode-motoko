@@ -84,8 +84,10 @@ try {
                                     start: { line: 0, character: 0 },
                                     end: { line: 0, character: 100 }, // Highlight the `// @viper` comment by default
                                 };
+                                const message = resolveViperMessage(diagnostic);
                                 return <Diagnostic>{
                                     ...diagnostic,
+                                    message,
                                     range,
                                     source: motokoPath,
                                     relatedInformation: [
@@ -189,17 +191,13 @@ export function getMotokoUri(viperUri: string) {
 }
 
 let verifyTimeout: ReturnType<typeof setTimeout>;
-export function compileViper(motokoUri: string): Diagnostic[] | undefined {
+export function compileViper(motokoUri: string): Diagnostic[] {
     const viperUri = getViperUri(motokoUri);
     const viperFile = resolveFilePath(viperUri);
     const motokoPath = resolveVirtualPath(motokoUri);
-    let diagnostics: Diagnostic[] | undefined;
     try {
         const result = mo.compiler.viper([motokoPath]);
-        if (result?.diagnostics) {
-            diagnostics = result.diagnostics;
-        }
-        if (result?.code) {
+        if (result.code) {
             const { viper: source, lookup } = result.code;
             mocViperCache.set(motokoPath, {
                 source,
@@ -277,9 +275,23 @@ export function compileViper(motokoUri: string): Diagnostic[] | undefined {
             },
         ];
     }
-    return diagnostics;
 }
 
 export function invalidateViper(motokoPath: string) {
     mocViperCache.delete(motokoPath);
+}
+
+export function resolveViperMessage(diagnostic: Diagnostic): string {
+    const { message } = diagnostic;
+    if (message.startsWith('Postcondition of __init__ might not hold')) {
+        return 'Canister invariant could not be established after initializing private fields';
+    }
+    const match = /^Postcondition of ([a-zA-Z0-9_]+) might not hold/.exec(
+        message,
+    );
+    if (match) {
+        const [, method] = match;
+        return `Canister invariant violated by method '${method}'`;
+    }
+    return message;
 }
