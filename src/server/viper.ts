@@ -5,7 +5,7 @@ import * as rpc from 'vscode-jsonrpc/node';
 import { resolve } from 'path';
 import { connect } from 'net';
 import { resolveFilePath, resolveVirtualPath } from './utils';
-import { Diagnostic, Range } from 'vscode-languageserver';
+import { Diagnostic, DiagnosticSeverity, Range } from 'vscode-languageserver';
 import { existsSync, unlinkSync, writeFileSync } from 'fs';
 import { sendDiagnostics } from './server';
 
@@ -261,7 +261,21 @@ export function compileViper(motokoUri: string): Diagnostic[] | undefined {
         return result.diagnostics;
     } catch (err) {
         console.error(`Error while translating to Viper: ${err}`);
-        writeFileSync(viperFile, err?.toString() || '', 'utf8');
+        if (existsSync(viperFile)) {
+            unlinkSync(viperFile);
+        }
+        // writeFileSync(viperFile, err?.toString() || '', 'utf8');
+        return [
+            {
+                message: String(err),
+                source: 'Motoko',
+                severity: DiagnosticSeverity.Error,
+                range: {
+                    start: { line: 0, character: 0 },
+                    end: { line: 0, character: 100 }, // First line
+                },
+            },
+        ];
     }
     return diagnostics;
 }
