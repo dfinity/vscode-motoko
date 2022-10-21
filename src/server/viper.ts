@@ -59,66 +59,71 @@ try {
 
     connection.onNotification(
         new rpc.NotificationType<
-            object & { uri: string; diagnostics: Diagnostic[] }
+            object & {
+                uri: string;
+                diagnostics: Diagnostic[];
+                verificationCompleted: number;
+            }
         >('StateChange'),
-        ({ uri, diagnostics, ...others }) => {
+        ({ uri, diagnostics, verificationCompleted }) => {
             try {
                 if (!uri) {
                     return;
                 }
                 const motokoPath = resolveVirtualPath(getMotokoUri(uri));
-                const defaultRange = {
+                const defaultRange: Range = {
                     start: { line: 0, character: 0 },
                     end: { line: 0, character: 100 }, // Highlight the `// @viper` comment by default
                 };
-                if (diagnostics) {
-                    const allDiagnostics = [
+                if (diagnostics && verificationCompleted === 1) {
+                    const viperDiagnostics = diagnostics
+                        .filter(
+                            (d) =>
+                                d.message !==
+                                'Verification aborted exceptionally',
+                        )
+                        .map((diagnostic) => {
+                            const range: Range =
+                                getMotokoSourceRange(
+                                    motokoPath,
+                                    diagnostic.range,
+                                ) || defaultRange;
+                            const message = resolveViperMessage(diagnostic);
+                            return <Diagnostic>{
+                                ...diagnostic,
+                                message,
+                                range,
+                                source: motokoPath,
+                                relatedInformation: [
+                                    {
+                                        // Viper source location
+                                        location: {
+                                            uri,
+                                            range: diagnostic.range,
+                                        },
+                                        message: 'view in context',
+                                    },
+                                ],
+                            };
+                        });
+                    const success = !!viperDiagnostics.length;
+                    const allDiagnostics: Diagnostic[] = [
                         ...(mocViperCache.get(uri)?.diagnostics.filter(
                             // Only update type checking diagnostics for the original file
                             (d) => !d.source || d.source === motokoPath,
                         ) || []),
-                        ...diagnostics
-                            .filter(
-                                (d) =>
-                                    d.message !==
-                                    'Verification aborted exceptionally',
-                            )
-                            .map((diagnostic) => {
-                                const range: Range =
-                                    getMotokoSourceRange(
-                                        motokoPath,
-                                        diagnostic.range,
-                                    ) || defaultRange;
-                                const message = resolveViperMessage(diagnostic);
-                                return <Diagnostic>{
-                                    ...diagnostic,
-                                    message,
-                                    range,
-                                    source: motokoPath,
-                                    relatedInformation: [
-                                        {
-                                            // Viper source location
-                                            location: {
-                                                uri,
-                                                range: diagnostic.range,
-                                            },
-                                            message: 'view in context',
-                                        },
-                                    ],
-                                };
-                            }),
+                        ...(success
+                            ? viperDiagnostics
+                            : [
+                                  {
+                                      message: 'Verification succeeded',
+                                      source: motokoPath,
+                                      severity: DiagnosticSeverity.Information,
+                                      range: defaultRange,
+                                  },
+                              ]),
                     ];
                     sendDiagnostics(motokoPath, allDiagnostics);
-                } else {
-                    console.log(others); ///
-                    sendDiagnostics(motokoPath, [
-                        {
-                            message: 'Verification succeeded',
-                            source: 'Motoko',
-                            severity: DiagnosticSeverity.Information,
-                            range: defaultRange,
-                        },
-                    ]);
                 }
             } catch (err) {
                 console.error(`Error while sending Viper diagnostics: ${err}`);
