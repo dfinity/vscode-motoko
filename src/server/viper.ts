@@ -61,10 +61,17 @@ try {
         new rpc.NotificationType<
             object & { uri: string; diagnostics: Diagnostic[] }
         >('StateChange'),
-        ({ uri, diagnostics }) => {
+        ({ uri, diagnostics, ...others }) => {
             try {
+                if (!uri) {
+                    return;
+                }
+                const motokoPath = resolveVirtualPath(getMotokoUri(uri));
+                const defaultRange = {
+                    start: { line: 0, character: 0 },
+                    end: { line: 0, character: 100 }, // Highlight the `// @viper` comment by default
+                };
                 if (diagnostics) {
-                    const motokoPath = resolveVirtualPath(getMotokoUri(uri));
                     const allDiagnostics = [
                         ...(mocViperCache.get(uri)?.diagnostics.filter(
                             // Only update type checking diagnostics for the original file
@@ -77,13 +84,11 @@ try {
                                     'Verification aborted exceptionally',
                             )
                             .map((diagnostic) => {
-                                const range: Range = getMotokoSourceRange(
-                                    motokoPath,
-                                    diagnostic.range,
-                                ) || {
-                                    start: { line: 0, character: 0 },
-                                    end: { line: 0, character: 100 }, // Highlight the `// @viper` comment by default
-                                };
+                                const range: Range =
+                                    getMotokoSourceRange(
+                                        motokoPath,
+                                        diagnostic.range,
+                                    ) || defaultRange;
                                 const message = resolveViperMessage(diagnostic);
                                 return <Diagnostic>{
                                     ...diagnostic,
@@ -104,6 +109,16 @@ try {
                             }),
                     ];
                     sendDiagnostics(motokoPath, allDiagnostics);
+                } else {
+                    console.log(others); ///
+                    sendDiagnostics(motokoPath, [
+                        {
+                            message: 'Verification succeeded',
+                            source: 'Motoko',
+                            severity: DiagnosticSeverity.Information,
+                            range: defaultRange,
+                        },
+                    ]);
                 }
             } catch (err) {
                 console.error(`Error while sending Viper diagnostics: ${err}`);
@@ -137,7 +152,6 @@ try {
 
     const showMessageTypes = [
         'warnings_during_parsing',
-        // 'configuration_confirmation',
         'ast_construction_result',
     ];
     connection.onNotification(
@@ -149,9 +163,10 @@ try {
         ({ msgType, msg }) => {
             if (showMessageTypes.includes(msgType)) {
                 console.log(msg);
-            } else {
-                console.log(`[${msgType}]`);
             }
+            // else {
+            //     console.log(`[${msgType}]`);
+            // }
         },
     );
 } catch (err) {
