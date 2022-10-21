@@ -11,6 +11,7 @@ import { sendDiagnostics } from './server';
 
 const serverPort = 54816; // TODO: config
 const z3Path = '/nix/store/3dpbapw0ia9q835pqbf7khdi9rps2rm2-z3-4.8.15/bin/z3'; // TODO: detect
+const verificationDebounce = 500; // TODO: config
 
 // Viper LSP server connection
 let connection: rpc.MessageConnection | undefined;
@@ -61,50 +62,57 @@ try {
         >('StateChange'),
         ({ uri, diagnostics }) => {
             if (diagnostics) {
+                const motokoPath = resolveVirtualPath(getMotokoUri(uri));
                 const allDiagnostics = [
-                    ...(mocViperCache.get(uri)?.diagnostics || []),
-                    ...diagnostics.map((diagnostic) => {
-                        const range: Range = getMotokoSourceRange(
-                            uri,
-                            diagnostic.range,
-                        ) || {
-                            start: { line: 0, character: 0 },
-                            end: { line: 0, character: 0 },
-                        };
-                        return {
-                            ...diagnostic,
-                            range,
-                        };
-                    }),
+                    ...(mocViperCache.get(uri)?.diagnostics.filter(
+                        // Only update type checking diagnostics for the original file
+                        (d) => !d.source || d.source === motokoPath,
+                    ) || []),
+                    ...diagnostics
+                        .filter(
+                            (d) =>
+                                d.message !==
+                                'Verification aborted exceptionally',
+                        )
+                        .map((diagnostic) => {
+                            const range: Range = getMotokoSourceRange(
+                                uri,
+                                diagnostic.range,
+                            ) || {
+                                start: { line: 0, character: 0 },
+                                end: { line: 0, character: 0 },
+                            };
+                            return <Diagnostic>{
+                                ...diagnostic,
+                                range,
+                                source: motokoPath,
+                                relatedInformation: [
+                                    {
+                                        // Original Viper location
+                                        location: {
+                                            uri,
+                                            range: diagnostic.range,
+                                        },
+                                        message: 'View in context',
+                                    },
+                                ],
+                            };
+                        }),
                 ];
-                sendDiagnostics(
-                    resolveVirtualPath(getMotokoUri(uri)),
-                    allDiagnostics,
-                    true,
-                );
+                sendDiagnostics(motokoPath, allDiagnostics);
             }
         },
     );
 
-    connection.onNotification(
-        new rpc.NotificationType<{
-            uri: string;
-            diagnostics: Diagnostic[];
-        }>('textDocument/publishDiagnostics'),
-        ({ uri, diagnostics }) => {
-            console.log('DIAGNOTICS:', uri, diagnostics);
-        },
-    );
-
-    connection.onNotification(
-        new rpc.NotificationType<{
-            uri: string;
-            diagnostics: Diagnostic[];
-        }>('textDocument/publishDiagnostics'),
-        ({ uri, diagnostics }) => {
-            console.log('DIAGNOTICS:', uri, diagnostics);
-        },
-    );
+    // connection.onNotification(
+    //     new rpc.NotificationType<{
+    //         uri: string;
+    //         diagnostics: Diagnostic[];
+    //     }>('textDocument/publishDiagnostics'),
+    //     ({ uri, diagnostics }) => {
+    //         console.log('DIAGNOSTICS:', uri, diagnostics);
+    //     },
+    // );
 
     connection.onNotification(
         new rpc.NotificationType<{ uri: string }>('VerificationNotStarted'),
@@ -185,6 +193,7 @@ export function getMotokoUri(viperUri: string) {
     return viperUri.replace(/\.vpr$/, '');
 }
 
+let verifyTimeout: ReturnType<typeof setTimeout>;
 export function compileViper(motokoUri: string): Diagnostic[] | undefined {
     const viperUri = getViperUri(motokoUri);
     const viperFile = resolveFilePath(viperUri);
@@ -204,46 +213,55 @@ export function compileViper(motokoUri: string): Diagnostic[] | undefined {
             });
             writeFileSync(viperFile, source, 'utf8');
 
-            if (connection) {
-                Promise.resolve(connection)
-                    .then(async (connection) => {
-                        await connection.sendNotification(
-                            new rpc.NotificationType('textDocument/didOpen'),
-                            {
-                                textDocument: {
-                                    languageId: 'viper',
-                                    version: 0,
-                                    uri: viperUri,
+            // Debounce verification
+            clearTimeout(verifyTimeout);
+            verifyTimeout = setTimeout(() => {
+                if (connection) {
+                    // Ensure `connection !== undefined` for all callbacks
+                    Promise.resolve(connection)
+                        .then(async (connection) => {
+                            await connection.sendNotification(
+                                new rpc.NotificationType(
+                                    'textDocument/didOpen',
+                                ),
+                                {
+                                    textDocument: {
+                                        languageId: 'viper',
+                                        version: 0,
+                                        uri: viperUri,
+                                    },
                                 },
-                            },
+                            );
+                            await connection.sendNotification(
+                                new rpc.NotificationType(
+                                    'textDocument/didSave',
+                                ),
+                                {
+                                    textDocument: { uri: viperUri },
+                                },
+                            );
+                            await connection.sendRequest(
+                                new rpc.RequestType('Verify'),
+                                {
+                                    uri: viperUri,
+                                    backend: 'silicon',
+                                    customArgs: [
+                                        // '--z3Exe',
+                                        // `"${z3Path}"`, // TODO
+                                        '--logLevel WARN',
+                                        `"${resolveFilePath(viperUri)}"`,
+                                    ].join(' '),
+                                    manuallyTriggered: false,
+                                },
+                            );
+                        })
+                        .catch((err) =>
+                            console.error(
+                                `Error while communicating with Viper LSP: ${err}`,
+                            ),
                         );
-                        await connection.sendNotification(
-                            new rpc.NotificationType('textDocument/didSave'),
-                            {
-                                textDocument: { uri: viperUri },
-                            },
-                        );
-                        await connection.sendRequest(
-                            new rpc.RequestType('Verify'),
-                            {
-                                uri: viperUri,
-                                backend: 'silicon',
-                                customArgs: [
-                                    // '--z3Exe',
-                                    // `"${z3Path}"`, // TODO
-                                    '--logLevel WARN',
-                                    `"${resolveFilePath(viperUri)}"`,
-                                ].join(' '),
-                                manuallyTriggered: false,
-                            },
-                        );
-                    })
-                    .catch((err) =>
-                        console.error(
-                            `Error while communicating with Viper LSP: ${err}`,
-                        ),
-                    );
-            }
+                }
+            }, verificationDebounce);
         } else if (existsSync(viperFile)) {
             unlinkSync(viperFile);
         }

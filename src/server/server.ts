@@ -476,7 +476,6 @@ function notify(uri: string | TextDocument): boolean {
 export function sendDiagnostics(
     virtualPath: string,
     diagnostics: Diagnostic[],
-    ignoreOtherPaths: boolean = false, // Ignore diagnostics from other virtual paths
 ) {
     if (settings) {
         if (settings.maxNumberOfProblems > 0) {
@@ -508,13 +507,9 @@ export function sendDiagnostics(
                     message: `${diagnostic.message}. This is usually fixed by running \`dfx deploy\``,
                 };
             }
-
-            if (ignoreOtherPaths && !diagnosticMap.hasOwnProperty(key)) {
-                return;
-            }
             (diagnosticMap[key] || (diagnosticMap[key] = [])).push({
                 ...diagnostic,
-                source: 'Motoko',
+                source: diagnostic.source || 'Motoko',
             });
         }
     });
