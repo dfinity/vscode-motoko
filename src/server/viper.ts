@@ -282,7 +282,7 @@ export function compileViper(motokoUri: string): Diagnostic[] {
         }
         return result.diagnostics;
     } catch (err) {
-        console.error(`Error while translating to Viper: ${err}`);
+        console.error(`Error while lifting error information from Viper: ${err}`);
         if (existsSync(viperFile)) {
             unlinkSync(viperFile);
         }
