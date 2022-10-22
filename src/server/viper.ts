@@ -73,7 +73,7 @@ try {
                 const motokoPath = resolveVirtualPath(getMotokoUri(uri));
                 const defaultRange: Range = {
                     start: { line: 0, character: 0 },
-                    end: { line: 0, character: 100 }, // Highlight the `// @viper` comment by default
+                    end: { line: 0, character: 100 }, // Highlight the `// @verify` comment by default
                 };
                 if (diagnostics && verificationCompleted === 1) {
                     const viperDiagnostics = diagnostics
@@ -249,14 +249,14 @@ export function compileViper(motokoUri: string): Diagnostic[] {
                                     },
                                 },
                             );
-                            await connection.sendNotification(
-                                new rpc.NotificationType(
-                                    'textDocument/didSave',
-                                ),
-                                {
-                                    textDocument: { uri: viperUri },
-                                },
-                            );
+                            // await connection.sendNotification(
+                            //     new rpc.NotificationType(
+                            //         'textDocument/didSave',
+                            //     ),
+                            //     {
+                            //         textDocument: { uri: viperUri },
+                            //     },
+                            // );
                             await connection.sendRequest(
                                 new rpc.RequestType('Verify'),
                                 {
@@ -266,7 +266,7 @@ export function compileViper(motokoUri: string): Diagnostic[] {
                                         '--logLevel WARN',
                                         `"${resolveFilePath(viperUri)}"`,
                                     ].join(' '),
-                                    manuallyTriggered: false,
+                                    manuallyTriggered: true,
                                 },
                             );
                         })
@@ -309,6 +309,9 @@ export function resolveViperMessage(diagnostic: Diagnostic): string {
     const { message } = diagnostic;
     if (message.startsWith('Postcondition of __init__ might not hold')) {
         return 'Canister invariant could not be established after initializing private fields';
+    }
+    if (message.startsWith('Exhale might fail. Assertion ')) {
+        return 'Canister invariant violated by async block';
     }
     const match = /^Postcondition of ([a-zA-Z0-9_]+) might not hold/.exec(
         message,
