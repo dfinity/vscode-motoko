@@ -13,6 +13,8 @@ import {
 import { watchGlob } from './common/watchConfig';
 import { formatDocument } from './formatter';
 
+// const config = workspace.getConfiguration('motoko');
+
 let client: LanguageClient;
 
 export function activate(context: ExtensionContext) {
@@ -35,7 +37,7 @@ export function activate(context: ExtensionContext) {
 }
 
 export function startServer(context: ExtensionContext) {
-    // Launch cross-platform language server
+    // Cross-platform language server
     const module = context.asAbsolutePath(
         path.join('out', 'server', 'server.js'),
     );
