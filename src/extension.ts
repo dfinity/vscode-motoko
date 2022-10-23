@@ -39,29 +39,6 @@ export function activate(context: ExtensionContext) {
 }
 
 export function startServer(context: ExtensionContext) {
-    // Custom `mo-ide` language server
-    // if (config.standaloneBinary && fs.existsSync(config.standaloneBinary)) {
-    //     const prompt = `There doesn't seem to be a dfx.json file for this Motoko project. What file do you want to use as an entry point?`;
-    //     const currentDocument = window.activeTextEditor?.document?.fileName;
-    //     window
-    //         .showInputBox({ prompt, value: currentDocument })
-    //         .then((entryPoint) => {
-    //             if (entryPoint) {
-    //                 const serverCommand = {
-    //                     command: config.standaloneBinary,
-    //                     args: ['--canister-main', entryPoint]
-    //                         .concat(vesselArgs())
-    //                         .concat(config.standaloneArguments.split(' ')),
-    //                 };
-    //                 launchClient(context, {
-    //                     run: serverCommand,
-    //                     debug: serverCommand,
-    //                 });
-    //             }
-    //         });
-    //     return;
-    // }
-
     // Legacy dfx language server
     const dfxConfig = getDfxConfig();
     if (dfxConfig && getDfxPath()) {

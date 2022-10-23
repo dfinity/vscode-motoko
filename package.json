@@ -87,18 +87,6 @@
                     "default": "",
                     "description": "The name of the canister you want to develop. If this is blank, we'll use a sensible default."
                 },
-                "motoko.standaloneBinary": {
-                    "scope": "resource",
-                    "type": "string",
-                    "default": "mo-ide",
-                    "description": "The location of a custom language server binary."
-                },
-                "motoko.standaloneArguments": {
-                    "scope": "resource",
-                    "type": "string",
-                    "default": "",
-                    "description": "Additional arguments to pass to the language server when running in a non-dfx project."
-                },
                 "motoko.formatter": {
                     "type": "string",
                     "default": "prettier",
