@@ -81,7 +81,7 @@ try {
                     diagnostics &&
                     newState === 6 &&
                     verificationCompleted === 1 &&
-                    time > 0 // Filter parse warnings
+                    time > 0 // Filter initial parse warnings
                 ) {
                     const viperDiagnostics = diagnostics
                         .filter(
@@ -264,8 +264,8 @@ export function compileViper(motokoUri: string): Diagnostic[] {
                             //         textDocument: { uri: viperUri },
                             //     },
                             // );
-                            await connection.sendRequest(
-                                new rpc.RequestType('Verify'),
+                            await connection.sendNotification(
+                                new rpc.NotificationType('Verify'),
                                 {
                                     uri: viperUri,
                                     backend: 'silicon',
