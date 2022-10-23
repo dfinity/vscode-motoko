@@ -1,21 +1,30 @@
 import * as path from 'path';
 import {
-    commands, ExtensionContext, FormattingOptions, languages,
+    commands,
+    languages,
+    extensions,
+    ExtensionContext,
+    FormattingOptions,
     TextDocument,
-    TextEdit, workspace
+    TextEdit,
+    workspace,
 } from 'vscode';
 import {
     LanguageClient,
     LanguageClientOptions,
     ServerOptions,
-    TransportKind
+    TransportKind,
 } from 'vscode-languageclient/node';
 import { watchGlob } from './common/watchConfig';
 import { formatDocument } from './formatter';
 
-let client: LanguageClient;
+interface ViperApi {
+    registerServerMessageCallback?: any;
+}
 
-export function activate(context: ExtensionContext) {
+let client: LanguageClient | undefined;
+
+export async function activate(context: ExtensionContext) {
     context.subscriptions.push(
         commands.registerCommand('motoko.startService', () =>
             startServer(context),
@@ -32,9 +41,44 @@ export function activate(context: ExtensionContext) {
         }),
     );
     startServer(context);
+
+    console.error('BEFORE TIMEOUT');
+
+    setTimeout(async () => {
+        console.error('BEFORE EXTENSION');
+        // Load Viper extension
+        const viperApi = await getViperApi();
+        console.error('VIPER EXTENSION'); ///
+        console.log(viperApi); /////
+        // console.log(); /////
+
+        if (viperApi) {
+            viperApi.registerServerMessageCallback('StateChange',(params:any)=>console.error('PARAMS::::',params));
+        }
+
+        // console.error('VIPER EXTENSION:', viperApi); ///
+    }, 10000);
 }
 
-export function startServer(context: ExtensionContext) {
+async function getViperApi(): Promise<ViperApi | undefined> {
+    try {
+        const viperExtension =
+            extensions.getExtension<ViperApi>('viper-admin.viper');
+        if (!viperExtension) {
+            return;
+        }
+        console.error('ACTIVE:', viperExtension.isActive);
+        if (!viperExtension.isActive) {
+            await viperExtension.activate();
+        }
+        return viperExtension.exports;
+    } catch (err) {
+        console.error(`Error while resolving Viper API: ${err}`);
+        return;
+    }
+}
+
+function startServer(context: ExtensionContext) {
     // Launch cross-platform language server
     const module = context.asAbsolutePath(
         path.join('out', 'server', 'server.js'),
