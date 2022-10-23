@@ -62,11 +62,12 @@ try {
             object & {
                 uri: string;
                 diagnostics: Diagnostic[];
+                newState: number;
                 verificationCompleted: number;
-                success: number;
+                time: number;
             }
         >('StateChange'),
-        ({ uri, diagnostics, verificationCompleted, success }) => {
+        ({ uri, diagnostics, newState, verificationCompleted, time }) => {
             try {
                 if (!uri) {
                     return;
@@ -78,8 +79,9 @@ try {
                 };
                 if (
                     diagnostics &&
+                    newState === 6 &&
                     verificationCompleted === 1 &&
-                    success === 1
+                    time > 0 // Filter parse warnings
                 ) {
                     const viperDiagnostics = diagnostics
                         .filter(
