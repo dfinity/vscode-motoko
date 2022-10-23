@@ -154,7 +154,7 @@
         "rimraf": "^3.0.2",
         "ts-jest": "^29.0.3",
         "typescript": "^4.8.2",
-        "vsce": "^2.11.0"
+        "vsce": "^2.13.0"
     },
     "extensionDependencies": [
         "viper-admin.viper"
@@ -164,7 +164,7 @@
         "generate:viper": "cd ../motoko && nix-shell --command 'cd ../vscode-motoko/src/generated && cp -vf $VIPER_SERVER viperserver.jar && rm -f z3 && cp -v $(which z3) .'",
         "generate:moc": "cd ../motoko && nix-shell --command 'make -C src moc.js && cp -vfL src/moc.js ../vscode-motoko/src/generated/moc.js'",
         "generate": "mkdir -p src/generated && run-s generate:moc generate:viper",
-        "compile": "rimraf ./out && tsc -p . && cp -vr src/generated out/generated",
+        "compile": "rimraf ./out && tsc -p . && mkdir -p out/generated/ && ln -fv src/generated/* out/generated/",
         "test": "jest",
         "lint": "tslint -p .",
         "package": "vsce package",
