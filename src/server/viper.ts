@@ -63,9 +63,10 @@ try {
                 uri: string;
                 diagnostics: Diagnostic[];
                 verificationCompleted: number;
+                success: number;
             }
         >('StateChange'),
-        ({ uri, diagnostics, verificationCompleted }) => {
+        ({ uri, diagnostics, verificationCompleted, success }) => {
             try {
                 if (!uri) {
                     return;
@@ -75,7 +76,11 @@ try {
                     start: { line: 0, character: 0 },
                     end: { line: 0, character: 100 }, // Highlight the `// @verify` comment by default
                 };
-                if (diagnostics && verificationCompleted === 1) {
+                if (
+                    diagnostics &&
+                    verificationCompleted === 1 &&
+                    success === 4
+                ) {
                     const viperDiagnostics = diagnostics
                         .filter(
                             (d) =>
@@ -282,7 +287,9 @@ export function compileViper(motokoUri: string): Diagnostic[] {
         }
         return result.diagnostics;
     } catch (err) {
-        console.error(`Error while lifting error information from Viper: ${err}`);
+        console.error(
+            `Error while lifting error information from Viper: ${err}`,
+        );
         if (existsSync(viperFile)) {
             unlinkSync(viperFile);
         }
