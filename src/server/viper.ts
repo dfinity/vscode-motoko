@@ -79,7 +79,7 @@ try {
                 if (
                     diagnostics &&
                     verificationCompleted === 1 &&
-                    success === 4
+                    success === 1
                 ) {
                     const viperDiagnostics = diagnostics
                         .filter(
@@ -121,7 +121,7 @@ try {
                             ? viperDiagnostics
                             : [
                                   {
-                                      message: 'Verification succeeded',
+                                      message: '✅',
                                       source: motokoPath,
                                       severity: DiagnosticSeverity.Information,
                                       range: defaultRange,
