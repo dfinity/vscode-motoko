@@ -37,10 +37,10 @@ Get this extension through the [VS Marketplace](https://marketplace.visualstudio
 
 - `motoko.dfx`: The location of the `dfx` binary
 - `motoko.canister`: The default canister name to use in multi-canister projects
-- `motoko.standaloneArguments`: Additional arguments to pass to the language service when running in a non-dfx project
-- `motoko.standaloneBinary`: The location of the `mo-ide` binary (when running in a non-dfx project)
 - `motoko.formatter`: The formatter used by the extension
 - `motoko.legacyDfxSupport`: Uses legacy `dfx`-dependent features when a `dfx.json` file is available
+- `motoko.standaloneArguments`: Additional arguments to pass to the language server when running in a non-dfx project
+- `motoko.standaloneBinary`: The location of a custom language server binary
 
 ## Recent Changes
 

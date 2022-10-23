@@ -91,7 +91,7 @@
                     "scope": "resource",
                     "type": "string",
                     "default": "mo-ide",
-                    "description": "The path to the language server binary when running in a non-dfx project."
+                    "description": "The location of a custom language server binary."
                 },
                 "motoko.standaloneArguments": {
                     "scope": "resource",

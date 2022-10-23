@@ -45,55 +45,47 @@ export function activate(context: ExtensionContext) {
 }
 
 export function startServer(context: ExtensionContext) {
+    // Custom `mo-ide` language server
+    // if (config.standaloneBinary && fs.existsSync(config.standaloneBinary)) {
+    //     const prompt = `There doesn't seem to be a dfx.json file for this Motoko project. What file do you want to use as an entry point?`;
+    //     const currentDocument = window.activeTextEditor?.document?.fileName;
+    //     window
+    //         .showInputBox({ prompt, value: currentDocument })
+    //         .then((entryPoint) => {
+    //             if (entryPoint) {
+    //                 const serverCommand = {
+    //                     command: config.standaloneBinary,
+    //                     args: ['--canister-main', entryPoint]
+    //                         .concat(vesselArgs())
+    //                         .concat(config.standaloneArguments.split(' ')),
+    //                 };
+    //                 launchClient(context, {
+    //                     run: serverCommand,
+    //                     debug: serverCommand,
+    //                 });
+    //             }
+    //         });
+    //     return;
+    // }
+
+    // Legacy dfx language server
     const dfxConfig = getDfxConfig();
     if (dfxConfig && getDfxPath()) {
         launchDfxProject(context, dfxConfig);
         return;
     }
 
-    // Check if `mo-ide` exists
-    fs.access(config.standaloneBinary, fs.constants.F_OK, (err) => {
-        try {
-            if (err) {
-                console.log(err.message);
-
-                // Launch cross-platform language server
-                const module = context.asAbsolutePath(
-                    path.join('out', 'server', 'server.js'),
-                );
-                launchClient(context, {
-                    run: { module, transport: TransportKind.ipc },
-                    debug: {
-                        module,
-                        options: { execArgv: ['--nolazy', '--inspect=6004'] },
-                        transport: TransportKind.ipc,
-                    },
-                });
-                return;
-            }
-
-            const prompt = `There doesn't seem to be a dfx.json file for this Motoko project. What file do you want to use as an entry point?`;
-            const currentDocument = window.activeTextEditor?.document?.fileName;
-
-            window
-                .showInputBox({ prompt, value: currentDocument })
-                .then((entryPoint) => {
-                    if (entryPoint) {
-                        const serverCommand = {
-                            command: config.standaloneBinary,
-                            args: ['--canister-main', entryPoint]
-                                .concat(vesselArgs())
-                                .concat(config.standaloneArguments.split(' ')),
-                        };
-                        launchClient(context, {
-                            run: serverCommand,
-                            debug: serverCommand,
-                        });
-                    }
-                });
-        } catch (err) {
-            console.error(err);
-        }
+    // Cross-platform language server
+    const module = context.asAbsolutePath(
+        path.join('out', 'server', 'server.js'),
+    );
+    launchClient(context, {
+        run: { module, transport: TransportKind.ipc },
+        debug: {
+            module,
+            options: { execArgv: ['--nolazy', '--inspect=6004'] },
+            transport: TransportKind.ipc,
+        },
     });
 }
 
@@ -206,20 +198,20 @@ function getDfxPath(): string {
     }
 }
 
-function vesselArgs(): string[] {
-    try {
-        let ws = workspace.workspaceFolders!![0].uri.fsPath;
-        if (
-            !fs.existsSync(path.join(ws, 'vessel.dhall')) &&
-            !fs.existsSync(path.join(ws, 'vessel.json'))
-        )
-            return [];
-        let flags = execSync('vessel sources', {
-            cwd: ws,
-        }).toString('utf8');
-        return flags.split(' ');
-    } catch (err) {
-        console.log(err);
-        return [];
-    }
-}
+// function vesselArgs(): string[] {
+//     try {
+//         let ws = workspace.workspaceFolders!![0].uri.fsPath;
+//         if (
+//             !fs.existsSync(path.join(ws, 'vessel.dhall')) &&
+//             !fs.existsSync(path.join(ws, 'vessel.json'))
+//         )
+//             return [];
+//         let flags = execSync('vessel sources', {
+//             cwd: ws,
+//         }).toString('utf8');
+//         return flags.split(' ');
+//     } catch (err) {
+//         console.log(err);
+//         return [];
+//     }
+// }
