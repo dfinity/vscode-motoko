@@ -1,25 +1,19 @@
-import {
-    workspace,
-    ExtensionContext,
-    window,
-    commands,
-    languages,
-    TextDocument,
-    TextEdit,
-    FormattingOptions,
-} from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
-import * as which from 'which';
-import { execSync } from 'child_process';
+import {
+    commands, ExtensionContext, FormattingOptions, languages,
+    TextDocument,
+    TextEdit, window, workspace
+} from 'vscode';
 import {
     LanguageClient,
     LanguageClientOptions,
     ServerOptions,
-    TransportKind,
+    TransportKind
 } from 'vscode-languageclient/node';
-import { formatDocument } from './formatter';
+import * as which from 'which';
 import { watchGlob } from './common/watchConfig';
+import { formatDocument } from './formatter';
 
 const config = workspace.getConfiguration('motoko');
 
