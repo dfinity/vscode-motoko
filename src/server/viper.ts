@@ -1,62 +1,15 @@
 // Load custom `moc.js` with Viper integration
-import mo from './motoko';
-import { spawn } from 'child_process';
-import * as rpc from 'vscode-jsonrpc/node';
-import { resolve } from 'path';
-import { connect } from 'net';
-import { resolveFilePath, resolveVirtualPath } from './utils';
-import { Diagnostic, DiagnosticSeverity, Range } from 'vscode-languageserver';
 import { existsSync, unlinkSync, writeFileSync } from 'fs';
+import * as rpc from 'vscode-jsonrpc/node';
+import { Diagnostic, DiagnosticSeverity, Range } from 'vscode-languageserver';
+import connection from './connection';
+import mo from './motoko';
 import { sendDiagnostics } from './server';
+import { resolveFilePath, resolveVirtualPath } from './utils';
 
-const serverPort = 54816; // TODO: choose automatically, or reuse server from Viper extension
-const viperServerPath = resolve(__dirname, '../generated/viperserver.jar'); // TODO: detect from Viper extension
-const z3Path = resolve(__dirname, '../generated/z3'); // TODO: detect from Viper extension
-const verificationDebounce = 500; // TODO: config
-
-// Viper LSP server connection
-let connection: rpc.MessageConnection | undefined;
+const verificationDebounce = 500;
 
 try {
-    spawn(
-        'java',
-        [
-            '-Xmx2048m',
-            '-Xss16m',
-            '-jar',
-            viperServerPath,
-            '--singleClient',
-            '--serverMode',
-            'LSP',
-            '--port',
-            String(serverPort),
-        ],
-        {
-            env: {
-                Z3_EXE: z3Path,
-            },
-        },
-    ).on('error', console.error);
-
-    const socket = connect(serverPort);
-    connection = rpc.createMessageConnection(
-        new rpc.SocketMessageReader(socket),
-        new rpc.SocketMessageWriter(socket),
-    );
-    connection.listen();
-
-    console.log('Listening to Viper LSP');
-
-    connection.sendNotification(new rpc.NotificationType('initialize'), {
-        processId: null,
-    });
-
-    connection.onRequest(new rpc.RequestType('GetViperFileEndings'), () => {
-        return {
-            fileEndings: ['*.vpr'],
-        };
-    });
-
     connection.onNotification(
         new rpc.NotificationType<
             object & {
@@ -65,9 +18,10 @@ try {
                 verificationCompleted: number;
                 success: number;
             }
-        >('StateChange'),
+        >('motoko-viper/StateChange'),
         ({ uri, diagnostics, verificationCompleted, success }) => {
             try {
+                console.log('AAA:', uri, diagnostics); //////
                 if (!uri) {
                     return;
                 }
@@ -136,25 +90,19 @@ try {
         },
     );
 
-    // connection.onNotification(
-    //     new rpc.NotificationType<{
-    //         uri: string;
-    //         diagnostics: Diagnostic[];
-    //     }>('textDocument/publishDiagnostics'),
-    //     ({ uri, diagnostics }) => {
-    //         console.log('Diagnostics:', uri, diagnostics);
-    //     },
-    // );
-
     connection.onNotification(
-        new rpc.NotificationType<{ uri: string }>('VerificationNotStarted'),
+        new rpc.NotificationType<{ uri: string }>(
+            'motoko-viper/VerificationNotStarted',
+        ),
         () => {
             console.log('(Verification not started)');
         },
     );
 
     connection.onNotification(
-        new rpc.NotificationType<{ data: string; logLevel: number }>('Log'),
+        new rpc.NotificationType<{ data: string; logLevel: number }>(
+            'motoko-viper/Log',
+        ),
         ({ data }) => {
             console.log(data);
         },
@@ -169,7 +117,7 @@ try {
             msgType: string;
             msg: string;
             logLevel: number;
-        }>('UnhandledViperServerMessageType'),
+        }>('motoko-viper/UnhandledViperServerMessageType'),
         ({ msgType, msg }) => {
             if (showMessageTypes.includes(msgType)) {
                 console.log(msg);
@@ -238,49 +186,17 @@ export function compileViper(motokoUri: string): Diagnostic[] {
             // Debounce verification
             clearTimeout(verifyTimeout);
             verifyTimeout = setTimeout(() => {
-                if (connection) {
-                    // Ensure `connection !== undefined` for all callbacks
-                    Promise.resolve(connection)
-                        .then(async (connection) => {
-                            await connection.sendNotification(
-                                new rpc.NotificationType(
-                                    'textDocument/didOpen',
-                                ),
-                                {
-                                    textDocument: {
-                                        languageId: 'viper',
-                                        version: 0,
-                                        uri: viperUri,
-                                    },
-                                },
-                            );
-                            // await connection.sendNotification(
-                            //     new rpc.NotificationType(
-                            //         'textDocument/didSave',
-                            //     ),
-                            //     {
-                            //         textDocument: { uri: viperUri },
-                            //     },
-                            // );
-                            await connection.sendRequest(
-                                new rpc.RequestType('Verify'),
-                                {
-                                    uri: viperUri,
-                                    backend: 'silicon',
-                                    customArgs: [
-                                        '--logLevel WARN',
-                                        `"${resolveFilePath(viperUri)}"`,
-                                    ].join(' '),
-                                    manuallyTriggered: true,
-                                },
-                            );
-                        })
-                        .catch((err) =>
-                            console.error(
-                                `Error while communicating with Viper LSP: ${err}`,
-                            ),
-                        );
-                }
+                console.log('VERIFY!!!')/////
+                connection
+                    .sendNotification('motoko-viper/VerifyDocument', {
+                        uri: viperUri,
+                        path: resolveFilePath(viperUri),
+                    })
+                    .catch((err) =>
+                        console.error(
+                            `Error while communicating with Viper LSP: ${err}`,
+                        ),
+                    );
             }, verificationDebounce);
         } else if (existsSync(viperFile)) {
             unlinkSync(viperFile);

@@ -156,6 +156,9 @@
         "typescript": "^4.8.2",
         "vsce": "^2.11.0"
     },
+    "extensionDependencies": [
+        "viper-admin.viper"
+    ],
     "scripts": {
         "vscode:prepublish": "run-s generate compile",
         "generate:viper": "cd ../motoko && nix-shell --command 'cd ../vscode-motoko/src/generated && cp -vf $VIPER_SERVER viperserver.jar && rm -f z3 && cp -v $(which z3) .'",

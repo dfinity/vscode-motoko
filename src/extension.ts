@@ -19,7 +19,7 @@ import { watchGlob } from './common/watchConfig';
 import { formatDocument } from './formatter';
 
 interface ViperApi {
-    registerServerMessageCallback?: any;
+    languageClient: LanguageClient;
 }
 
 let client: LanguageClient | undefined;
@@ -42,24 +42,50 @@ export async function activate(context: ExtensionContext) {
     );
     startServer(context);
 
-    console.error('BEFORE TIMEOUT');
+    // Load Viper extension
+    const viperApi = await getViperApi();
+    console.log('Viper API:', viperApi);
 
-    setTimeout(async () => {
-        console.error('BEFORE EXTENSION');
-        // Load Viper extension
-        const viperApi = await getViperApi();
-        console.error('VIPER EXTENSION'); ///
-        console.log(viperApi); /////
-        // console.log(); /////
+    if (viperApi) {
+        for (const type in [
+            'StateChange',
+            'VerificationNotStarted',
+            'Log',
+            'UnhandledViperServerMessageType',
+        ])
+            viperApi.languageClient.onNotification(type, (params: any) =>
+                client!.sendNotification(`motoko-viper/${type}`, params),
+            );
+    }
 
-        if (viperApi) {
-            viperApi.registerServerMessageCallback('StateChange',(params:any)=>console.error('PARAMS::::',params));
-        }
-
-        // console.error('VIPER EXTENSION:', viperApi); ///
-    }, 10000);
+    client!.onNotification(
+        'motoko-viper/VerifyDocument',
+        async ({ uri, path }: { uri: string; path: string }) => {
+            const viperApi = await getViperApi();
+            const viperClient = viperApi?.languageClient;
+            if (!viperClient) {
+                console.error('Viper language client not found');
+                return;
+            }
+            await viperClient.sendNotification('textDocument/didOpen', {
+                textDocument: {
+                    languageId: 'viper',
+                    version: 0,
+                    uri,
+                },
+            });
+            return viperClient.sendNotification('Verify', {
+                uri,
+                // `workspace` ?
+                backend: 'silicon',
+                customArgs: ['--logLevel WARN', `"${path}"`].join(' '),
+                manuallyTriggered: true,
+            });
+        },
+    );
 }
 
+// Retrieve the Viper extension's exported API
 async function getViperApi(): Promise<ViperApi | undefined> {
     try {
         const viperExtension =
@@ -67,7 +93,6 @@ async function getViperApi(): Promise<ViperApi | undefined> {
         if (!viperExtension) {
             return;
         }
-        console.error('ACTIVE:', viperExtension.isActive);
         if (!viperExtension.isActive) {
             await viperExtension.activate();
         }

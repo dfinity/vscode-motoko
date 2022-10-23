@@ -10,26 +10,23 @@ import {
     CodeAction,
     CodeActionKind,
     CompletionItemKind,
-    CompletionList,
-    createConnection,
-    Diagnostic,
+    CompletionList, Diagnostic,
     DiagnosticSeverity,
     FileChangeType,
     InitializeResult,
     Location,
     MarkupKind,
-    Position,
-    ProposedFeatures,
-    SignatureHelp,
+    Position, SignatureHelp,
     TextDocumentPositionParams,
     TextDocuments,
     TextDocumentSyncKind,
     TextEdit,
-    WorkspaceFolder,
+    WorkspaceFolder
 } from 'vscode-languageserver/node';
 import { URI } from 'vscode-uri';
 import { watchGlob as virtualFilePattern } from '../common/watchConfig';
 import AstResolver from './ast';
+import connection from './connection';
 import DfxResolver from './dfx';
 import ImportResolver from './imports';
 import { getAstInformation } from './information';
@@ -39,7 +36,7 @@ import {
     formatMotoko,
     getFileText,
     resolveFilePath,
-    resolveVirtualPath,
+    resolveVirtualPath
 } from './utils';
 import { compileViper, invalidateViper } from './viper';
 
@@ -217,9 +214,6 @@ function notifyDfxChange() {
         checkWorkspace();
     }, 100);
 }
-
-// Create a connection for the language server
-const connection = createConnection(ProposedFeatures.all);
 
 const forwardMessage =
     (send: (message: string) => void) =>
