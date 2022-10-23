@@ -53,7 +53,7 @@ try {
 
     connection.onRequest(new rpc.RequestType('GetViperFileEndings'), () => {
         return {
-            fileEndings: ['*.vpr'],
+            fileEndings: ['*.mo.vpr'],
         };
     });
 
