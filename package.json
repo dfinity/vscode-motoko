@@ -87,18 +87,6 @@
                     "default": "",
                     "description": "The name of the canister you want to develop. If this is blank, we'll use a sensible default."
                 },
-                "motoko.standaloneBinary": {
-                    "scope": "resource",
-                    "type": "string",
-                    "default": "mo-ide",
-                    "description": "The path to the language server binary when running in a non-dfx project."
-                },
-                "motoko.standaloneArguments": {
-                    "scope": "resource",
-                    "type": "string",
-                    "default": "",
-                    "description": "Additional arguments to pass to the language server when running in a non-dfx project."
-                },
                 "motoko.formatter": {
                     "type": "string",
                     "default": "prettier",
@@ -135,7 +123,7 @@
         "mnemonist": "^0.39.2",
         "motoko": "^3.0.0",
         "prettier": "^2.7.1",
-        "prettier-plugin-motoko": "^0.2.2",
+        "prettier-plugin-motoko": "^0.2.3",
         "url-relative": "1.0.0",
         "vscode-languageclient": "^8.0.2",
         "vscode-languageserver": "^8.0.2",
