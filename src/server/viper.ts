@@ -144,49 +144,12 @@ try {
                 },
             );
 
-            // connection.onNotification(
-            //     new rpc.NotificationType<{
-            //         uri: string;
-            //         diagnostics: Diagnostic[];
-            //     }>('textDocument/publishDiagnostics'),
-            //     ({ uri, diagnostics }) => {
-            //         console.log('Diagnostics:', uri, diagnostics);
-            //     },
-            // );
-
-            connection.onNotification(
-                new rpc.NotificationType<{ uri: string }>('VerificationNotStarted'),
-                () => {
-                    console.log('(Verification not started)');
-                },
-            );
-
             connection.onNotification(
                 new rpc.NotificationType<{ data: string; logLevel: number }>('Log'),
                 ({ data }) => {
                     console.log(data);
                 },
             );
-
-            const showMessageTypes = [
-                'warnings_during_parsing',
-                'ast_construction_result',
-            ];
-            connection.onNotification(
-                new rpc.NotificationType<{
-                    msgType: string;
-                    msg: string;
-                    logLevel: number;
-                }>('UnhandledViperServerMessageType'),
-                ({ msgType, msg }) => {
-                    if (showMessageTypes.includes(msgType)) {
-                        console.log(msg);
-                    }
-                    // else {
-                    //     console.log(`[${msgType}]`);
-                    // }
-                },
-            )
         }
     });
 } catch (err) {
