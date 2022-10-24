@@ -9,7 +9,7 @@ import { Diagnostic, DiagnosticSeverity, Range } from 'vscode-languageserver';
 import { existsSync, unlinkSync, writeFileSync } from 'fs';
 import { sendDiagnostics } from './server';
 
-//const viperServerPath = resolve(__dirname, '../generated/viperserver.jar'); // TODO: detect from Viper extension
+const viperServerPath = resolve(__dirname, '../generated/viperserver.jar'); // TODO: detect from Viper extension
 const z3Path = resolve(__dirname, '../generated/z3'); // TODO: detect from Viper extension
 const verificationDebounce = 500; // TODO: config
 
@@ -23,10 +23,10 @@ try {
             '-Xmx2048m',
             '-Xss16m',
             '-jar',
-            '/nix/store/v202v4jgrc39hjpi7b7613b7qkv5z4lm-viperserver.jar',
+            viperServerPath,
+            '--singleClient',
             '--serverMode',
             'LSP',
-            '--singleClient',
         ],
         {
             env: {
@@ -58,7 +58,6 @@ try {
             });
 
             connection.onRequest(new rpc.RequestType('GetViperFileEndings'), () => {
-                console.log('Viper LSP: GetViperFileEndings');
                 return {
                     fileEndings: ['*.mo.vpr'],
                 };
