@@ -35,8 +35,7 @@ try {
         },
     ).on('error', console.error);
 
-    server.stdout.on('data', (data: Buffer) => {
-        if (connection) return;
+    server.stdout.once('data', (data: Buffer) => {
         const s = data.toString()
         console.log(s);
         const m = s.match(/<ViperServerPort:([0-9]+)>/);
