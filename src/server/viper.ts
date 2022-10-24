@@ -39,7 +39,7 @@ try {
         if (connection != undefined) return;
         const s = (data as Buffer).toString()
         console.log(s);
-        const m = s.match(/:([0-9]+)>/);
+        const m = s.match(/<ViperServerPort:([0-9]+)>/);
         if (!m) {
             return
         } else {
