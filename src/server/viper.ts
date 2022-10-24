@@ -35,13 +35,14 @@ try {
         },
     ).on('error', console.error);
 
-    server.stdout.once('data', (data: Buffer) => {
+    const dataListener = (data: Buffer) => {
         const s = data.toString()
         console.log(s);
         const m = s.match(/<ViperServerPort:([0-9]+)>/);
         if (!m) {
             return
         } else {
+            server.stdout.off('data', dataListener); // Unsubscribe listener
             const port = Number(m[1]);
             const socket = connect(port);
             connection = rpc.createMessageConnection(
@@ -150,7 +151,8 @@ try {
                 },
             );
         }
-    });
+    };
+    server.stdout.on('data', dataListener);
 } catch (err) {
     console.error(`Error while initializing Viper LSP: ${err}`);
 }
