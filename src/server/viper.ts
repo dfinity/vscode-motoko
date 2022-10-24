@@ -51,7 +51,7 @@ try {
             );
             connection.listen();
 
-            console.log('Listening to Viper LSP (port: %s)', port);
+            console.log(`Listening to Viper LSP (port: ${port})`);
 
             connection.sendNotification(new rpc.NotificationType('initialize'), {
                 processId: null,
