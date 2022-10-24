@@ -18,7 +18,7 @@ let connection: rpc.MessageConnection | undefined;
 
 try {
     const server = spawn(
-        '/nix/store/p4qnsh2pfcw444z0p0jji6rf0hl5r9wk-zulu17.34.19-ca-jdk-17.0.3/bin/java',
+        'java',
         [
             '-Xmx2048m',
             '-Xss16m',
@@ -35,9 +35,9 @@ try {
         },
     ).on('error', console.error);
 
-    server.stdout.on('data', (data) => {
-        if (connection != undefined) return;
-        const s = (data as Buffer).toString()
+    server.stdout.on('data', (data: Buffer) => {
+        if (connection) return;
+        const s = data.toString()
         console.log(s);
         const m = s.match(/<ViperServerPort:([0-9]+)>/);
         if (!m) {
