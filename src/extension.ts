@@ -111,9 +111,9 @@ export function startServer(context: ExtensionContext) {
     const config = workspace.getConfiguration('viperSettings');
     if (config) {
         viperTools = normalise(viperTools, config.paths.viperToolsPath);
+        const buildVersion = config.buildVersion || 'Stable';
         if (viperTools.endsWith('/Library/Application Support/Viper')) {
             // Rewrite default directory
-            const buildVersion = config.buildVersion || 'Stable';
             viperTools = path.resolve(
                 homedir(),
                 `Library/Application Support/Code/User/globalStorage/viper-admin.viper/${buildVersion}/ViperTools`
