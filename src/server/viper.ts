@@ -2,7 +2,6 @@
 import mo from './motoko';
 import { spawn } from 'child_process';
 import * as rpc from 'vscode-jsonrpc/node';
-//import { resolve } from 'path';
 import { connect } from 'net';
 import { resolveFilePath, resolveVirtualPath } from './utils';
 import { Diagnostic, DiagnosticSeverity, Range } from 'vscode-languageserver';
@@ -25,8 +24,6 @@ console.log("java: ", java);
 console.log("jars: ", jars);
 console.log("z3: ", z3);
 
-//const viperServerPath = resolve(__dirname, '../generated/viperserver.jar'); // TODO: detect from Viper extension
-//const z3Path = resolve(__dirname, '../generated/z3'); // TODO: detect from Viper extension
 const verificationDebounce = 500; // TODO: config
 
 // Viper LSP server connection
