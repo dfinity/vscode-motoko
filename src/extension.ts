@@ -46,40 +46,54 @@ interface PlatformDependentPath {
     linux?: string | string[];
 }
 
+const isLinux = /^linux/.test(process.platform);
+const isMac = /^darwin/.test(process.platform);
+
+function first (paths: string | string[]) : string {
+    if (typeof paths !== 'string') {
+        return paths[0]
+    } else {
+        return paths
+    }
+}
+
 // originally from https://github.com/viperproject/viper-ide/blob/master/client/src/Settings.ts
-function normalise(path: string | PlatformDependentPath) {
+function normalise(path: string | PlatformDependentPath) : string {
     if (typeof path !== 'string') {
-        // TODO: handle object values
-        throw new Error(`normalise() called with a non-string value: ${JSON.stringify(path)}`);
-    }
-    if (!path || path.length <= 2) return path;
-    while (path.includes('$')) {
-        const index_of_dollar = path.indexOf('$');
-        let index_of_closing_slash = path.indexOf('/', index_of_dollar + 1);
-        if (index_of_closing_slash < 0) {
-            index_of_closing_slash = path.length;
-        }
-        const envName = path.substring(
-            index_of_dollar + 1,
-            index_of_closing_slash,
-        );
-        const envValue: string = process.env[envName] || '';
-        if (!envValue) {
-            throw new Error(
-                `environment variable ${envName} used in path ${path} is not set`,
+        // handle object values
+        if (isMac && path.mac) return normalise(first(path.mac))
+        else if (isLinux && path.linux) return normalise(first(path.linux))
+        else throw new Error(`normalise() on an unsupported platform: ${process.platform}, or path missing`);
+    } else {
+        if (!path || path.length <= 2) return path;
+        while (path.includes('$')) {
+            const index_of_dollar = path.indexOf('$');
+            let index_of_closing_slash = path.indexOf('/', index_of_dollar + 1);
+            if (index_of_closing_slash < 0) {
+                index_of_closing_slash = path.length;
+            }
+            const envName = path.substring(
+                index_of_dollar + 1,
+                index_of_closing_slash,
             );
+            const envValue: string = process.env[envName] || '';
+            if (!envValue) {
+                throw new Error(
+                    `environment variable ${envName} used in path ${path} is not set`,
+                );
+            }
+            if (envValue.includes('$')) {
+                throw new Error(
+                    `environment variable ${envName} must not contain '$': ${envValue}`,
+                );
+            }
+            path = `${path.substring(
+                0,
+                index_of_dollar,
+            )}${envValue}${path.substring(index_of_closing_slash, path.length)}`;
         }
-        if (envValue.includes('$')) {
-            throw new Error(
-                `environment variable ${envName} must not contain '$': ${envValue}`,
-            );
-        }
-        path = `${path.substring(
-            0,
-            index_of_dollar,
-        )}${envValue}${path.substring(index_of_closing_slash, path.length)}`;
+        return path
     }
-    return path;
 }
 
 export function startServer(context: ExtensionContext) {
