@@ -9,11 +9,8 @@ import { Diagnostic, DiagnosticSeverity, Range } from 'vscode-languageserver';
 import { existsSync, unlinkSync, writeFileSync } from 'fs';
 import { sendDiagnostics } from './server';
 
-//const args = process.argv.slice(2);
-const args = process.argv;
-//console.error("args: ", args);
 var java = 'java';
-args.forEach((val) => {
+process.argv.forEach((val) => {
     const m = val.match(/--java="(.+)"/);
     if (m) { java = m[1] }
 });
