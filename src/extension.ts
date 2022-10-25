@@ -1,14 +1,18 @@
 import * as path from 'path';
 import {
-    commands, ExtensionContext, FormattingOptions, languages,
+    commands,
+    ExtensionContext,
+    FormattingOptions,
+    languages,
     TextDocument,
-    TextEdit, workspace
+    TextEdit,
+    workspace,
 } from 'vscode';
 import {
     LanguageClient,
     LanguageClientOptions,
     ServerOptions,
-    TransportKind
+    TransportKind,
 } from 'vscode-languageclient/node';
 import { watchGlob } from './common/watchConfig';
 import { formatDocument } from './formatter';
@@ -38,24 +42,37 @@ export function activate(context: ExtensionContext) {
 
 // originally from https://github.com/viperproject/viper-ide/blob/master/client/src/Settings.ts
 function normalise(path: string) {
-    if (!path || path.length <= 2) return path;
-    while (path.indexOf("$") >= 0) {
-        const index_of_dollar = path.indexOf("$")
-        let index_of_closing_slash = path.indexOf("/", index_of_dollar + 1)
-        if (index_of_closing_slash < 0) {
-            index_of_closing_slash = path.length
-        }
-        const envName = path.substring(index_of_dollar + 1, index_of_closing_slash)
-        const envValue = process.env[envName]
-        if (!envValue) {
-            throw new Error(`environment variable ${envName} used in path ${path} is not set`);
-        }
-        if (envValue.indexOf("$") >= 0) {
-            throw new Error(`environment variable ${envName} must not contain '$': ${envValue}`);
-        }
-        path = path.substring(0, index_of_dollar) + envValue + path.substring(index_of_closing_slash, path.length)
+    if (typeof path !== 'string') {
+        throw new Error(`normalize() called with a non-string value: ${JSON.stringify(path)}`);
     }
-    return path
+    if (!path || path.length <= 2) return path;
+    while (path.includes('$')) {
+        const index_of_dollar = path.indexOf('$');
+        let index_of_closing_slash = path.indexOf('/', index_of_dollar + 1);
+        if (index_of_closing_slash < 0) {
+            index_of_closing_slash = path.length;
+        }
+        const envName = path.substring(
+            index_of_dollar + 1,
+            index_of_closing_slash,
+        );
+        const envValue = process.env[envName];
+        if (!envValue) {
+            throw new Error(
+                `environment variable ${envName} used in path ${path} is not set`,
+            );
+        }
+        if (envValue.includes('$')) {
+            throw new Error(
+                `environment variable ${envName} must not contain '$': ${envValue}`,
+            );
+        }
+        path = `${path.substring(
+            0,
+            index_of_dollar,
+        )}${envValue}${path.substring(index_of_closing_slash, path.length)}`;
+    }
+    return path;
 }
 
 export function startServer(context: ExtensionContext) {
@@ -65,26 +82,27 @@ export function startServer(context: ExtensionContext) {
     );
 
     var java = '';
-    var serverJars = '';
+    var serverJar = '';
     var z3 = '';
     const config = workspace.getConfiguration('viperSettings');
     if (config.javaSettings.javaBinary) {
-       java = normalise(config.javaSettings.javaBinary);
+        java = normalise(config.javaSettings.javaBinary);
     }
     if (config.viperServerSettings.serverJars) {
-       serverJars = normalise(config.viperServerSettings.serverJars);
+        // serverJar = normalise(config.viperServerSettings.serverJars);
+        serverJar = normalise(config.viperServerSettings.serverJars['mac'][0]); // TODO: choose depending on OS
     }
     if (config.paths.z3Executable) {
         z3 = normalise(config.paths.z3Executable);
-     }
-     const args = [`--java="${java}"`, `--jars="${serverJars}"`, `--z3="${z3}"`]
+    }
+    const args = [`--java="${java}"`, `--jar="${serverJar}"`, `--z3="${z3}"`];
 
     launchClient(context, {
         run: {
             module,
             args,
-            transport: TransportKind.ipc
-	},
+            transport: TransportKind.ipc,
+        },
         debug: {
             module,
             args,

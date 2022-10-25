@@ -9,19 +9,19 @@ import { existsSync, unlinkSync, writeFileSync } from 'fs';
 import { sendDiagnostics } from './server';
 
 let java = 'java';
-let jars = '';
+let jar = '';
 let z3 = '';
 
 process.argv.forEach((val) => {
     const m = val.match(/--java="(.+)"/);
     if (m) { java = m[1] }
-    const n = val.match(/--jars="(.+)"/);
-    if (n) { jars = n[1] }
+    const n = val.match(/--jar="(.+)"/);
+    if (n) { jar = n[1] }
     const z = val.match(/--z3="(.+)"/);
     if (z) { z3 = z[1] }
 });
 console.log("java: ", java);
-console.log("jars: ", jars);
+console.log("jar: ", jar);
 console.log("z3: ", z3);
 
 const verificationDebounce = 500; // TODO: config
@@ -36,7 +36,7 @@ try {
             '-Xmx2048m',
             '-Xss16m',
             '-jar',
-            jars,
+            jar,
             '--singleClient',
             '--serverMode',
             'LSP',
