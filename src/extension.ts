@@ -66,6 +66,7 @@ export function startServer(context: ExtensionContext) {
 
     var java = '';
     var serverJars = '';
+    var z3 = '';
     const config = workspace.getConfiguration('viperSettings');
     if (config.javaSettings.javaBinary) {
        java = normalise(config.javaSettings.javaBinary);
@@ -73,7 +74,10 @@ export function startServer(context: ExtensionContext) {
     if (config.viperServerSettings.serverJars) {
        serverJars = normalise(config.viperServerSettings.serverJars);
     }
-    const args = [`--java="${java}"`, `--jars="${serverJars}"`]
+    if (config.paths.z3Executable) {
+        z3 = normalise(config.paths.z3Executable);
+     }
+     const args = [`--java="${java}"`, `--jars="${serverJars}"`, `--z3="${z3}"`]
 
     launchClient(context, {
         run: {

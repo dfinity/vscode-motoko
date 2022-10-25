@@ -2,7 +2,7 @@
 import mo from './motoko';
 import { spawn } from 'child_process';
 import * as rpc from 'vscode-jsonrpc/node';
-import { resolve } from 'path';
+//import { resolve } from 'path';
 import { connect } from 'net';
 import { resolveFilePath, resolveVirtualPath } from './utils';
 import { Diagnostic, DiagnosticSeverity, Range } from 'vscode-languageserver';
@@ -11,17 +11,22 @@ import { sendDiagnostics } from './server';
 
 var java = 'java';
 var jars = '';
+var z3 = '';
+
 process.argv.forEach((val) => {
     const m = val.match(/--java="(.+)"/);
     if (m) { java = m[1] }
     const n = val.match(/--jars="(.+)"/);
     if (n) { jars = n[1] }
+    const z = val.match(/--z3="(.+)"/);
+    if (z) { z3 = z[1] }
 });
 console.log("java: ", java);
 console.log("jars: ", jars);
+console.log("z3: ", z3);
 
 //const viperServerPath = resolve(__dirname, '../generated/viperserver.jar'); // TODO: detect from Viper extension
-const z3Path = resolve(__dirname, '../generated/z3'); // TODO: detect from Viper extension
+//const z3Path = resolve(__dirname, '../generated/z3'); // TODO: detect from Viper extension
 const verificationDebounce = 500; // TODO: config
 
 // Viper LSP server connection
@@ -41,7 +46,7 @@ try {
         ],
         {
             env: {
-                Z3_EXE: z3Path,
+                Z3_EXE: z3,
             },
         },
     ).on('error', console.error);
