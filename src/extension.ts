@@ -1,3 +1,4 @@
+import { homedir } from 'os';
 import * as path from 'path';
 import {
     commands,
@@ -110,14 +111,24 @@ export function startServer(context: ExtensionContext) {
     const config = workspace.getConfiguration('viperSettings');
     if (config) {
         viperTools = normalise(viperTools, config.paths.viperToolsPath);
-        viperTools = viperTools.replace(/\/Local\//, config.buildVersion);
+        if (viperTools.endsWith('/Library/Application Support/Viper')) {
+            // Rewrite default directory
+            const buildVersion = config.buildVersion || 'Stable';
+            viperTools = path.resolve(
+                homedir(),
+                `Library/Application Support/Code/User/globalStorage/viper-admin.viper/${buildVersion}/ViperTools`
+            );
+        }
+        else {
+            viperTools = viperTools.replace(/\/Local\//, config.buildVersion);
+        }
     }
     if (config.javaSettings.javaBinary) {
         java = normalise(viperTools, config.javaSettings.javaBinary);
     }
     if (config.viperServerSettings.serverJars) {
         serverJar = normalise(viperTools, config.viperServerSettings.serverJars);
-        if(!serverJar.endsWith('.jar')) {
+        if (!serverJar.endsWith('.jar')) {
             serverJar = path.join(serverJar, 'viperserver.jar');
         }
     }
