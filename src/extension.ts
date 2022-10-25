@@ -58,14 +58,15 @@ function first (paths: string | string[]) : string {
 }
 
 // originally from https://github.com/viperproject/viper-ide/blob/master/client/src/Settings.ts
-function normalise(path: string | PlatformDependentPath) : string {
+function normalise(tools: string, path: string | PlatformDependentPath) : string {
     if (typeof path !== 'string') {
         // handle object values
-        if (isMac && path.mac) return normalise(first(path.mac))
-        else if (isLinux && path.linux) return normalise(first(path.linux))
+        if (isMac && path.mac) return normalise(tools, first(path.mac))
+        else if (isLinux && path.linux) return normalise(tools, first(path.linux))
         else throw new Error(`normalise() on an unsupported platform: ${process.platform}, or path missing`);
     } else {
         if (!path || path.length <= 2) return path;
+        path = path.replace(/\$viperTools\$/g, tools);
         while (path.includes('$')) {
             const index_of_dollar = path.indexOf('$');
             let index_of_closing_slash = path.indexOf('/', index_of_dollar + 1);
@@ -102,19 +103,23 @@ export function startServer(context: ExtensionContext) {
         path.join('out', 'server', 'server.js'),
     );
 
-    var java = '';
-    var serverJar = '';
-    var z3 = '';
+    let viperTools = '';
+    let java = '';
+    let serverJar = '';
+    let z3 = '';
     const config = workspace.getConfiguration('viperSettings');
+    if (config) {
+        viperTools = normalise(viperTools, config.paths.viperToolsPath);
+    }
     if (config.javaSettings.javaBinary) {
-        java = normalise(config.javaSettings.javaBinary);
+        java = normalise(viperTools, config.javaSettings.javaBinary);
     }
     if (config.viperServerSettings.serverJars) {
-        serverJar = normalise(config.viperServerSettings.serverJars);
+        serverJar = normalise(viperTools, config.viperServerSettings.serverJars);
         // serverJar = normalise(config.viperServerSettings.serverJars['mac'][0]);
     }
     if (config.paths.z3Executable) {
-        z3 = normalise(config.paths.z3Executable);
+        z3 = normalise(viperTools, config.paths.z3Executable);
     }
     const args = [`--java="${java}"`, `--jar="${serverJar}"`, `--z3="${z3}"`];
 
