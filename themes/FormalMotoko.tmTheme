@@ -626,7 +626,7 @@
 				<key>fontStyle</key>
 				<string>bold italic</string>
 				<key>foreground</key>
-				<string>#007700</string>
+				<string>#FF7E79</string>
 			</dict>
 		</dict>
 	</array>
