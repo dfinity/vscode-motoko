@@ -36,6 +36,28 @@ export function activate(context: ExtensionContext) {
     startServer(context);
 }
 
+// originally from https://github.com/viperproject/viper-ide/blob/master/client/src/Settings.ts
+function normalise(path: string) {
+    if (!path || path.length <= 2) return path;
+    while (path.indexOf("$") >= 0) {
+        const index_of_dollar = path.indexOf("$")
+        let index_of_closing_slash = path.indexOf("/", index_of_dollar + 1)
+        if (index_of_closing_slash < 0) {
+            index_of_closing_slash = path.length
+        }
+        const envName = path.substring(index_of_dollar + 1, index_of_closing_slash)
+        const envValue = process.env[envName]
+        if (!envValue) {
+            throw new Error(`environment variable ${envName} used in path ${path} is not set`);
+        }
+        if (envValue.indexOf("$") >= 0) {
+            throw new Error(`environment variable ${envName} must not contain '$': ${envValue}`);
+        }
+        path = path.substring(0, index_of_dollar) + envValue + path.substring(index_of_closing_slash, path.length)
+    }
+    return path
+}
+
 export function startServer(context: ExtensionContext) {
     // Cross-platform language server
     const module = context.asAbsolutePath(
@@ -46,10 +68,10 @@ export function startServer(context: ExtensionContext) {
     var serverJars = '';
     const config = workspace.getConfiguration('viperSettings');
     if (config.javaSettings.javaBinary) {
-       java = config.javaSettings.javaBinary;
+       java = normalise(config.javaSettings.javaBinary);
     }
     if (config.viperServerSettings.serverJars) {
-       serverJars = config.viperServerSettings.serverJars;
+       serverJars = normalise(config.viperServerSettings.serverJars);
     }
     const args = [`--java="${java}"`, `--jars="${serverJars}"`]
 
