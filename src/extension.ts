@@ -121,7 +121,7 @@ export function startServer(context: ExtensionContext) {
         }
         else if(viperTools.endsWith('Library/Application Support/Code/User/globalStorage/viper-admin.viper/Local/ViperTools')) {
             // Replace 'Local' directory with current build version
-            viperTools = viperTools.replace(/\/Local\/ViperTools/, `/${config.buildVersion}/ViperTools`);
+            viperTools = viperTools.replace(/\/Local\/ViperTools$/, `/${config.buildVersion}/ViperTools`);
         }
     }
     if (config.javaSettings.javaBinary) {
