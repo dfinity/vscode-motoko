@@ -120,7 +120,7 @@ export function startServer(context: ExtensionContext) {
             );
         }
         else {
-            viperTools = viperTools.replace(/\/Local\//, config.buildVersion);
+            viperTools = viperTools.replace(/\/Local\//, `/${config.buildVersion}/`);
         }
     }
     if (config.javaSettings.javaBinary) {
