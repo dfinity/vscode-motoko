@@ -48,7 +48,6 @@ interface PlatformDependentPath {
 
 const isLinux = /^linux/.test(process.platform);
 const isMac = /^darwin/.test(process.platform);
-const isWin = /^win/.test(process.platform);
 
 function first (paths: string | string[]) : string {
     if (typeof paths !== 'string') {
@@ -64,7 +63,6 @@ function normalise(path: string | PlatformDependentPath) : string {
         // handle object values
         if (isMac && path.mac) return normalise(first(path.mac))
         else if (isLinux && path.linux) return normalise(first(path.linux))
-        else if (isWin && path.windows) return normalise(first(path.windows))
         else throw new Error(`normalise() on an unsupported platform: ${process.platform}, or path missing`);
     } else {
         if (!path || path.length <= 2) return path;
