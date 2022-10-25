@@ -43,11 +43,15 @@ export function startServer(context: ExtensionContext) {
     );
 
     var java = '';
+    var serverJars = '';
     const config = workspace.getConfiguration('viperSettings');
     if (config.javaSettings.javaBinary) {
        java = config.javaSettings.javaBinary;
     }
-    const args = ['--java="' + java + '"']
+    if (config.viperServerSettings.serverJars) {
+       serverJars = config.viperServerSettings.serverJars;
+    }
+    const args = [`--java="${java}"`, `--jars="${serverJars}"`]
 
     launchClient(context, {
         run: {

@@ -10,11 +10,15 @@ import { existsSync, unlinkSync, writeFileSync } from 'fs';
 import { sendDiagnostics } from './server';
 
 var java = 'java';
+var jars = '';
 process.argv.forEach((val) => {
     const m = val.match(/--java="(.+)"/);
     if (m) { java = m[1] }
+    const n = val.match(/--jars="(.+)"/);
+    if (n) { jars = n[1] }
 });
 console.log("java: ", java);
+console.log("jars: ", jars);
 
 const viperServerPath = resolve(__dirname, '../generated/viperserver.jar'); // TODO: detect from Viper extension
 const z3Path = resolve(__dirname, '../generated/z3'); // TODO: detect from Viper extension
