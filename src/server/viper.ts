@@ -20,7 +20,7 @@ process.argv.forEach((val) => {
 console.log("java: ", java);
 console.log("jars: ", jars);
 
-const viperServerPath = resolve(__dirname, '../generated/viperserver.jar'); // TODO: detect from Viper extension
+//const viperServerPath = resolve(__dirname, '../generated/viperserver.jar'); // TODO: detect from Viper extension
 const z3Path = resolve(__dirname, '../generated/z3'); // TODO: detect from Viper extension
 const verificationDebounce = 500; // TODO: config
 
@@ -34,7 +34,7 @@ try {
             '-Xmx2048m',
             '-Xss16m',
             '-jar',
-            viperServerPath,
+            jars,
             '--singleClient',
             '--serverMode',
             'LSP',
