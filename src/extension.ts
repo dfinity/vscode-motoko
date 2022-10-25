@@ -41,10 +41,23 @@ export function startServer(context: ExtensionContext) {
     const module = context.asAbsolutePath(
         path.join('out', 'server', 'server.js'),
     );
+
+    var java = '';
+    const config = workspace.getConfiguration('viperSettings');
+    if (config.javaSettings.javaBinary) {
+       java = config.javaSettings.javaBinary;
+    }
+    const args = ['--java="' + java + '"']
+
     launchClient(context, {
-        run: { module, transport: TransportKind.ipc },
+        run: {
+            module,
+            args,
+            transport: TransportKind.ipc
+	},
         debug: {
             module,
+            args,
             options: { execArgv: ['--nolazy', '--inspect=6004'] },
             transport: TransportKind.ipc,
         },

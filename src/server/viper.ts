@@ -9,6 +9,10 @@ import { Diagnostic, DiagnosticSeverity, Range } from 'vscode-languageserver';
 import { existsSync, unlinkSync, writeFileSync } from 'fs';
 import { sendDiagnostics } from './server';
 
+//const args = process.argv.slice(2);
+const args = process.argv;
+console.error("args: ", args);
+
 const viperServerPath = resolve(__dirname, '../generated/viperserver.jar'); // TODO: detect from Viper extension
 const z3Path = resolve(__dirname, '../generated/z3'); // TODO: detect from Viper extension
 const verificationDebounce = 500; // TODO: config
