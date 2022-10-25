@@ -40,10 +40,17 @@ export function activate(context: ExtensionContext) {
     startServer(context);
 }
 
+interface PlatformDependentPath {
+    windows?: string | string[];
+    mac?: string | string[];
+    linux?: string | string[];
+}
+
 // originally from https://github.com/viperproject/viper-ide/blob/master/client/src/Settings.ts
-function normalise(path: string) {
+function normalise(path: string | PlatformDependentPath) {
     if (typeof path !== 'string') {
-        throw new Error(`normalize() called with a non-string value: ${JSON.stringify(path)}`);
+        // TODO: handle object values
+        throw new Error(`normalise() called with a non-string value: ${JSON.stringify(path)}`);
     }
     if (!path || path.length <= 2) return path;
     while (path.includes('$')) {
@@ -56,7 +63,7 @@ function normalise(path: string) {
             index_of_dollar + 1,
             index_of_closing_slash,
         );
-        const envValue = process.env[envName];
+        const envValue: string = process.env[envName] || '';
         if (!envValue) {
             throw new Error(
                 `environment variable ${envName} used in path ${path} is not set`,
@@ -89,8 +96,8 @@ export function startServer(context: ExtensionContext) {
         java = normalise(config.javaSettings.javaBinary);
     }
     if (config.viperServerSettings.serverJars) {
-        // serverJar = normalise(config.viperServerSettings.serverJars);
-        serverJar = normalise(config.viperServerSettings.serverJars['mac'][0]); // TODO: choose depending on OS
+        serverJar = normalise(config.viperServerSettings.serverJars);
+        // serverJar = normalise(config.viperServerSettings.serverJars['mac'][0]);
     }
     if (config.paths.z3Executable) {
         z3 = normalise(config.paths.z3Executable);
