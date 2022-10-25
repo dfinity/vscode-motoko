@@ -110,6 +110,7 @@ export function startServer(context: ExtensionContext) {
     const config = workspace.getConfiguration('viperSettings');
     if (config) {
         viperTools = normalise(viperTools, config.paths.viperToolsPath);
+        viperTools = viperTools.replace(/\/Local\//, config.buildVersion);
     }
     if (config.javaSettings.javaBinary) {
         java = normalise(viperTools, config.javaSettings.javaBinary);
