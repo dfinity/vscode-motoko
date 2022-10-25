@@ -11,7 +11,13 @@ import { sendDiagnostics } from './server';
 
 //const args = process.argv.slice(2);
 const args = process.argv;
-console.error("args: ", args);
+//console.error("args: ", args);
+var java = 'java';
+args.forEach((val) => {
+    const m = val.match(/--java="(.+)"/);
+    if (m) { java = m[1] }
+});
+console.log("java: ", java);
 
 const viperServerPath = resolve(__dirname, '../generated/viperserver.jar'); // TODO: detect from Viper extension
 const z3Path = resolve(__dirname, '../generated/z3'); // TODO: detect from Viper extension
@@ -22,7 +28,7 @@ let connection: rpc.MessageConnection | undefined;
 
 try {
     const server = spawn(
-        'java',
+        java,
         [
             '-Xmx2048m',
             '-Xss16m',
