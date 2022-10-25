@@ -119,8 +119,9 @@ export function startServer(context: ExtensionContext) {
                 `Library/Application Support/Code/User/globalStorage/viper-admin.viper/${buildVersion}/ViperTools`
             );
         }
-        else {
-            viperTools = viperTools.replace(/\/Local\//, config.buildVersion);
+        else if(viperTools.endsWith('Library/Application Support/Code/User/globalStorage/viper-admin.viper/Local/ViperTools')) {
+            // Replace 'Local' directory with current build version
+            viperTools = viperTools.replace(/\/Local\/ViperTools/, `/${config.buildVersion}/ViperTools`);
         }
     }
     if (config.javaSettings.javaBinary) {
