@@ -116,7 +116,9 @@ export function startServer(context: ExtensionContext) {
     }
     if (config.viperServerSettings.serverJars) {
         serverJar = normalise(viperTools, config.viperServerSettings.serverJars);
-        // serverJar = normalise(config.viperServerSettings.serverJars['mac'][0]);
+        if(!serverJar.endsWith('.jar')) {
+            serverJar = path.join(serverJar, 'viperserver.jar');
+        }
     }
     if (config.paths.z3Executable) {
         z3 = normalise(viperTools, config.paths.z3Executable);
