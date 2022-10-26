@@ -134,7 +134,7 @@ export function startServer(context: ExtensionContext) {
             viperTools = viperTools.replace(/\/Local\/ViperTools$/, `/${buildVersion}/ViperTools`);
         }
 	// Codium tweak
-	if (process.argv[0].includes('/VSCodium.app/Contents/')) {
+	if (process.execPath.includes('/VSCodium.app/Contents/')) {
 	    viperTools = viperTools.replace(/\/Application Support\/Code\//, '/Application Support/VSCodium/');
 	}
     }
