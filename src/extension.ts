@@ -129,7 +129,7 @@ export function startServer(context: ExtensionContext) {
             );
         }
         // Rewrite default LS path
-        if(viperTools.endsWith('/Local/ViperTools')) {
+        if (viperTools.endsWith('/Local/ViperTools')) {
             // Replace 'Local' directory with current build version
             viperTools = viperTools.replace(/\/Local\/ViperTools$/, `/${buildVersion}/ViperTools`);
         }
