@@ -7,13 +7,13 @@ import {
     languages,
     TextDocument,
     TextEdit,
-    workspace,
+    workspace
 } from 'vscode';
 import {
     LanguageClient,
     LanguageClientOptions,
     ServerOptions,
-    TransportKind,
+    TransportKind
 } from 'vscode-languageclient/node';
 import { watchGlob } from './common/watchConfig';
 import { formatDocument } from './formatter';
@@ -112,31 +112,25 @@ export function startServer(context: ExtensionContext) {
     if (config) {
         viperTools = normalise(viperTools, config.paths.viperToolsPath);
         const buildVersion = config.buildVersion || 'Stable';
-        // macOS (Viper extension bugfix)
-        if (viperTools.endsWith('/Library/Application Support/Viper')) {
+        const homePath = homedir();
+        // Viper extension v3.0.1
+        if (viperTools === path.resolve(homePath, 'Library/Application Support/Viper') ||
+            viperTools === path.resolve(homePath, '.config/Viper')) {
             // Rewrite default directory
             viperTools = path.resolve(
-                homedir(),
-                `Library/Application Support/Code/User/globalStorage/viper-admin.viper/${buildVersion}/ViperTools`
-            );
-        }
-        // Linux (Viper extension bugfix)
-        else if (viperTools.endsWith('/.config/Viper')) {
-            // Rewrite default directory
-            viperTools = path.resolve(
-                homedir(),
-                `.vscode-server/data/User/globalStorage/viper-admin.viper/${buildVersion}/ViperTools`
+                context.globalStorageUri.fsPath,
+                `../viper-admin.viper/${buildVersion}/ViperTools`
             );
         }
         // Rewrite default LS path
-        if (viperTools.endsWith('/Local/ViperTools')) {
+        else if (viperTools.endsWith('/Local/ViperTools')) {
             // Replace 'Local' directory with current build version
             viperTools = viperTools.replace(/\/Local\/ViperTools$/, `/${buildVersion}/ViperTools`);
         }
-	// Codium tweak
-	if (process.execPath.includes('/VSCodium.app/Contents/')) {
-	    viperTools = viperTools.replace(/\/Application Support\/Code\//, '/Application Support/VSCodium/');
-	}
+        // Codium tweak
+        if (process.execPath.includes('/VSCodium.app/Contents/')) {
+            viperTools = viperTools.replace(/\/Application Support\/Code\//, '/Application Support/VSCodium/');
+        }
     }
     if (config.javaSettings.javaBinary) {
         java = normalise(viperTools, config.javaSettings.javaBinary);
