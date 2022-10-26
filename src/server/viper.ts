@@ -50,7 +50,7 @@ try {
 
     const dataListener = (data: Buffer) => {
         const s = data.toString()
-        console.log(s);
+        console.log(`[Viper LS] ${s}`);
         const m = s.match(/<ViperServerPort:([0-9]+)>/);
         if (!m) {
             return
