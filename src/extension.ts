@@ -112,6 +112,7 @@ export function startServer(context: ExtensionContext) {
     if (config) {
         viperTools = normalise(viperTools, config.paths.viperToolsPath);
         const buildVersion = config.buildVersion || 'Stable';
+        // macOS (Viper extension bugfix)
         if (viperTools.endsWith('/Library/Application Support/Viper')) {
             // Rewrite default directory
             viperTools = path.resolve(
@@ -119,7 +120,16 @@ export function startServer(context: ExtensionContext) {
                 `Library/Application Support/Code/User/globalStorage/viper-admin.viper/${buildVersion}/ViperTools`
             );
         }
-        else if(viperTools.endsWith('Library/Application Support/Code/User/globalStorage/viper-admin.viper/Local/ViperTools')) {
+        // Linux (Viper extension bugfix)
+        else if (viperTools.endsWith('/.config/Viper')) {
+            // Rewrite default directory
+            viperTools = path.resolve(
+                homedir(),
+                `.vscode-server/data/User/globalStorage/viper-admin.viper/${buildVersion}/ViperTools`
+            );
+        }
+        // Rewrite default LS path
+        if(viperTools.endsWith('/Local/ViperTools')) {
             // Replace 'Local' directory with current build version
             viperTools = viperTools.replace(/\/Local\/ViperTools$/, `/${buildVersion}/ViperTools`);
         }
