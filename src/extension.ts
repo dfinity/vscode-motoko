@@ -133,6 +133,10 @@ export function startServer(context: ExtensionContext) {
             // Replace 'Local' directory with current build version
             viperTools = viperTools.replace(/\/Local\/ViperTools$/, `/${buildVersion}/ViperTools`);
         }
+	// Codium tweak
+	if (process.argv[0].includes('/VSCodium.app/Contents/')) {
+	    viperTools = viperTools.replace(/\/Application Support\/Code\//, '/Application Support/VSCodium/');
+	}
     }
     if (config.javaSettings.javaBinary) {
         java = normalise(viperTools, config.javaSettings.javaBinary);
