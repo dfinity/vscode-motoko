@@ -255,7 +255,7 @@ export function compileViper(motokoUri: string): Diagnostic[] {
                                     uri: viperUri,
                                     backend: 'silicon',
                                     customArgs: [
-                                        '--logLevel WARN',
+                                        '--logLevel ERROR',
                                         `"${resolveFilePath(viperUri)}"`,
                                     ].join(' '),
                                     manuallyTriggered: true,
