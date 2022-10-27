@@ -54,7 +54,7 @@ interface MotokoSettings {
 }
 
 // Always ignore `node_modules/` (often used in frontend canisters)
-const ignoreGlobs = ['**/node_modules/**/*'];
+// const ignoreGlobs = ['**/node_modules/**/*'];
 const skipExtension = '.mo_';
 
 // const moFileSet = new Set();
@@ -386,26 +386,26 @@ let checkWorkspaceTimeout: ReturnType<typeof setTimeout>;
 function checkWorkspace() {
     clearTimeout(checkWorkspaceTimeout);
     checkWorkspaceTimeout = setTimeout(() => {
-        console.log('Checking workspace');
+        // console.log('Checking workspace');
 
-        workspaceFolders?.forEach((folder) => {
-            const folderPath = resolveFilePath(folder.uri);
-            glob.sync('**/*.mo', {
-                cwd: folderPath,
-                dot: false, // exclude directories such as `.vessel`
-                ignore: ignoreGlobs,
-            }).forEach((relativePath) => {
-                const path = join(folderPath, relativePath);
-                try {
-                    const file = URI.file(path).toString();
-                    // notify(file);
-                    check(file);
-                } catch (err) {
-                    console.error(`Error while checking Motoko file ${path}:`);
-                    console.error(err);
-                }
-            });
-        });
+        // workspaceFolders?.forEach((folder) => {
+        //     const folderPath = resolveFilePath(folder.uri);
+        //     glob.sync('**/*.mo', {
+        //         cwd: folderPath,
+        //         dot: false, // exclude directories such as `.vessel`
+        //         ignore: ignoreGlobs,
+        //     }).forEach((relativePath) => {
+        //         const path = join(folderPath, relativePath);
+        //         try {
+        //             const file = URI.file(path).toString();
+        //             // notify(file);
+        //             check(file);
+        //         } catch (err) {
+        //             console.error(`Error while checking Motoko file ${path}:`);
+        //             console.error(err);
+        //         }
+        //     });
+        // });
 
         // validateOpenDocuments();
 
