@@ -611,7 +611,7 @@ function writeVirtual(path: string, content: string) {
     //     content = preprocessMotoko(content);
     // }
     mo.write(path, content);
-    invalidateViper(path);
+    // (this arrives after compileViper!) invalidateViper(path);
 }
 
 function deleteVirtual(path: string) {
