@@ -2,185 +2,170 @@
 import mo from './motoko';
 import { spawn } from 'child_process';
 import * as rpc from 'vscode-jsonrpc/node';
-import { resolve } from 'path';
 import { connect } from 'net';
 import { resolveFilePath, resolveVirtualPath } from './utils';
 import { Diagnostic, DiagnosticSeverity, Range } from 'vscode-languageserver';
 import { existsSync, unlinkSync, writeFileSync } from 'fs';
 import { sendDiagnostics } from './server';
 
-const serverPort = 54816; // TODO: choose automatically, or reuse server from Viper extension
-const viperServerPath = resolve(__dirname, '../generated/viperserver.jar'); // TODO: detect from Viper extension
-const z3Path = resolve(__dirname, '../generated/z3'); // TODO: detect from Viper extension
+let java = 'java';
+let jar = '';
+let z3 = '';
+
+process.argv.forEach((val) => {
+    const m = val.match(/--java="(.+)"/);
+    if (m) { java = m[1] }
+    const n = val.match(/--jar="(.+)"/);
+    if (n) { jar = n[1] }
+    const z = val.match(/--z3="(.+)"/);
+    if (z) { z3 = z[1] }
+});
+console.log("java: ", java);
+console.log("jar: ", jar);
+console.log("z3: ", z3);
+
 const verificationDebounce = 500; // TODO: config
 
 // Viper LSP server connection
 let connection: rpc.MessageConnection | undefined;
 
 try {
-    spawn(
-        'java',
+    const server = spawn(
+        java,
         [
             '-Xmx2048m',
             '-Xss16m',
             '-jar',
-            viperServerPath,
+            jar,
             '--singleClient',
             '--serverMode',
             'LSP',
-            '--port',
-            String(serverPort),
         ],
         {
             env: {
-                Z3_EXE: z3Path,
+                Z3_EXE: z3,
             },
         },
     ).on('error', console.error);
 
-    const socket = connect(serverPort);
-    connection = rpc.createMessageConnection(
-        new rpc.SocketMessageReader(socket),
-        new rpc.SocketMessageWriter(socket),
-    );
-    connection.listen();
+    const dataListener = (data: Buffer) => {
+        const s = data.toString()
+        console.log(`[Viper LS] ${s}`);
+        const m = s.match(/<ViperServerPort:([0-9]+)>/);
+        if (!m) {
+            return
+        } else {
+            server.stdout.off('data', dataListener); // Unsubscribe listener
+            const port = Number(m[1]);
+            const socket = connect(port);
+            connection = rpc.createMessageConnection(
+                new rpc.SocketMessageReader(socket),
+                new rpc.SocketMessageWriter(socket),
+            );
+            connection.listen();
 
-    console.log('Listening to Viper LSP');
+            console.log(`Listening to Viper LSP (port: ${port})`);
 
-    connection.sendNotification(new rpc.NotificationType('initialize'), {
-        processId: null,
-    });
+            connection.sendNotification(new rpc.NotificationType('initialize'), {
+                processId: null,
+            });
 
-    connection.onRequest(new rpc.RequestType('GetViperFileEndings'), () => {
-        return {
-            fileEndings: ['*.mo.vpr'],
-        };
-    });
-
-    connection.onNotification(
-        new rpc.NotificationType<
-            object & {
-                uri: string;
-                diagnostics: Diagnostic[];
-                newState: number;
-                verificationCompleted: number;
-                time: number;
-            }
-        >('StateChange'),
-        ({ uri, diagnostics, newState, verificationCompleted, time }) => {
-            try {
-                if (!uri) {
-                    return;
-                }
-                const motokoPath = resolveVirtualPath(getMotokoUri(uri));
-                const defaultRange: Range = {
-                    start: { line: 0, character: 0 },
-                    end: { line: 0, character: 100 }, // Highlight the `// @verify` comment by default
+            connection.onRequest(new rpc.RequestType('GetViperFileEndings'), () => {
+                return {
+                    fileEndings: ['*.mo.vpr'],
                 };
-                if (
-                    diagnostics &&
-                    newState === 6 &&
-                    verificationCompleted === 1 &&
-                    time > 0 // Filter initial parse warnings
-                ) {
-                    const viperDiagnostics = diagnostics
-                        .filter(
-                            (d) =>
-                                d.message !==
-                                'Verification aborted exceptionally',
-                        )
-                        .map((diagnostic) => {
-                            const range: Range =
-                                getMotokoSourceRange(
-                                    motokoPath,
-                                    diagnostic.range,
-                                ) || defaultRange;
-                            const message = resolveViperMessage(diagnostic);
-                            return <Diagnostic>{
-                                ...diagnostic,
-                                message,
-                                range,
-                                source: motokoPath,
-                                relatedInformation: [
-                                    {
-                                        // Viper source location
-                                        location: {
-                                            uri,
-                                            range: diagnostic.range,
-                                        },
-                                        message: 'view in context',
-                                    },
-                                ],
-                            };
-                        });
-                    const success = !!viperDiagnostics.length;
-                    const allDiagnostics: Diagnostic[] = [
-                        ...(mocViperCache.get(uri)?.diagnostics.filter(
-                            // Only update type checking diagnostics for the original file
-                            (d) => !d.source || d.source === motokoPath,
-                        ) || []),
-                        ...(success
-                            ? viperDiagnostics
-                            : [
-                                  {
-                                      message: '✅',
-                                      source: motokoPath,
-                                      severity: DiagnosticSeverity.Information,
-                                      range: defaultRange,
-                                  },
-                              ]),
-                    ];
-                    sendDiagnostics(motokoPath, allDiagnostics);
-                }
-            } catch (err) {
-                console.error(`Error while sending Viper diagnostics: ${err}`);
-            }
-        },
-    );
+            });
 
-    // connection.onNotification(
-    //     new rpc.NotificationType<{
-    //         uri: string;
-    //         diagnostics: Diagnostic[];
-    //     }>('textDocument/publishDiagnostics'),
-    //     ({ uri, diagnostics }) => {
-    //         console.log('Diagnostics:', uri, diagnostics);
-    //     },
-    // );
+            connection.onNotification(
+                new rpc.NotificationType<
+                    object & {
+                        uri: string;
+                        diagnostics: Diagnostic[];
+                        newState: number;
+                        verificationCompleted: number;
+                        time: number;
+                    }
+                >('StateChange'),
+                ({ uri, diagnostics, newState, verificationCompleted, time }) => {
+                    try {
+                        if (!uri) {
+                            return;
+                        }
+                        const motokoPath = resolveVirtualPath(getMotokoUri(uri));
+                        const defaultRange: Range = {
+                            start: { line: 0, character: 0 },
+                            end: { line: 0, character: 100 }, // Highlight the `// @verify` comment by default
+                        };
+                        if (
+                            diagnostics &&
+                            newState === 6 &&
+                            verificationCompleted === 1 &&
+                            time > 0 // Filter initial parse warnings
+                        ) {
+                            const viperDiagnostics = diagnostics
+                                .filter(
+                                    (d) =>
+                                        d.message !==
+                                        'Verification aborted exceptionally',
+                                )
+                                .map((diagnostic) => {
+                                    const range: Range =
+                                        getMotokoSourceRange(
+                                            motokoPath,
+                                            diagnostic.range,
+                                        ) || defaultRange;
+                                    const message = resolveViperMessage(diagnostic);
+                                    return <Diagnostic>{
+                                        ...diagnostic,
+                                        message,
+                                        range,
+                                        source: motokoPath,
+                                        relatedInformation: [
+                                            {
+                                                // Viper source location
+                                                location: {
+                                                    uri,
+                                                    range: diagnostic.range,
+                                                },
+                                                message: 'view in context',
+                                            },
+                                        ],
+                                    };
+                                });
+                            const success = !!viperDiagnostics.length;
+                            const allDiagnostics: Diagnostic[] = [
+                                ...(mocViperCache.get(uri)?.diagnostics.filter(
+                                    // Only update type checking diagnostics for the original file
+                                    (d) => !d.source || d.source === motokoPath,
+                                ) || []),
+                                ...(success
+                                    ? viperDiagnostics
+                                    : [
+                                          {
+                                              message: '✅',
+                                              source: motokoPath,
+                                              severity: DiagnosticSeverity.Information,
+                                              range: defaultRange,
+                                          },
+                                      ]),
+                            ];
+                            sendDiagnostics(motokoPath, allDiagnostics);
+                        }
+                    } catch (err) {
+                        console.error(`Error while sending Viper diagnostics: ${err}`);
+                    }
+                },
+            );
 
-    connection.onNotification(
-        new rpc.NotificationType<{ uri: string }>('VerificationNotStarted'),
-        () => {
-            console.log('(Verification not started)');
-        },
-    );
-
-    connection.onNotification(
-        new rpc.NotificationType<{ data: string; logLevel: number }>('Log'),
-        ({ data }) => {
-            console.log(data);
-        },
-    );
-
-    const showMessageTypes = [
-        'warnings_during_parsing',
-        'ast_construction_result',
-    ];
-    connection.onNotification(
-        new rpc.NotificationType<{
-            msgType: string;
-            msg: string;
-            logLevel: number;
-        }>('UnhandledViperServerMessageType'),
-        ({ msgType, msg }) => {
-            if (showMessageTypes.includes(msgType)) {
-                console.log(msg);
-            }
-            // else {
-            //     console.log(`[${msgType}]`);
-            // }
-        },
-    );
+            connection.onNotification(
+                new rpc.NotificationType<{ data: string; logLevel: number }>('Log'),
+                ({ data }) => {
+                    console.log(data);
+                },
+            );
+        }
+    };
+    server.stdout.on('data', dataListener);
 } catch (err) {
     console.error(`Error while initializing Viper LSP: ${err}`);
 }
@@ -270,7 +255,7 @@ export function compileViper(motokoUri: string): Diagnostic[] {
                                     uri: viperUri,
                                     backend: 'silicon',
                                     customArgs: [
-                                        '--logLevel WARN',
+                                        '--logLevel ERROR',
                                         `"${resolveFilePath(viperUri)}"`,
                                     ].join(' '),
                                     manuallyTriggered: true,
