@@ -1,3 +1,5 @@
+import locateJavaHome from '@viperproject/locate-java-home';
+import { IJavaHomeInfo } from '@viperproject/locate-java-home/js/es5/lib/interfaces';
 import { homedir } from 'os';
 import * as path from 'path';
 import {
@@ -22,10 +24,10 @@ import { formatDocument } from './formatter';
 
 let client: LanguageClient;
 
-export function activate(context: ExtensionContext) {
+export async function activate(context: ExtensionContext) {
     context.subscriptions.push(
         commands.registerCommand('motoko.startService', () =>
-            startServer(context),
+            startServer(context).catch(console.error),
         ),
     );
     context.subscriptions.push(
@@ -38,7 +40,7 @@ export function activate(context: ExtensionContext) {
             },
         }),
     );
-    startServer(context);
+    await startServer(context);
 }
 
 interface PlatformDependentPath {
@@ -50,21 +52,28 @@ interface PlatformDependentPath {
 const isLinux = /^linux/.test(process.platform);
 const isMac = /^darwin/.test(process.platform);
 
-function first (paths: string | string[]) : string {
+function first(paths: string | string[]): string {
     if (typeof paths !== 'string') {
-        return paths[0]
+        return paths[0];
     } else {
-        return paths
+        return paths;
     }
 }
 
 // originally from https://github.com/viperproject/viper-ide/blob/master/client/src/Settings.ts
-function normalise(tools: string, path: string | PlatformDependentPath) : string {
+function normalise(
+    tools: string,
+    path: string | PlatformDependentPath,
+): string {
     if (typeof path !== 'string') {
         // handle object values
-        if (isMac && path.mac) return normalise(tools, first(path.mac))
-        else if (isLinux && path.linux) return normalise(tools, first(path.linux))
-        else throw new Error(`normalise() on an unsupported platform: ${process.platform}, or path missing`);
+        if (isMac && path.mac) return normalise(tools, first(path.mac));
+        else if (isLinux && path.linux)
+            return normalise(tools, first(path.linux));
+        else
+            throw new Error(
+                `normalise() on an unsupported platform: ${process.platform}, or path missing`,
+            );
     } else {
         if (!path || path.length <= 2) return path;
         path = path.replace(/\$viperTools\$/g, tools);
@@ -92,13 +101,16 @@ function normalise(tools: string, path: string | PlatformDependentPath) : string
             path = `${path.substring(
                 0,
                 index_of_dollar,
-            )}${envValue}${path.substring(index_of_closing_slash, path.length)}`;
+            )}${envValue}${path.substring(
+                index_of_closing_slash,
+                path.length,
+            )}`;
         }
-        return path
+        return path;
     }
 }
 
-export function startServer(context: ExtensionContext) {
+export async function startServer(context: ExtensionContext) {
     // Cross-platform language server
     const module = context.asAbsolutePath(
         path.join('out', 'server', 'server.js'),
@@ -114,29 +126,50 @@ export function startServer(context: ExtensionContext) {
         const buildVersion = config.buildVersion || 'Stable';
         const homePath = homedir();
         // Viper extension v3.0.1
-        if (viperTools === path.resolve(homePath, 'Library/Application Support/Viper') ||
-            viperTools === path.resolve(homePath, '.config/Viper')) {
+        if (
+            viperTools ===
+                path.resolve(homePath, 'Library/Application Support/Viper') ||
+            viperTools === path.resolve(homePath, '.config/Viper')
+        ) {
             // Rewrite default directory
             viperTools = path.resolve(
                 context.globalStorageUri.fsPath,
-                `../viper-admin.viper/${buildVersion}/ViperTools`
+                `../viper-admin.viper/${buildVersion}/ViperTools`,
             );
         }
         // Rewrite default LS path
         else if (viperTools.endsWith('/Local/ViperTools')) {
             // Replace 'Local' directory with current build version
-            viperTools = viperTools.replace(/\/Local\/ViperTools$/, `/${buildVersion}/ViperTools`);
+            viperTools = viperTools.replace(
+                /\/Local\/ViperTools$/,
+                `/${buildVersion}/ViperTools`,
+            );
         }
         // Codium tweak
         if (process.execPath.includes('/VSCodium.app/Contents/')) {
-            viperTools = viperTools.replace(/\/Application Support\/Code\//, '/Application Support/VSCodium/');
+            viperTools = viperTools.replace(
+                /\/Application Support\/Code\//,
+                '/Application Support/VSCodium/',
+            );
         }
     }
     if (config.javaSettings.javaBinary) {
         java = normalise(viperTools, config.javaSettings.javaBinary);
+    } else {
+        const javaHomes = await getJavaHomes();
+        if (javaHomes.length === 0) {
+            console.error('Java home directory not found');
+        } else if (javaHomes.length > 1) {
+            console.error('Found more than one Java home directory');
+        } else {
+            java = javaHomes[0].executables.java;
+        }
     }
     if (config.viperServerSettings.serverJars) {
-        serverJar = normalise(viperTools, config.viperServerSettings.serverJars);
+        serverJar = normalise(
+            viperTools,
+            config.viperServerSettings.serverJars,
+        );
         if (!serverJar.endsWith('.jar')) {
             serverJar = path.join(serverJar, 'viperserver.jar');
         }
@@ -158,6 +191,36 @@ export function startServer(context: ExtensionContext) {
             options: { execArgv: ['--nolazy', '--inspect=6004'] },
             transport: TransportKind.ipc,
         },
+    });
+}
+
+// https://github.com/viperproject/viper-ide/blob/147ba0cd4b1fbbb15437b6581e66c2105fa537fa/client/src/Settings.ts#L890-L915
+async function getJavaHomes(): Promise<IJavaHomeInfo[]> {
+    return new Promise((resolve, reject) => {
+        try {
+            const minJavaVersion = 11;
+            const options = {
+                version: `>=${minJavaVersion}`,
+                mustBe64Bit: true,
+            };
+            locateJavaHome(options, (err, javaHomes) => {
+                if (err) {
+                    reject(err.message);
+                } else {
+                    if (!Array.isArray(javaHomes) || javaHomes.length === 0) {
+                        const msg =
+                            `Could not find a 64-bit Java installation with at least version ${minJavaVersion}. ` +
+                            'Please install one and/or manually specify it in the Viper-IDE settings.';
+                        reject(msg);
+                    } else {
+                        resolve(javaHomes);
+                    }
+                }
+            });
+        } catch (err) {
+            // @ts-ignore
+            reject(err?.message);
+        }
     });
 }
 
