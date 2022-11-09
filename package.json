@@ -122,6 +122,7 @@
     "main": "./out/extension",
     "browser": "./out/browser",
     "dependencies": {
+        "@viperproject/locate-java-home": "^1.1.9",
         "change-case": "^4.1.2",
         "fast-glob": "^3.2.11",
         "mnemonist": "^0.39.2",
