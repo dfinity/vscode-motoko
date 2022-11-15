@@ -1,12 +1,13 @@
 {
-    "name": "vscode-motoko",
-    "displayName": "Motoko",
-    "description": "Motoko language support",
-    "version": "0.5.3-viper",
+    "name": "motoko-viper",
+    "displayName": "Motoko + Viper (Experimental)",
+    "description": "Experimental formal verification support for Motoko",
+    "version": "0.0.1",
     "publisher": "dfinity-foundation",
-    "repository": "https://github.com/dfinity/vscode-motoko",
+    "repository": "https://github.com/dfinity/vscode-motoko/tree/viper",
+    
     "engines": {
-        "vscode": "^1.53.0"
+        "vscode": "^1.63.0"
     },
     "categories": [
         "Programming Languages"
@@ -159,7 +160,7 @@
         "compile": "rimraf ./out && tsc -p . && mkdir -p out/generated/ && ln -fv src/generated/* out/generated/",
         "test": "jest",
         "lint": "tslint -p .",
-        "package": "vsce package",
+        "package": "vsce package --pre-release",
         "watch": "tsc -watch -p .",
         "format": "prettier --write .",
         "publish": "vsce publish"
