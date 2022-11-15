@@ -694,6 +694,14 @@
 			<key>patterns</key>
 			<array>
 				<dict>
+					<key>comment</key>
+					<string>static annotation</string>
+					<key>match</key>
+					<string>\b(assert:invariant|assert:system|assert:func|assert:return|assert:\d+:async)\b</string>
+					<key>name</key>
+					<string>keyword.other.verification.contracts.motoko</string>
+				</dict>
+				<dict>
 					<key>include</key>
 					<string>#branch-statement-keyword</string>
 				</dict>

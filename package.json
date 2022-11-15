@@ -42,6 +42,13 @@
                 "path": "./syntaxes/Major.tmLanguage"
             }
         ],
+        "themes": [
+			{
+				"label": "Formal-Motoko",
+				"uiTheme": "vs",
+				"path": "./themes/FormalMotoko.tmTheme"
+			}
+        ],
         "configuration": {
             "type": "object",
             "title": "Motoko",
