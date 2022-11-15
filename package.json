@@ -129,6 +129,7 @@
     "main": "./out/extension",
     "browser": "./out/browser",
     "dependencies": {
+        "@viperproject/locate-java-home": "^1.1.9",
         "change-case": "^4.1.2",
         "fast-glob": "^3.2.11",
         "mnemonist": "^0.39.2",
@@ -160,9 +161,8 @@
     ],
     "scripts": {
         "vscode:prepublish": "run-s generate compile",
-        "generate:viper": "cd ../motoko && nix-shell --command 'cd ../vscode-motoko/src/generated && cp -vf $VIPER_SERVER viperserver.jar && rm -f z3 && cp -v $(which z3) .'",
         "generate:moc": "cd ../motoko && nix-shell --command 'make -C src moc.js && cp -vfL src/moc.js ../vscode-motoko/src/generated/moc.js'",
-        "generate": "mkdir -p src/generated && run-s generate:moc generate:viper",
+        "generate": "mkdir -p src/generated && run-s generate:moc",
         "compile": "rimraf ./out && tsc -p . && mkdir -p out/generated/ && ln -fv src/generated/* out/generated/",
         "test": "jest",
         "lint": "tslint -p .",
