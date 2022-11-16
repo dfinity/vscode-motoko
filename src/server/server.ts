@@ -311,7 +311,6 @@ connection.onDidChangeWatchedFiles((event) => {
     event.changes.forEach((change) => {
         try {
             if (change.type === FileChangeType.Deleted) {
-                // moFileSet.delete(change.uri);
                 const path = resolveVirtualPath(change.uri);
                 deleteVirtual(path);
                 notifyDeleteUri(change.uri);
@@ -320,9 +319,7 @@ connection.onDidChangeWatchedFiles((event) => {
                     diagnostics: [],
                 });
             } else {
-                // moFileSet.add(change.uri);
                 notify(change.uri);
-                // check(change.uri);
             }
             if (change.uri.endsWith('.did')) {
                 notifyDfxChange();
@@ -332,7 +329,6 @@ connection.onDidChangeWatchedFiles((event) => {
         }
     });
 
-    // validateOpenDocuments();
     checkWorkspace();
 });
 
@@ -368,7 +364,6 @@ function notifyWorkspace() {
                     resolveFilePath(folder.uri, relativePath),
                 ).toString();
                 notifyWriteUri(uri, content);
-                // moFileSet.add(uri);
             } catch (err) {
                 console.error(`Error while adding Motoko file ${path}:`);
                 console.error(err);
@@ -475,7 +470,7 @@ function notify(uri: string | TextDocument): boolean {
  */
 function checkImmediate(uri: string | TextDocument): boolean {
     try {
-        const skipExtension = '.mo_';
+        const skipExtension = '.mo_'; // Skip type checking `*.mo_` files
         const resolvedUri = typeof uri === 'string' ? uri : uri?.uri;
         if (resolvedUri?.endsWith(skipExtension)) {
             connection.sendDiagnostics({
@@ -488,9 +483,6 @@ function checkImmediate(uri: string | TextDocument): boolean {
         let virtualPath: string;
         const document = typeof uri === 'string' ? documents.get(uri) : uri;
         if (document) {
-            // if (document.languageId !== 'motoko') {
-            //     return false;
-            // }
             virtualPath = resolveVirtualPath(document.uri);
         } else if (typeof uri === 'string') {
             virtualPath = resolveVirtualPath(uri);
@@ -590,6 +582,7 @@ function scheduleCheck(uri: string | TextDocument) {
         processQueue();
     }
     uri = typeof uri === 'string' ? uri : uri?.uri;
+    console.log(checkQueue.length, documents.keys().includes(uri), uri); ////
     if (documents.keys().includes(uri)) {
         // Open document
         unscheduleCheck(uri);
