@@ -132,22 +132,22 @@ let dfxChangeTimeout: ReturnType<typeof setTimeout>;
 function notifyDfxChange() {
     clearTimeout(dfxChangeTimeout);
     setTimeout(async () => {
-        const dfxResolver = new DfxResolver(() => {
-            if (!workspaceFolders?.length) {
-                return null;
-            }
-            const folder = workspaceFolders[0];
-            // for (const folder of workspaceFolders) {
-            const basePath = resolveFilePath(folder.uri);
-            const dfxPath = join(basePath, 'dfx.json');
-            if (existsSync(dfxPath)) {
-                return dfxPath;
-            }
-            return null;
-            // }
-        });
-
         try {
+            const dfxResolver = new DfxResolver(() => {
+                if (!workspaceFolders?.length) {
+                    return null;
+                }
+                const folder = workspaceFolders[0];
+                // for (const folder of workspaceFolders) {
+                const basePath = resolveFilePath(folder.uri);
+                const dfxPath = join(basePath, 'dfx.json');
+                if (existsSync(dfxPath)) {
+                    return dfxPath;
+                }
+                return null;
+                // }
+            });
+
             const projectDir = await dfxResolver.getProjectDirectory();
             const dfxConfig = await dfxResolver.getConfig();
             if (projectDir && dfxConfig) {
