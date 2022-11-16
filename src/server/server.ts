@@ -372,6 +372,49 @@ function notifyWorkspace() {
     });
 }
 
+const checkQueue: string[] = [];
+let checkTimeout: ReturnType<typeof setTimeout>;
+// function clearCheckQueue() {
+//     checkQueue.length = 0;
+//     clearTimeout(checkTimeout);
+// }
+function processQueue() {
+    clearTimeout(checkTimeout);
+    checkTimeout = setTimeout(() => {
+        const uri = checkQueue.shift();
+        if (checkQueue.length) {
+            processQueue();
+        }
+        if (uri) {
+            checkImmediate(uri);
+        }
+    }, 0);
+}
+function scheduleCheck(uri: string | TextDocument) {
+    if (checkQueue.length === 0) {
+        processQueue();
+    }
+    uri = typeof uri === 'string' ? uri : uri?.uri;
+    if (documents.keys().includes(uri)) {
+        // Open document
+        unscheduleCheck(uri);
+        checkQueue.unshift(uri);
+    } else {
+        // Workspace file
+        if (checkQueue.includes(uri)) {
+            return false;
+        }
+        checkQueue.push(uri);
+    }
+    return true;
+}
+function unscheduleCheck(uri: string) {
+    let index: number;
+    while ((index = checkQueue.indexOf(uri)) !== -1) {
+        checkQueue.splice(index, 1);
+    }
+}
+
 let checkWorkspaceTimeout: ReturnType<typeof setTimeout>;
 /**
  * Type-checks all Motoko files in the current workspace.
@@ -557,50 +600,6 @@ function checkImmediate(uri: string | TextDocument): boolean {
         });
     }
     return false;
-}
-
-const checkQueue: string[] = [];
-let checkTimeout: ReturnType<typeof setTimeout>;
-// function clearCheckQueue() {
-//     checkQueue.length = 0;
-//     clearTimeout(checkTimeout);
-// }
-function processQueue() {
-    clearTimeout(checkTimeout);
-    setTimeout(() => {
-        const uri = checkQueue.shift();
-        if (checkQueue.length) {
-            processQueue();
-        }
-        if (uri) {
-            checkImmediate(uri);
-        }
-    }, 0);
-}
-function scheduleCheck(uri: string | TextDocument) {
-    if (checkQueue.length === 0) {
-        processQueue();
-    }
-    uri = typeof uri === 'string' ? uri : uri?.uri;
-    console.log(checkQueue.length, documents.keys().includes(uri), uri); ////
-    if (documents.keys().includes(uri)) {
-        // Open document
-        unscheduleCheck(uri);
-        checkQueue.unshift(uri);
-    } else {
-        // Workspace file
-        if (checkQueue.includes(uri)) {
-            return false;
-        }
-        checkQueue.push(uri);
-    }
-    return true;
-}
-function unscheduleCheck(uri: string) {
-    let index: number;
-    while ((index = checkQueue.indexOf(uri)) !== 1) {
-        checkQueue.splice(index, 1);
-    }
 }
 
 function notifyWriteUri(uri: string, content: string) {
