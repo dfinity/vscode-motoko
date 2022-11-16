@@ -1,15 +1,20 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import {
-    commands, ExtensionContext, FormattingOptions, languages,
+    commands,
+    ExtensionContext,
+    FormattingOptions,
+    languages,
     TextDocument,
-    TextEdit, window, workspace
+    TextEdit,
+    window,
+    workspace,
 } from 'vscode';
 import {
     LanguageClient,
     LanguageClientOptions,
     ServerOptions,
-    TransportKind
+    TransportKind,
 } from 'vscode-languageclient/node';
 import * as which from 'which';
 import { watchGlob } from './common/watchConfig';
