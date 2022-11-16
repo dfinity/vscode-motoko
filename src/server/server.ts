@@ -390,9 +390,9 @@ function checkWorkspace() {
             }).forEach((relativePath) => {
                 const path = join(folderPath, relativePath);
                 try {
-                    const file = URI.file(path).toString();
-                    // notify(file);
-                    scheduleCheck(file);
+                    const uri = URI.file(path).toString();
+                    // notify(uri);
+                    scheduleCheck(uri);
                 } catch (err) {
                     console.error(`Error while checking Motoko file ${path}:`);
                     console.error(err);
