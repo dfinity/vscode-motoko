@@ -1,3 +1,6 @@
 .github/**
+.gitmodules
 .gitignore
 .vscode/**
+motoko/**
+node_modules/**
