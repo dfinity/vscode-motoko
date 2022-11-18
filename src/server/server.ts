@@ -134,22 +134,22 @@ let dfxChangeTimeout: ReturnType<typeof setTimeout>;
 function notifyDfxChange() {
     clearTimeout(dfxChangeTimeout);
     setTimeout(async () => {
-        const dfxResolver = new DfxResolver(() => {
-            if (!workspaceFolders?.length) {
-                return null;
-            }
-            const folder = workspaceFolders[0];
-            // for (const folder of workspaceFolders) {
-            const basePath = resolveFilePath(folder.uri);
-            const dfxPath = join(basePath, 'dfx.json');
-            if (existsSync(dfxPath)) {
-                return dfxPath;
-            }
-            return null;
-            // }
-        });
-
         try {
+            const dfxResolver = new DfxResolver(() => {
+                if (!workspaceFolders?.length) {
+                    return null;
+                }
+                const folder = workspaceFolders[0];
+                // for (const folder of workspaceFolders) {
+                const basePath = resolveFilePath(folder.uri);
+                const dfxPath = join(basePath, 'dfx.json');
+                if (existsSync(dfxPath)) {
+                    return dfxPath;
+                }
+                return null;
+                // }
+            });
+
             const projectDir = await dfxResolver.getProjectDirectory();
             const dfxConfig = await dfxResolver.getConfig();
             if (projectDir && dfxConfig) {
@@ -313,7 +313,6 @@ connection.onDidChangeWatchedFiles((event) => {
     event.changes.forEach((change) => {
         try {
             if (change.type === FileChangeType.Deleted) {
-                // moFileSet.delete(change.uri);
                 const path = resolveVirtualPath(change.uri);
                 deleteVirtual(path);
                 notifyDeleteUri(change.uri);
@@ -322,9 +321,7 @@ connection.onDidChangeWatchedFiles((event) => {
                     diagnostics: [],
                 });
             } else {
-                // moFileSet.add(change.uri);
                 notify(change.uri);
-                // check(change.uri);
             }
             if (change.uri.endsWith('.did')) {
                 notifyDfxChange();
@@ -334,7 +331,6 @@ connection.onDidChangeWatchedFiles((event) => {
         }
     });
 
-    // validateOpenDocuments();
     checkWorkspace();
 });
 
@@ -370,13 +366,55 @@ function notifyWorkspace() {
                     resolveFilePath(folder.uri, relativePath),
                 ).toString();
                 notifyWriteUri(uri, content);
-                // moFileSet.add(uri);
             } catch (err) {
                 console.error(`Error while adding Motoko file ${path}:`);
                 console.error(err);
             }
         });
     });
+}
+
+const checkQueue: string[] = [];
+let checkTimeout: ReturnType<typeof setTimeout>;
+// function clearCheckQueue() {
+//     checkQueue.length = 0;
+//     clearTimeout(checkTimeout);
+// }
+function processQueue() {
+    clearTimeout(checkTimeout);
+    checkTimeout = setTimeout(() => {
+        const uri = checkQueue.shift();
+        if (checkQueue.length) {
+            processQueue();
+        }
+        if (uri) {
+            checkImmediate(uri);
+        }
+    }, 0);
+}
+function scheduleCheck(uri: string | TextDocument) {
+    if (checkQueue.length === 0) {
+        processQueue();
+    }
+    uri = typeof uri === 'string' ? uri : uri?.uri;
+    if (documents.keys().includes(uri)) {
+        // Open document
+        unscheduleCheck(uri);
+        checkQueue.unshift(uri);
+    } else {
+        // Workspace file
+        if (checkQueue.includes(uri)) {
+            return false;
+        }
+        checkQueue.push(uri);
+    }
+    return true;
+}
+function unscheduleCheck(uri: string) {
+    let index: number;
+    while ((index = checkQueue.indexOf(uri)) !== -1) {
+        checkQueue.splice(index, 1);
+    }
 }
 
 let checkWorkspaceTimeout: ReturnType<typeof setTimeout>;
@@ -445,7 +483,7 @@ function checkWorkspace() {
 
 function validate(uri: string | TextDocument) {
     notify(uri);
-    check(uri);
+    scheduleCheck(uri);
 }
 
 /**
@@ -524,8 +562,7 @@ export function sendDiagnostics(
 /**
  * Generates errors and warnings for a document.
  */
-function check(uri: string | TextDocument): boolean {
-    // TODO: debounce
+function checkImmediate(uri: string | TextDocument): boolean {
     try {
         const resolvedUri = typeof uri === 'string' ? uri : uri?.uri;
         if (resolvedUri?.endsWith(skipExtension)) {
@@ -539,9 +576,6 @@ function check(uri: string | TextDocument): boolean {
         let virtualPath: string;
         const document = typeof uri === 'string' ? documents.get(uri) : uri;
         if (document) {
-            // if (document.languageId !== 'motoko') {
-            //     return false;
-            // }
             virtualPath = resolveVirtualPath(document.uri);
         } else if (typeof uri === 'string') {
             virtualPath = resolveVirtualPath(uri);

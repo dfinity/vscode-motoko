@@ -5,7 +5,6 @@
     "version": "0.0.1",
     "publisher": "dfinity-foundation",
     "repository": "https://github.com/dfinity/vscode-motoko/tree/viper",
-    
     "engines": {
         "vscode": "^1.63.0"
     },
@@ -143,11 +142,11 @@
         "@types/prettier": "^2.7.0",
         "@types/vscode": "^1.53.0",
         "@types/which": "^2.0.1",
+        "esbuild": "^0.15.14",
         "jest": "^29.1.2",
         "npm-run-all": "^4.1.5",
         "rimraf": "^3.0.2",
         "ts-jest": "^29.0.3",
-        "typescript": "^4.8.2",
         "vsce": "^2.14.0"
     },
     "extensionDependencies": [
@@ -157,11 +156,14 @@
         "vscode:prepublish": "run-s generate compile",
         "generate:moc": "cd motoko && mv -vf .git .nogit && nix-shell --command 'mv -v .nogit .git && make -C src moc.js && cp -vfL src/moc.js ../src/generated/moc.js'",
         "generate": "mkdir -p src/generated && run-s generate:moc",
-        "compile": "rimraf ./out && tsc -p . && mkdir -p out/generated/ && ln -fv src/generated/* out/generated/",
+        "compile": "npm run compile:pre && run-p compile:main compile:browser compile:server && npm run compile:post",
+        "compile:pre": "rimraf ./out && mkdirp ./out/server && cp node_modules/prettier-plugin-motoko/wasm/pkg/nodejs/wasm_bg.wasm out/server/wasm_bg.wasm",
+        "compile:main": "esbuild ./src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node --minify",
+        "compile:browser": "esbuild ./src/browser.ts --bundle --outfile=out/browser.js --external:vscode --format=cjs --platform=node --minify",
+        "compile:server": "esbuild ./src/server/server.ts --bundle --outfile=out/server/server.js --external:vscode --format=cjs --platform=node --sourcemap",
+        "compile:post": "mkdir -p out/generated/ && ln -fv src/generated/* out/generated/",
         "test": "jest",
-        "lint": "tslint -p .",
         "package": "vsce package --pre-release",
-        "watch": "tsc -watch -p .",
         "format": "prettier --write .",
         "publish": "vsce publish"
     }

@@ -15,7 +15,7 @@ import {
     LanguageClient,
     LanguageClientOptions,
     ServerOptions,
-    TransportKind
+    TransportKind,
 } from 'vscode-languageclient/node';
 import { watchGlob } from './common/watchConfig';
 import { formatDocument } from './formatter';
