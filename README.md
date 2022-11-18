@@ -43,7 +43,7 @@ actor {
 
 ### Building from Source
 
-- Clone [vscode-motoko](https://github.com/dfinity/vscode-motoko/tree/viper) into the same parent directory
+- Clone [vscode-motoko](https://github.com/dfinity/vscode-motoko/tree/viper)
 - In your terminal, run `cd vscode-motoko`
 - Switch to the `viper` branch (`git switch viper`)
 - Execute `git submodule update --init` to obtain the corresponding Motoko compiler
