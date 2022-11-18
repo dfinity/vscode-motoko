@@ -43,7 +43,9 @@ actor {
 
 ### Building from Source
 
-- Clone [motoko](https://github.com/dfinity/motoko) and [vscode-motoko](https://github.com/dfinity/vscode-motoko/tree/viper) into the same parent directory
-- Switch to the `viper` branch in both repositories
-- In your terminal, run `cd vscode-motoko` and then `npm run package` (this will rebuild the compiler bindings)
+- Clone [vscode-motoko](https://github.com/dfinity/vscode-motoko/tree/viper) into the same parent directory
+- In your terminal, run `cd vscode-motoko`
+- Switch to the `viper` branch (`git switch viper`)
+- Execute `git submodule update --init` to obtain the corresponding Motoko compiler
+- Run `npm run package` (this will rebuild the compiler bindings)
 - Right-click the generated `/motoko-viper-*.vsix` file and select "Install extension VSIX"
