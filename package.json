@@ -5,7 +5,6 @@
     "version": "0.0.1",
     "publisher": "dfinity-foundation",
     "repository": "https://github.com/dfinity/vscode-motoko/tree/viper",
-    
     "engines": {
         "vscode": "^1.63.0"
     },
@@ -164,5 +163,8 @@
         "watch": "tsc -watch -p .",
         "format": "prettier --write .",
         "publish": "vsce publish"
+    },
+    "motoko-viper": {
+        "prerelease": true
     }
 }
