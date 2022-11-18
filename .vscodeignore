@@ -2,5 +2,5 @@
 .gitmodules
 .gitignore
 .vscode/**
-motoko/**
-node_modules/**
+/motoko/**
+# node_modules/**
