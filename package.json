@@ -147,14 +147,14 @@
         "rimraf": "^3.0.2",
         "ts-jest": "^29.0.3",
         "typescript": "^4.8.2",
-        "vsce": "^2.13.0"
+        "vsce": "^2.14.0"
     },
     "extensionDependencies": [
         "viper-admin.viper"
     ],
     "scripts": {
         "vscode:prepublish": "run-s generate compile",
-        "generate:moc": "cd ../motoko && nix-shell --command 'make -C src moc.js && cp -vfL src/moc.js ../vscode-motoko/src/generated/moc.js'",
+        "generate:moc": "cd motoko && mv -vf .git .nogit && nix-shell --command 'mv -v .nogit .git && make -C src moc.js && cp -vfL src/moc.js ../src/generated/moc.js'",
         "generate": "mkdir -p src/generated && run-s generate:moc",
         "compile": "rimraf ./out && tsc -p . && mkdir -p out/generated/ && ln -fv src/generated/* out/generated/",
         "test": "jest",
