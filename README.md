@@ -47,5 +47,6 @@ actor {
 - In your terminal, run `cd vscode-motoko`
 - Switch to the `viper` branch (`git switch viper`)
 - Execute `git submodule update --init` to obtain the corresponding Motoko compiler
+- Install the `npm` modules needed as dependencies: `npm install`
 - Run `npm run package` (this will rebuild the compiler bindings)
 - Right-click the generated `/motoko-viper-*.vsix` file and select "Install extension VSIX"
