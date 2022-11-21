@@ -1,11 +1,17 @@
-> **Important note:** This is an experimental fork of the official [Motoko VS Code extension](https://marketplace.visualstudio.com/items?itemName=dfinity-foundation.vscode-motoko). Make sure to disable the official extension to avoid conflicting behavior. 
+> **Important note:** This is an experimental fork of the official [Motoko VS Code extension](https://marketplace.visualstudio.com/items?itemName=dfinity-foundation.vscode-motoko). Please disable the official extension if you run into any unexpected behavior. 
 
-# Motoko + Viper
+# Formal Motoko
 
-> #### Experimental formal verification support for Motoko.
+> #### Experimental formal verification support for [Motoko](https://internetcomputer.org/docs/current/developer-docs/build/cdks/motoko-dfinity/motoko/).
 
 [![Visual Studio Marketplace](https://img.shields.io/visual-studio-marketplace/v/dfinity-foundation.motoko-viper?color=brightgreen&logo=visual-studio-code)](https://marketplace.visualstudio.com/items?itemName=dfinity-foundation.motoko-viper)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/dfinity/prettier-plugin-motoko/issues)
+
+### Background
+
+[Motoko](https://internetcomputer.org/docs/current/developer-docs/build/cdks/motoko-dfinity/motoko/) is a high-level smart contract language for the [Internet Computer](https://internetcomputer.org/). 
+
+This extension makes it possible to write compile-time assertions for Motoko programs by translating Motoko source code to [Viper](https://www.pm.inf.ethz.ch/research/viper.html), a formal verification language developed at ETH Zurich. 
 
 ### Usage
 
