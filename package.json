@@ -154,7 +154,7 @@
         "compile:pre": "rimraf ./out && mkdirp ./out/server && cp node_modules/prettier-plugin-motoko/wasm/pkg/nodejs/wasm_bg.wasm out/server/wasm_bg.wasm",
         "compile:main": "esbuild ./src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node --minify",
         "compile:browser": "esbuild ./src/browser.ts --bundle --outfile=out/browser.js --external:vscode --format=cjs --platform=node --minify",
-        "compile:server": "esbuild ./src/server/server.ts --bundle --outfile=out/server/server.js --external:vscode --format=cjs --platform=node --sourcemap",
+        "compile:server": "esbuild ./src/server/server.ts --bundle --outfile=out/server/server.js --external:vscode --format=cjs --platform=node --minify",
         "test": "jest",
         "package": "vsce package",
         "format": "prettier --write .",
