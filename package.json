@@ -1,6 +1,6 @@
 {
     "name": "motoko-viper",
-    "displayName": "Motoko + Viper (Experimental)",
+    "displayName": "Formal Motoko",
     "description": "Experimental formal verification support for Motoko",
     "version": "0.0.1",
     "publisher": "dfinity-foundation",
