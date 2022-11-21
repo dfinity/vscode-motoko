@@ -5,11 +5,9 @@ import * as path from 'path';
 import {
     commands,
     ExtensionContext,
-    FormattingOptions,
-    languages,
-    TextDocument,
-    TextEdit,
-    workspace
+    extensions,
+    window,
+    workspace,
 } from 'vscode';
 import {
     LanguageClient,
@@ -18,7 +16,6 @@ import {
     TransportKind,
 } from 'vscode-languageclient/node';
 import { watchGlob } from './common/watchConfig';
-import { formatDocument } from './formatter';
 
 // const config = workspace.getConfiguration('motoko');
 
@@ -26,20 +23,51 @@ let client: LanguageClient;
 
 export async function activate(context: ExtensionContext) {
     context.subscriptions.push(
-        commands.registerCommand('motoko.startService', () =>
+        commands.registerCommand('motoko-viper.startService', () =>
             startServer(context).catch(console.error),
         ),
     );
-    context.subscriptions.push(
-        languages.registerDocumentFormattingEditProvider('motoko', {
-            provideDocumentFormattingEdits(
-                document: TextDocument,
-                options: FormattingOptions,
-            ): TextEdit[] {
-                return formatDocument(document, context, options);
-            },
-        }),
+    // context.subscriptions.push(
+    //     languages.registerDocumentFormattingEditProvider('motoko', {
+    //         provideDocumentFormattingEdits(
+    //             document: TextDocument,
+    //             options: FormattingOptions,
+    //         ): TextEdit[] {
+    //             return formatDocument(document, context, options);
+    //         },
+    //     }),
+    // );
+    const incompatible = extensions.getExtension(
+        'dfinity-foundation.vscode-motoko',
     );
+    if (incompatible) {
+        const verifyName = require('../package.json').displayName;
+        const originalName = 'Motoko';
+        window
+            .showErrorMessage(
+                `[${verifyName}](https://marketplace.visualstudio.com/items?itemName=dfinity-foundation.motoko-viper) is incompatible with the standard [${originalName}](https://marketplace.visualstudio.com/items?itemName=dfinity-foundation.vscode-motoko) extension. Please choose which extension to keep installed:`,
+                verifyName,
+                originalName,
+            )
+            .then((choice) => {
+                let uninstallPromise;
+                if (choice === verifyName) {
+                    uninstallPromise = commands.executeCommand(
+                        'workbench.extensions.uninstallExtension',
+                        'dfinity-foundation.vscode-motoko',
+                    );
+                }
+                if (choice === originalName) {
+                    uninstallPromise = commands.executeCommand(
+                        'workbench.extensions.uninstallExtension',
+                        'dfinity-foundation.motoko-viper',
+                    );
+                } 
+                uninstallPromise?.then(() =>
+                    commands.executeCommand('workbench.action.reloadWindow'),
+                );
+            });
+    }
     await startServer(context);
 }
 
