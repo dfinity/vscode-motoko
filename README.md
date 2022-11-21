@@ -1,3 +1,5 @@
+> **Important note:** This is an experimental fork of the official [Motoko VS Code extension](https://marketplace.visualstudio.com/items?itemName=dfinity-foundation.vscode-motoko). Make sure to disable the official extension to avoid conflicting behavior. 
+
 # Motoko + Viper
 
 > #### Experimental formal verification support for Motoko.
@@ -5,13 +7,9 @@
 [![Visual Studio Marketplace](https://img.shields.io/visual-studio-marketplace/v/dfinity-foundation.motoko-viper?color=brightgreen&logo=visual-studio-code)](https://marketplace.visualstudio.com/items?itemName=dfinity-foundation.motoko-viper)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/dfinity/prettier-plugin-motoko/issues)
 
-### Important Note
-
-This is an experimental fork of the official [Motoko VS Code extension](https://marketplace.visualstudio.com/items?itemName=dfinity-foundation.vscode-motoko). If you are interested in trying this extension, make sure to disable the official extension to avoid incompatibilities. 
-
 ### Usage
 
-To enable formal verification, insert an `@verify` line comment at the top of your Motoko file.
+To enable formal verification, insert a line comment containing `@verify` at the top of your Motoko file.
 
 ### Example
 
