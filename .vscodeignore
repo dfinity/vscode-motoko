@@ -4,3 +4,4 @@
 .vscode/**
 motoko/**
 node_modules/**
+src/**

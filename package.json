@@ -126,7 +126,7 @@
         "change-case": "^4.1.2",
         "fast-glob": "^3.2.11",
         "mnemonist": "^0.39.2",
-        "motoko": "^3.0.0",
+        "motoko": "^3.0.1",
         "prettier": "^2.7.1",
         "prettier-plugin-motoko": "^0.2.3",
         "url-relative": "1.0.0",
@@ -161,10 +161,10 @@
         "compile:pre": "rimraf ./out && mkdirp ./out/server && cp node_modules/prettier-plugin-motoko/wasm/pkg/nodejs/wasm_bg.wasm out/server/wasm_bg.wasm",
         "compile:main": "esbuild ./src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node --minify",
         "compile:browser": "esbuild ./src/browser.ts --bundle --outfile=out/browser.js --external:vscode --format=cjs --platform=node --minify",
-        "compile:server": "esbuild ./src/server/server.ts --bundle --outfile=out/server/server.js --external:vscode --format=cjs --platform=node --sourcemap",
+        "compile:server": "esbuild ./src/server/server.ts --bundle --outfile=out/server/server.js --external:vscode --format=cjs --platform=node --minify",
         "compile:post": "mkdirp out/generated/ && ln -fv src/generated/* out/generated/",
         "test": "jest",
-        "package": "vsce package --pre-release",
+        "package": "vsce package",
         "format": "prettier --write .",
         "publish": "vsce publish"
     }
