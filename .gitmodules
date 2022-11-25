@@ -1,4 +1,4 @@
 [submodule "motoko"]
 	path = motoko
 	url = https://github.com/dfinity/motoko.git
-	branch = viper
+	branch = master
