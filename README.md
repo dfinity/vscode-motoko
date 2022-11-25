@@ -1,6 +1,6 @@
 > **Important note:** This is an experimental fork of the official [Motoko VS Code extension](https://marketplace.visualstudio.com/items?itemName=dfinity-foundation.vscode-motoko). Please disable the official extension if you run into any unexpected behavior. 
 
-# Formal Motoko
+# _Motoko-san_
 
 > #### Experimental formal verification support for [Motoko](https://internetcomputer.org/docs/current/developer-docs/build/cdks/motoko-dfinity/motoko/).
 
@@ -11,11 +11,11 @@
 
 [Motoko](https://internetcomputer.org/docs/current/developer-docs/build/cdks/motoko-dfinity/motoko/) is a high-level smart contract language for the [Internet Computer](https://internetcomputer.org/). 
 
-This extension makes it possible to write compile-time assertions for Motoko programs by translating Motoko source code to [Viper](https://www.pm.inf.ethz.ch/research/viper.html), a formal verification language developed at ETH Zurich. 
+This extension makes it possible to write code specifications (such as actor-level invariants) for Motoko programs. The assertions are automatically checked, at compile time, by Viper [Viper](https://www.pm.inf.ethz.ch/research/viper.html), a formal verifier developed at ETH Zurich.
 
 ### Usage
 
-To enable formal verification, insert a line comment containing `@verify` at the top of your Motoko file.
+To enable formal verification, insert `// @verify` at the top of your Motoko file.
 
 ### Example
 
@@ -53,3 +53,7 @@ actor {
 - Install the `npm` modules needed as dependencies: `npm install`
 - Run `npm run package` (this will rebuild the compiler bindings)
 - Right-click the generated `/motoko-viper-*.vsix` file and select "Install extension VSIX"
+
+### Further reading
+
+A more detailed overview of _Motoko-san_ is available [here](https://github.com/dfinity/motoko/tree/master/src/viper).
