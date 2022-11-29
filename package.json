@@ -2,7 +2,7 @@
     "name": "vscode-motoko",
     "displayName": "Motoko",
     "description": "Motoko language support",
-    "version": "0.5.6",
+    "version": "0.5.7",
     "publisher": "dfinity-foundation",
     "repository": "https://github.com/dfinity/vscode-motoko",
     "engines": {
@@ -151,10 +151,10 @@
     "scripts": {
         "vscode:prepublish": "npm run compile",
         "compile": "npm run compile:pre && run-p compile:main compile:browser compile:server",
-        "compile:pre": "rimraf ./out && mkdirp ./out/server && cp node_modules/prettier-plugin-motoko/wasm/pkg/nodejs/wasm_bg.wasm out/server/wasm_bg.wasm",
+        "compile:pre": "rimraf ./out && mkdirp ./out && cp node_modules/prettier-plugin-motoko/wasm/pkg/nodejs/wasm_bg.wasm out/wasm_bg.wasm",
         "compile:main": "esbuild ./src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node --minify",
         "compile:browser": "esbuild ./src/browser.ts --bundle --outfile=out/browser.js --external:vscode --format=cjs --platform=node --minify",
-        "compile:server": "esbuild ./src/server/server.ts --bundle --outfile=out/server/server.js --external:vscode --format=cjs --platform=node --minify",
+        "compile:server": "esbuild ./src/server/server.ts --bundle --outfile=out/server.js --external:vscode --format=cjs --platform=node --minify",
         "test": "jest",
         "package": "vsce package",
         "format": "prettier --write .",

@@ -53,7 +53,7 @@ export function startServer(context: ExtensionContext) {
 
     // Cross-platform language server
     const module = context.asAbsolutePath(
-        path.join('out', 'server', 'server.js'),
+        path.join('out', 'server.js'),
     );
     launchClient(context, {
         run: { module, transport: TransportKind.ipc },

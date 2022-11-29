@@ -9,6 +9,7 @@ import {
 } from 'vscode';
 import { join } from 'path';
 import { getCurrentWorkspaceRootFsPath } from './utils';
+import * as motokoPlugin from 'prettier-plugin-motoko';
 
 export function formatDocument(
     document: TextDocument,
@@ -31,11 +32,6 @@ export function formatDocument(
             if (!fileInfo.ignored) {
                 const source = document.getText();
 
-                const pluginPath = join(
-                    context.extensionPath,
-                    'node_modules',
-                    'prettier-plugin-motoko',
-                );
                 const config = prettier.resolveConfig.sync(
                     document.uri.fsPath /* , options */,
                 );
@@ -46,7 +42,7 @@ export function formatDocument(
                     filepath: document.fileName,
                     // parser: "motoko-tt-parse",
                     pluginSearchDirs: [context.extensionPath],
-                    plugins: [pluginPath],
+                    plugins: [motokoPlugin],
                     tabWidth: options.tabSize,
                     useTabs: !options.insertSpaces,
                     ...(config || {}),
