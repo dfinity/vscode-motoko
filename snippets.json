@@ -1,0 +1,110 @@
+{
+    "For Loop over Range": {
+        "prefix": [
+            "for-range"
+        ],
+        "body": [
+            "for(${2:j} in Iter.range(0, ${3:0, 10} - 1)) {",
+            "\t$0",
+            "};"
+        ],
+        "description": "A for loop over a numeric range."
+    },
+    "For-Each Loop": {
+        "prefix": [
+            "for-each"
+        ],
+        "body": [
+            "for(${1:x} in ${2:iterable}) {",
+            "\t$0",
+            "};"
+        ],
+        "description": "A for-each loop."
+    },
+    "Simple Type": {
+        "prefix": [
+            "type"
+        ],
+        "body": [
+            "type ${1:Name} = ${2:declaration};"
+        ],
+        "description": "Simple type declaration"
+    },
+    "Object Type": {
+        "prefix": [
+            "type-obj"
+        ],
+        "body": [
+            "type ${1:Name} = {",
+            "\t${2:attribute} : ${3:Type};",
+            "};"
+        ],
+        "description": "an object type block"
+    },
+    "Type Variant": {
+        "prefix": [
+            "type-variant"
+        ],
+        "body": [
+            "type ${1:Name} = {",
+            "\t#${2:Attribute};",
+            "};"
+        ],
+        "description": "a variant type block"
+    },
+    "Mutable Variable": {
+        "prefix": "var",
+        "body": [
+            "var ${1} = ${2};"
+        ],
+        "description": "declares a mutable variable"
+    },
+    "Immutable Variable": {
+        "prefix": "let",
+        "body": [
+            "let ${1} = ${2};"
+        ],
+        "description": "declares an immutable variable"
+    },
+    "Simple Function": {
+        "prefix": [
+            "func"
+        ],
+        "body": [
+            "func ${1:name} (4{2:arg} : ${5:type}) : ${4:returnType} {",
+            "\t${5};",
+            "};"
+        ],
+        "description": "Simple function declaration"
+    },
+    "Public Function": {
+        "prefix": [
+            "public-func"
+        ],
+        "body": [
+            "public func ${1:name} (4{2:arg} : ${5:type}) : async ${4:returnType} {",
+            "\t${5};",
+            "};"
+        ],
+        "description": "Public function declaration"
+    },
+    "Base Library Import": {
+        "prefix": [
+            "base-import"
+        ],
+        "body": [
+            "import ${1:Module} \"mo:base/${1}\";"
+        ]
+    },
+    "Switch Statement": {
+        "prefix": [
+            "switch"
+        ],
+        "body": [
+            "switch($1) {",
+            "\tcase($2) { $0 };",
+            "\tcase($3) { };",
+            "};"
+        ]
+    }
+}
