@@ -246,7 +246,7 @@
             "new-trie-set"
         ],
         "body": [
-            "let ${1:set} = TrieSet.empty<${1}>();"
+            "let ${1:set} = TrieSet.empty<${2:Text}>();"
         ]
     },
     "New Deque": {
@@ -254,7 +254,7 @@
             "new-deque"
         ],
         "body": [
-            "let ${1:queue} = Deque.empty<${1}>();"
+            "let ${1:queue} = Deque.empty<${2:Text}>();"
         ]
     },
     "New List": {
@@ -262,7 +262,7 @@
             "new-list"
         ],
         "body": [
-            "var ${1:list} = List.nil<${1}>();"
+            "var ${1:list} = List.nil<${2:Text}>();"
         ]
     },
     "Sort Array": {
@@ -270,7 +270,7 @@
             "sort-array"
         ],
         "body": [
-            "Array.sort<${1:Text}>(${2:array}, func (a : $1, b : $1) { ${3:#equal} })"
+            "Array.sort<$1>(${2:array}, func (a : $1, b : $1) { ${3:#equal} })"
         ]
     },
     "Ok (Result)": {
