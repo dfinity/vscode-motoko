@@ -129,6 +129,62 @@
             "};"
         ]
     },
+    "Module": {
+        "prefix": [
+            "actor"
+        ],
+        "body": [
+            "module {",
+            "\tpublic let ${2:value} = ${3:0};",
+            "\t",
+            "\tpublic func ${4:name}(${5:input : Text}) : ${6:()} {",
+            "\t\t$0",
+            "\t};",
+            "};"
+        ]
+    },
+    "Actor": {
+        "prefix": [
+            "actor"
+        ],
+        "body": [
+            "actor {",
+            "\tstable var ${2:state} = ${3:0};",
+            "\t",
+            "\tpublic func ${4:name}(${5:input : Text}) : async ${6:()} {",
+            "\t\t$0",
+            "\t};",
+            "};"
+        ]
+    },
+    "Actor Class": {
+        "prefix": [
+            "actor-class"
+        ],
+        "body": [
+            "actor class ${1:Name}($2) = self {",
+            "\tstable var ${3:state} = ${4:0};",
+            "\t",
+            "\tpublic func ${5:name}(${6:input : Text}) : async ${7:()} {",
+            "\t\t$0",
+            "\t};",
+            "};"
+        ]
+    },
+    "Class": {
+        "prefix": [
+            "class"
+        ],
+        "body": [
+            "class ${1:Name}($2) = self {",
+            "\tvar ${3:state} = ${4:0};",
+            "\t",
+            "\tpublic func ${5:name}(${6:input : Text}) : ${7:()} {",
+            "\t\t$0",
+            "\t};",
+            "};"
+        ]
+    },
     "Array Literal": {
         "prefix": [
             "array"
@@ -145,6 +201,14 @@
             "[var $0]"
         ]
     },
+    "New Array": {
+        "prefix": [
+            "new-array"
+        ],
+        "body": [
+            "var ${1:array} = [];"
+        ]
+    },
     "New Hash Map": {
         "prefix": [
             "new-hash-map"
@@ -153,7 +217,15 @@
             "let ${1:map} = HashMap.HashMap<${2:Text}, ${3:Text}>(0, ${2}.equal, ${2}.hash);"
         ]
     },
-    "New TrieMap": {
+    "New Trie": {
+        "prefix": [
+            "new-trie"
+        ],
+        "body": [
+            "var ${1:trie} = Trie.empty<${2:Text}, ${3:Text}>();"
+        ]
+    },
+    "New Trie Map": {
         "prefix": [
             "new-trie-map"
         ],
@@ -190,7 +262,7 @@
             "new-list"
         ],
         "body": [
-            "let ${1:list} = List.nil<${1}>();"
+            "var ${1:list} = List.nil<${1}>();"
         ]
     },
     "Sort Array": {
