@@ -90,7 +90,7 @@
     },
     "Base Library Import": {
         "prefix": [
-            "base-import"
+            "import-base"
         ],
         "body": [
             "import ${1:Module} \"mo:base/${1}\";"
@@ -223,7 +223,7 @@
     },
     "Mutable Array Literal": {
         "prefix": [
-            "var-array"
+            "array-mut"
         ],
         "body": [
             "[var $0]"
