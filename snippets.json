@@ -1,25 +1,25 @@
 {
+    "For Each Loop": {
+        "prefix": [
+            "for-each"
+        ],
+        "body": [
+            "for(${1:x} in ${2:iter}) {",
+            "\t$0",
+            "};"
+        ],
+        "description": "A for-each loop."
+    },
     "For Loop over Range": {
         "prefix": [
             "for-range"
         ],
         "body": [
-            "for(${2:j} in Iter.range(0, ${3:0, 10} - 1)) {",
+            "for(${1:i} in Iter.range(0, ${2:count} - 1)) {",
             "\t$0",
             "};"
         ],
         "description": "A for loop over a numeric range."
-    },
-    "For-Each Loop": {
-        "prefix": [
-            "for-each"
-        ],
-        "body": [
-            "for(${1:x} in ${2:iterable}) {",
-            "\t$0",
-            "};"
-        ],
-        "description": "A for-each loop."
     },
     "Simple Type": {
         "prefix": [
@@ -77,16 +77,16 @@
         ],
         "description": "Simple function declaration"
     },
-    "Public Function": {
+    "Actor Function": {
         "prefix": [
-            "public-func"
+            "actor-func"
         ],
         "body": [
             "public func ${1:name} (4{2:arg} : ${5:type}) : async ${4:returnType} {",
             "\t${5};",
             "};"
         ],
-        "description": "Public function declaration"
+        "description": "Public actor function declaration"
     },
     "Base Library Import": {
         "prefix": [
