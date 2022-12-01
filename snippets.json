@@ -231,7 +231,7 @@
     },
     "New Array": {
         "prefix": [
-            "new-array"
+            "array-new"
         ],
         "body": [
             "var ${1:array} = [];"
@@ -239,7 +239,7 @@
     },
     "New Hash Map": {
         "prefix": [
-            "new-hash-map"
+            "hash-map-new"
         ],
         "body": [
             "let ${1:map} = HashMap.HashMap<${2:Text}, ${3:Text}>(0, ${2}.equal, ${2}.hash);"
@@ -247,7 +247,7 @@
     },
     "New Trie": {
         "prefix": [
-            "new-trie"
+            "trie-new"
         ],
         "body": [
             "var ${1:trie} = Trie.empty<${2:Text}, ${3:Text}>();"
@@ -255,7 +255,7 @@
     },
     "New Trie Map": {
         "prefix": [
-            "new-trie-map"
+            "trie-map-new"
         ],
         "body": [
             "let ${1:map} = TrieMap.TrieMap<${2:Text}, ${3:Text}>(0);"
