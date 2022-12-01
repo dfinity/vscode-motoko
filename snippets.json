@@ -185,6 +185,14 @@
             "};"
         ]
     },
+    "Anonymous Function": {
+        "prefix": [
+            "lambda"
+        ],
+        "body": [
+            "func ($1) { $0 }"
+        ]
+    },
     "Array Literal": {
         "prefix": [
             "array"
