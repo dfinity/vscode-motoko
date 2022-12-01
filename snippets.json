@@ -1,16 +1,16 @@
 {
-    "For Each Loop": {
+    "For Loop (Collection)": {
         "prefix": [
             "for-each"
         ],
         "body": [
-            "for(${1:x} in ${2:iter}) {",
+            "for(${1:x} in ${2:iter}.vals()) {",
             "\t$0",
             "};"
         ],
-        "description": "A for-each loop."
+        "description": "A for loop which iterates through a collection."
     },
-    "For Loop over Range": {
+    "For Loop (Range)": {
         "prefix": [
             "for-range"
         ],
