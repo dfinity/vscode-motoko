@@ -101,7 +101,7 @@
             "switch"
         ],
         "body": [
-            "switch($1) {",
+            "switch(${1:input}) {",
             "\tcase($2) { $0 };",
             "\tcase($3) { };",
             "};"
@@ -112,8 +112,8 @@
             "switch-option"
         ],
         "body": [
-            "switch($1) {",
-            "\tcase(?$1) { $0 };",
+            "switch(${1:input}) {",
+            "\tcase(?${2:value}) { $0 };",
             "\tcase(null) { };",
             "};"
         ]
@@ -123,9 +123,9 @@
             "switch-result"
         ],
         "body": [
-            "switch($1) {",
-            "\tcase(#ok($1)) { $0 };",
-            "\tcase(#err(err)) { };",
+            "switch(${1:input}) {",
+            "\tcase(#ok(${2:value})) { $0 };",
+            "\tcase(#err(${3:error})) { };",
             "};"
         ]
     },
@@ -177,12 +177,28 @@
             "let ${1:set} = TrieSet.empty<${1}>();"
         ]
     },
+    "New Deque": {
+        "prefix": [
+            "new-deque"
+        ],
+        "body": [
+            "let ${1:queue} = Deque.empty<${1}>();"
+        ]
+    },
     "New List": {
         "prefix": [
             "new-list"
         ],
         "body": [
             "let ${1:list} = List.nil<${1}>();"
+        ]
+    },
+    "Sort Array": {
+        "prefix": [
+            "sort-array"
+        ],
+        "body": [
+            "Array.sort<${1:Text}>(${2:array}, func (a : $1, b : $1) { ${3:#equal} })"
         ]
     },
     "Ok (Result)": {
