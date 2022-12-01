@@ -263,7 +263,7 @@
     },
     "New RB Tree": {
         "prefix": [
-            "new-rb-tree"
+            "rb-tree-new"
         ],
         "body": [
             "let ${1:map} = RBTree.RBTree<${2:Text}, ${3:Text}>(${2}.compare);"
@@ -271,7 +271,7 @@
     },
     "New Trie Set": {
         "prefix": [
-            "new-trie-set"
+            "trie-set-new"
         ],
         "body": [
             "let ${1:set} = TrieSet.empty<${2:Text}>();"
@@ -279,7 +279,7 @@
     },
     "New Deque": {
         "prefix": [
-            "new-deque"
+            "deque-new"
         ],
         "body": [
             "let ${1:queue} = Deque.empty<${2:Text}>();"
@@ -287,7 +287,7 @@
     },
     "New List": {
         "prefix": [
-            "new-list"
+            "list-new"
         ],
         "body": [
             "var ${1:list} = List.nil<${2:Text}>();"
