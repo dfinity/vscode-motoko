@@ -185,6 +185,26 @@
             "};"
         ]
     },
+    "Record": {
+        "prefix": [
+            "record"
+        ],
+        "body": [
+            "{",
+            "\t${1:key} = ${2:value};",
+            "}"
+        ]
+    },
+    "Do Block": {
+        "prefix": [
+            "do"
+        ],
+        "body": [
+            "do {",
+            "\t$0",
+            "}"
+        ]
+    },
     "Anonymous Function": {
         "prefix": [
             "lambda"
