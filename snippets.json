@@ -106,5 +106,155 @@
             "\tcase($3) { };",
             "};"
         ]
+    },
+    "Switch Statement (Option)": {
+        "prefix": [
+            "switch-option"
+        ],
+        "body": [
+            "switch($1) {",
+            "\tcase(?$1) { $0 };",
+            "\tcase(null) { };",
+            "};"
+        ]
+    },
+    "Switch Statement (Result)": {
+        "prefix": [
+            "switch-result"
+        ],
+        "body": [
+            "switch($1) {",
+            "\tcase(#ok($1)) { $0 };",
+            "\tcase(#err(err)) { };",
+            "};"
+        ]
+    },
+    "Array Literal": {
+        "prefix": [
+            "array"
+        ],
+        "body": [
+            "[$0]"
+        ]
+    },
+    "Mutable Array Literal": {
+        "prefix": [
+            "var-array"
+        ],
+        "body": [
+            "[var $0]"
+        ]
+    },
+    "New Hash Map": {
+        "prefix": [
+            "new-hash-map"
+        ],
+        "body": [
+            "let ${1:map} = HashMap.HashMap<${2:Text}, ${3:Text}>(0, ${2}.equal, ${2}.hash);"
+        ]
+    },
+    "New TrieMap": {
+        "prefix": [
+            "new-trie-map"
+        ],
+        "body": [
+            "let ${1:map} = TrieMap.TrieMap<${2:Text}, ${3:Text}>(0);"
+        ]
+    },
+    "New RB Tree": {
+        "prefix": [
+            "new-rb-tree"
+        ],
+        "body": [
+            "let ${1:map} = RBTree.RBTree<${2:Text}, ${3:Text}>(${2}.compare);"
+        ]
+    },
+    "New Trie Set": {
+        "prefix": [
+            "new-trie-set"
+        ],
+        "body": [
+            "let ${1:set} = TrieSet.empty<${1}>();"
+        ]
+    },
+    "New List": {
+        "prefix": [
+            "new-list"
+        ],
+        "body": [
+            "let ${1:list} = List.nil<${1}>();"
+        ]
+    },
+    "Ok (Result)": {
+        "prefix": [
+            "ok"
+        ],
+        "body": [
+            "#ok($0)"
+        ]
+    },
+    "Error (Result)": {
+        "prefix": [
+            "err"
+        ],
+        "body": [
+            "#err($0)"
+        ]
+    },
+    "Array to Blob": {
+        "prefix": [
+            "array-2-blob"
+        ],
+        "body": [
+            "Blob.fromArray(${1:array})"
+        ]
+    },
+    "Blob to Array": {
+        "prefix": [
+            "blob-2-array"
+        ],
+        "body": [
+            "Blob.toArray(${1:blob})"
+        ]
+    },
+    "Array to Buffer": {
+        "prefix": [
+            "array-2-buffer"
+        ],
+        "body": [
+            "Buffer.fromArray(${1:array})"
+        ]
+    },
+    "Buffer to Array": {
+        "prefix": [
+            "buffer-2-array"
+        ],
+        "body": [
+            "Buffer.toArray(${1:buffer})"
+        ]
+    },
+    "Principal to Text": {
+        "prefix": [
+            "principal-2-text"
+        ],
+        "body": [
+            "Principal.toText(${1:principal})"
+        ]
+    },
+    "Text to Principal": {
+        "prefix": [
+            "text-2-principal"
+        ],
+        "body": [
+            "Principal.fromText(${1:text})"
+        ]
+    },
+    "Actor to Principal": {
+        "prefix": [
+            "actor-2-principal"
+        ],
+        "body": [
+            "Principal.fromActor(${1:actor})"
+        ]
     }
 }
