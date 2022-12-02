@@ -26,9 +26,18 @@
             "iter-range"
         ],
         "body": [
-            "Iter.range(${1:start}, ${2:end}))"
+            "Iter.range(${1:start}, ${2:endInclusive})"
         ],
-        "description": "iterator over a range of values (including the last value)."
+        "description": "iterator over a range of values (including the upper bound)."
+    },
+    "Range (Exclusive)": {
+        "prefix": [
+            "iter-range-exclusive"
+        ],
+        "body": [
+            "Iter.range(${1:start}, ${2:end} - 1)"
+        ],
+        "description": "iterator over a range of values (excluding the upper bound)."
     },
     "Type Declaration": {
         "prefix": [
