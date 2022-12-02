@@ -242,7 +242,7 @@
             "hash-map-new"
         ],
         "body": [
-            "let ${1:map} = HashMap.HashMap<${2:Text}, ${3:Text}>(0, ${2}.equal, ${2}.hash);"
+            "let ${1:map} = HashMap.HashMap<${2:Text}, ${3:Nat}>(0, ${2}.equal, ${2}.hash);"
         ]
     },
     "New Trie": {
@@ -250,7 +250,7 @@
             "trie-new"
         ],
         "body": [
-            "var ${1:trie} = Trie.empty<${2:Text}, ${3:Text}>();"
+            "var ${1:trie} = Trie.empty<${2:Text}, ${3:Nat}>();"
         ]
     },
     "New Trie Map": {
@@ -258,7 +258,7 @@
             "trie-map-new"
         ],
         "body": [
-            "let ${1:map} = TrieMap.TrieMap<${2:Text}, ${3:Text}>(0);"
+            "let ${1:map} = TrieMap.TrieMap<${2:Text}, ${3:Nat}>(0);"
         ]
     },
     "New RB Tree": {
@@ -266,7 +266,7 @@
             "rb-tree-new"
         ],
         "body": [
-            "let ${1:map} = RBTree.RBTree<${2:Text}, ${3:Text}>(${2}.compare);"
+            "let ${1:map} = RBTree.RBTree<${2:Text}, ${3:Nat}>(${2}.compare);"
         ]
     },
     "New Trie Set": {
