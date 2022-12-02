@@ -113,6 +113,12 @@
                 "fileMatch": "dfx.json",
                 "url": "https://raw.githubusercontent.com/dfinity/sdk/master/docs/dfx-json-schema.json"
             }
+        ],
+        "snippets": [
+            {
+                "language": "motoko",
+                "path": "./snippets.json"
+            }
         ]
     },
     "activationEvents": [
