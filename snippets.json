@@ -4,11 +4,11 @@
             "for-each"
         ],
         "body": [
-            "for(${1:x} in ${2:iter}.vals()) {",
+            "for(${1:item} in ${2:collection}.vals()) {",
             "\t$0",
             "};"
         ],
-        "description": "A for loop which iterates through a collection."
+        "description": "for loop which iterates through a collection"
     },
     "For Loop (Range)": {
         "prefix": [
@@ -19,16 +19,25 @@
             "\t$0",
             "};"
         ],
-        "description": "A for loop over a numeric range."
+        "description": "for loop over a numeric range"
     },
-    "Simple Type": {
+    "Range (Inclusive)": {
+        "prefix": [
+            "iter-range"
+        ],
+        "body": [
+            "Iter.range(${1:start}, ${2:end}))"
+        ],
+        "description": "iterator over a range of values (including the last value)."
+    },
+    "Type Declaration": {
         "prefix": [
             "type"
         ],
         "body": [
             "type ${1:Name} = ${2:declaration};"
         ],
-        "description": "Simple type declaration"
+        "description": "simple type declaration"
     },
     "Object Type": {
         "prefix": [
@@ -39,7 +48,7 @@
             "\t${2:attribute} : ${3:Type};",
             "};"
         ],
-        "description": "an object type block"
+        "description": "object / record type block"
     },
     "Type Variant": {
         "prefix": [
@@ -47,46 +56,46 @@
         ],
         "body": [
             "type ${1:Name} = {",
-            "\t#${2:Attribute};",
+            "\t#${2:tag};",
             "};"
         ],
-        "description": "a variant type block"
+        "description": "variant type block"
     },
     "Mutable Variable": {
         "prefix": "var",
         "body": [
-            "var ${1} = ${2};"
+            "var ${1:name} = ${2:value};"
         ],
-        "description": "declares a mutable variable"
+        "description": "declare a mutable variable"
     },
     "Immutable Variable": {
         "prefix": "let",
         "body": [
-            "let ${1} = ${2};"
+            "let ${1:name} = ${2:value};"
         ],
-        "description": "declares an immutable variable"
+        "description": "declare an immutable variable"
     },
     "Simple Function": {
         "prefix": [
             "func"
         ],
         "body": [
-            "func ${1:name} (4{2:arg} : ${5:type}) : ${4:returnType} {",
-            "\t${5};",
+            "func ${1:name}(${2:arg} : ${5:Type}) : ${4:()} {",
+            "\t$0",
             "};"
         ],
-        "description": "Simple function declaration"
+        "description": "simple function declaration"
     },
-    "Actor Function": {
+    "Public Actor Function": {
         "prefix": [
-            "actor-func"
+            "func-actor"
         ],
         "body": [
-            "public func ${1:name} (4{2:arg} : ${5:type}) : async ${4:returnType} {",
-            "\t${5};",
+            "public func ${1:name}(${2:arg} : ${5:Type}) : async ${4:()} {",
+            "\t$0",
             "};"
         ],
-        "description": "Public actor function declaration"
+        "description": "public actor function declaration"
     },
     "Base Library Import": {
         "prefix": [
@@ -94,6 +103,14 @@
         ],
         "body": [
             "import ${1:Module} \"mo:base/${1}\";"
+        ]
+    },
+    "Canister Import": {
+        "prefix": [
+            "import-canister"
+        ],
+        "body": [
+            "import ${1:Module} \"canister:${2}\";"
         ]
     },
     "Switch Statement": {
@@ -135,9 +152,9 @@
         ],
         "body": [
             "module {",
-            "\tpublic let ${2:value} = ${3:0};",
+            "\tpublic let ${1:value} = ${2:0};",
             "\t",
-            "\tpublic func ${4:name}(${5:input : Text}) : ${6:()} {",
+            "\tpublic func ${3:name}(${4:arg : Text}) : ${5:()} {",
             "\t\t$0",
             "\t};",
             "};"
@@ -149,9 +166,9 @@
         ],
         "body": [
             "actor {",
-            "\tstable var ${2:state} = ${3:0};",
+            "\tstable var ${1:state} = ${2:0};",
             "\t",
-            "\tpublic func ${4:name}(${5:input : Text}) : async ${6:()} {",
+            "\tpublic func ${3:name}(${4:arg : Text}) : async ${5:()} {",
             "\t\t$0",
             "\t};",
             "};"
@@ -193,7 +210,8 @@
             "{",
             "\t${1:key} = ${2:value};",
             "}"
-        ]
+        ],
+        "description": "record value (equivalent to an object in JS, dictionary in Python)"
     },
     "Do Block": {
         "prefix": [
@@ -211,7 +229,8 @@
         ],
         "body": [
             "func ($1) { $0 }"
-        ]
+        ],
+        "description": "a lambda expression"
     },
     "Array Literal": {
         "prefix": [
@@ -219,7 +238,8 @@
         ],
         "body": [
             "[$0]"
-        ]
+        ],
+        "description": "an immutable array (values cannot be replaced)"
     },
     "Mutable Array Literal": {
         "prefix": [
@@ -227,7 +247,8 @@
         ],
         "body": [
             "[var $0]"
-        ]
+        ],
+        "description": "a mutable array (values can be replaced)"
     },
     "New Array": {
         "prefix": [
