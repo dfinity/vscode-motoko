@@ -71,14 +71,18 @@
         "description": "variant type block"
     },
     "Mutable Variable": {
-        "prefix": "var",
+        "prefix": [
+            "var"
+        ],
         "body": [
             "var ${1:name} = ${2:value};"
         ],
         "description": "declare a mutable variable"
     },
     "Immutable Variable": {
-        "prefix": "let",
+        "prefix": [
+            "let"
+        ],
         "body": [
             "let ${1:name} = ${2:value};"
         ],
@@ -157,7 +161,7 @@
     },
     "Module": {
         "prefix": [
-            "actor"
+            "module"
         ],
         "body": [
             "module {",
