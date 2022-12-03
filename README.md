@@ -16,9 +16,8 @@ This extension provides syntax highlighting, type checking, and code formatting 
 - Syntax highlighting
 - Code formatter
 - Error checking
-- When using a [dfx.json](https://medium.com/@chiedo/6-steps-to-deploying-your-first-dapp-on-the-internet-computer-b9a36b45f91e) config file:
-  - Autocompletion
-  - Go to definition
+- Automatic imports
+- Snippets ([contributions welcome](https://github.com/dfinity/node-motoko/blob/main/contrib/snippets.json))
 
 ## Installation
 
