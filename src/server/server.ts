@@ -180,8 +180,6 @@ async function notifyVesselChange() {
     }
 }
 
-setInterval(() => console.log(process.memoryUsage()), 1000);
-
 let dfxChangeTimeout: ReturnType<typeof setTimeout>;
 function notifyDfxChange() {
     clearTimeout(dfxChangeTimeout);
