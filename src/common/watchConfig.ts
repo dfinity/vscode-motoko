@@ -1,1 +1,1 @@
-export const watchGlob = '**/*.{mo,did}';
+export const watchGlob = '**/*.{mo,did,json,dhall}';

@@ -1,7 +1,7 @@
 import { AST } from 'motoko/lib/ast';
 import { resolveVirtualPath, tryGetFileText } from './utils';
 import { fromAST, Program } from './syntax';
-import { getMotokoInstance } from './motoko';
+import { getContext } from './context';
 
 export interface AstStatus {
     uri: string;
@@ -48,11 +48,10 @@ export default class AstResolver {
             status.text = text;
         }
         try {
-            const virtualPath = resolveVirtualPath(uri);
-            const mo = getMotokoInstance(virtualPath);
+            const { motoko } = getContext(uri);
             const ast = typed
-                ? mo.parseMotokoTyped(virtualPath).ast
-                : mo.parseMotoko(text);
+                ? motoko.parseMotokoTyped(resolveVirtualPath(uri)).ast
+                : motoko.parseMotoko(text);
             status.ast = ast;
             const program = fromAST(ast);
             if (program instanceof Program) {
