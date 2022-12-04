@@ -167,7 +167,7 @@
         "compile:server": "esbuild ./src/server/server.ts --bundle --outfile=out/server.js --external:vscode --format=cjs --platform=node --minify",
         "compile:motoko": "esbuild motoko --bundle --outfile=out/motoko.js --format=cjs --platform=node --minify",
         "test": "jest",
-        "package": "vsce package",
+        "package": "npm run test && vsce package",
         "format": "prettier --write .",
         "publish": "vsce publish"
     }
