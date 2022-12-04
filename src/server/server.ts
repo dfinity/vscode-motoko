@@ -1,11 +1,9 @@
 import { execSync } from 'child_process';
 import * as glob from 'fast-glob';
 import { existsSync, readFileSync } from 'fs';
-import mo from 'motoko';
 import { Node } from 'motoko/lib/ast';
 import { keywords } from 'motoko/lib/keywords';
-import * as baseLibrary from 'motoko/packages/latest/base.json';
-import { join } from 'path';
+import { join, resolve } from 'path';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import {
     CodeAction,
@@ -30,17 +28,18 @@ import {
 } from 'vscode-languageserver/node';
 import { URI } from 'vscode-uri';
 import { watchGlob as virtualFilePattern } from '../common/watchConfig';
-import AstResolver from './ast';
 import DfxResolver from './dfx';
-import ImportResolver from './imports';
 import { getAstInformation } from './information';
 import { findNodes, Program } from './syntax';
+import { addContext, getContext, allContexts, resetContexts } from './context';
 import {
     formatMotoko,
     getFileText,
     resolveFilePath,
     resolveVirtualPath,
 } from './utils';
+import * as baseLibrary from 'motoko/packages/latest/base.json';
+import which = require('which');
 
 interface Settings {
     motoko: MotokoSettings;
@@ -52,80 +51,138 @@ interface MotokoSettings {
     debugHover: boolean;
 }
 
-// Always ignore `node_modules/` (often used in frontend canisters)
-const ignoreGlobs = ['**/node_modules/**/*'];
+const ignoreGlobs = [
+    '**/node_modules/**/*', // npm packages
+    '**/.vessel/.tmp/**/*', // temporary Vessel files
+];
 
-// const moFileSet = new Set();
+function getVesselArgs(cwd: string): { args: string[] } | undefined {
+    // for (const folder of workspaceFolders || []) {
+    //     const uri = folder.uri;
+    //     if (!uri) {
+    //         continue;
+    //     }
+    //     const ws = resolveFilePath(uri);
+    //     if (
+    //         !existsSync(join(ws, 'vessel.dhall')) &&
+    //         !existsSync(join(ws, 'vessel.json'))
+    //     ) {
+    //         continue;
+    //     }
+    //     const flags = execSync('vessel sources', {
+    //         cwd: ws,
+    //     }).toString('utf8');
+    //     return {
+    //         workspaceFolder: folder,
+    //         args: flags.split(' '), // TODO: account for quoted arguments
+    //     };
+    // }
 
-// Set up import suggestions
-const importResolver = new ImportResolver();
-const astResolver = new AstResolver();
-
-Object.entries(baseLibrary.files).forEach(
-    ([path, { content }]: [string, { content: string }]) => {
-        notifyWriteUri(`mo:base/${path}`, content);
-    },
-);
-
-function getVesselArgs():
-    | { workspaceFolder: WorkspaceFolder; args: string[] }
-    | undefined {
-    try {
-        for (const folder of workspaceFolders || []) {
-            const uri = folder.uri;
-            if (!uri) {
-                continue;
-            }
-            const ws = resolveFilePath(uri);
-            if (
-                !existsSync(join(ws, 'vessel.dhall')) &&
-                !existsSync(join(ws, 'vessel.json'))
-            ) {
-                continue;
-            }
-            const flags = execSync('vessel sources', {
-                cwd: ws,
-            }).toString('utf8');
-            return {
-                workspaceFolder: folder,
-                args: flags.split(' '),
-            };
-        }
-    } catch (err) {
-        console.warn(err);
+    if (!which.sync('vessel')) {
+        return;
     }
-    return;
+
+    const flags = execSync('vessel sources', {
+        cwd,
+    }).toString('utf8');
+    return {
+        args: flags.split(' '), // TODO: account for quoted arguments
+    };
 }
 
-async function loadPackages() {
-    mo.clearPackages();
+let vesselChangeTimeout: ReturnType<typeof setTimeout>;
+async function notifyVesselChange() {
+    clearTimeout(vesselChangeTimeout);
+    setTimeout(() => {
+        try {
+            resetContexts();
 
-    try {
-        // Load default base library
-        mo.loadPackage(baseLibrary);
-    } catch (err) {
-        console.error(`Error while loading base library: ${err}`);
-    }
-
-    const vesselArgs = getVesselArgs();
-    if (vesselArgs) {
-        const { workspaceFolder, args } = vesselArgs;
-        // Load packages from Vessel
-        let nextArg;
-        while ((nextArg = args.shift())) {
-            if (nextArg === '--package') {
-                const name = args.shift()!;
-                const path = resolveVirtualPath(
-                    workspaceFolder.uri,
-                    args.shift()!,
+            const directories: string[] = [];
+            try {
+                workspaceFolders?.forEach((workspaceFolder) => {
+                    const filename = 'vessel.dhall';
+                    const paths = glob.sync(`**/${filename}`, {
+                        cwd: resolveFilePath(workspaceFolder.uri),
+                        ignore: ignoreGlobs,
+                        dot: false,
+                    });
+                    paths.forEach((path) => {
+                        directories.push(
+                            resolve(path.slice(0, -filename.length)),
+                        );
+                    });
+                });
+            } catch (err) {
+                console.error(
+                    `Error while resolving Vessel directories: ${err}`,
                 );
-                console.log('Package:', name, '->', path);
-                mo.usePackage(name, path);
             }
-        }
-    }
 
-    notifyDfxChange();
+            directories.forEach((dir) => {
+                try {
+                    console.log('Configuring Vessel directory:', dir);
+
+                    const uri = URI.file(dir).toString();
+                    const context = addContext(uri);
+
+                    try {
+                        const vesselArgs = getVesselArgs(dir);
+                        if (vesselArgs) {
+                            // Load packages from Vessel
+                            const { args } = vesselArgs;
+                            let nextArg;
+                            while ((nextArg = args.shift())) {
+                                if (nextArg === '--package') {
+                                    const name = args.shift()!;
+                                    const relativePath = args.shift();
+                                    if (!relativePath) {
+                                        continue;
+                                    }
+                                    const path = resolveVirtualPath(
+                                        uri,
+                                        relativePath,
+                                    );
+                                    console.log(
+                                        'Package:',
+                                        name,
+                                        '->',
+                                        path,
+                                        `(${uri})`,
+                                    );
+                                    context.motoko.usePackage(name, path);
+                                }
+                            }
+                        } else {
+                            context.error =
+                                'unable to find `vessel` on your system path (is the Vessel package manager installed?)';
+                        }
+                    } catch (err) {
+                        context.error =
+                            'unable to load project dependencies (try manually running `vessel install`)';
+                        console.warn(err);
+                        return;
+                    }
+                } catch (err) {
+                    console.error(
+                        `error configuring Vessel directory (${dir}): ${err}`,
+                    );
+                }
+            });
+
+            // Add base library autocompletions
+            // TODO: possibly refactor into `context.ts`
+            Object.entries(baseLibrary.files).forEach(
+                ([path, { content }]: [string, { content: string }]) => {
+                    notifyWriteUri(`mo:base/${path}`, content);
+                },
+            );
+
+            notifyWorkspace(); // Update virtual file system
+            notifyDfxChange(); // Reload dfx.json
+        } catch (err) {
+            console.error(`Error while loading Vessel packages: ${err}`);
+        }
+    }, 100);
 }
 
 let dfxChangeTimeout: ReturnType<typeof setTimeout>;
@@ -175,7 +232,12 @@ function notifyDfxChange() {
                             );
                             const path = join(projectDir, `.dfx/local/lsp`);
                             const uri = URI.file(path).toString();
-                            mo.setAliases(resolveVirtualPath(uri), aliases);
+                            allContexts().forEach(({ motoko }) => {
+                                motoko.setAliases(
+                                    resolveVirtualPath(uri),
+                                    aliases,
+                                );
+                            });
                         }
                     } catch (err) {
                         console.error(
@@ -228,6 +290,8 @@ const forwardMessage =
                     ? value
                     : value instanceof Promise
                     ? `<Promise>`
+                    : value instanceof Error
+                    ? value.stack || value.message || value
                     : JSON.stringify(value);
             } catch (err) {
                 return `<${err}>`;
@@ -297,14 +361,11 @@ connection.onInitialized(() => {
         notifyWorkspace();
     });
 
-    notifyWorkspace();
+    // notifyWorkspace();
 
     // loadPrimaryDfxConfig();
 
-    loadPackages().catch((err) => {
-        console.error('Error while loading Motoko packages:');
-        console.error(err);
-    });
+    notifyVesselChange();
 });
 
 connection.onDidChangeWatchedFiles((event) => {
@@ -321,8 +382,13 @@ connection.onDidChangeWatchedFiles((event) => {
             } else {
                 notify(change.uri);
             }
-            if (change.uri.endsWith('.did')) {
+            if (
+                change.uri.endsWith('.did') ||
+                change.uri.endsWith('/dfx.json')
+            ) {
                 notifyDfxChange();
+            } else if (change.uri.endsWith('.dhall')) {
+                notifyVesselChange();
             }
         } catch (err) {
             console.error(`Error while handling Motoko file change: ${err}`);
@@ -350,6 +416,7 @@ function notifyWorkspace() {
         glob.sync(virtualFilePattern, {
             cwd: folderPath,
             dot: true,
+            ignore: ignoreGlobs,
         }).forEach((relativePath) => {
             const path = join(folderPath, relativePath);
             try {
@@ -357,7 +424,7 @@ function notifyWorkspace() {
                     folder.uri,
                     relativePath,
                 );
-                console.log('*', virtualPath);
+                console.log('*', virtualPath, `(${allContexts().length})`);
                 const content = readFileSync(path, 'utf8');
                 writeVirtual(virtualPath, content);
                 const uri = URI.file(
@@ -533,8 +600,22 @@ function checkImmediate(uri: string | TextDocument): boolean {
             return false;
         }
 
-        console.log('~', virtualPath);
-        let diagnostics = mo.check(virtualPath) as any as Diagnostic[];
+        const { uri: contextUri, motoko, error } = getContext(resolvedUri);
+        console.log('~', virtualPath, `(${contextUri || 'default'})`);
+        let diagnostics = motoko.check(virtualPath) as any as Diagnostic[];
+        if (error) {
+            // Context initialization error
+            diagnostics.length = 0;
+            diagnostics.push({
+                source: virtualPath,
+                message: error,
+                severity: DiagnosticSeverity.Error,
+                range: {
+                    start: { line: 0, character: 0 },
+                    end: { line: 0, character: 0 },
+                },
+            });
+        }
 
         if (settings) {
             if (settings.maxNumberOfProblems > 0) {
@@ -580,7 +661,7 @@ function checkImmediate(uri: string | TextDocument): boolean {
         Object.entries(diagnosticMap).forEach(([path, diagnostics]) => {
             connection.sendDiagnostics({
                 uri: URI.file(path).toString(),
-                diagnostics: diagnostics,
+                diagnostics,
             });
         });
         return true;
@@ -604,19 +685,28 @@ function checkImmediate(uri: string | TextDocument): boolean {
 
 function notifyWriteUri(uri: string, content: string) {
     if (uri.endsWith('.mo')) {
-        let program: Program | undefined;
-        try {
-            astResolver.notify(uri, content);
-            // program = astResolver.request(uri)?.program; // TODO: re-enable for field imports
-        } catch (err) {
-            console.error(`Error while parsing (${uri}): ${err}`);
-        }
-        importResolver.update(uri, program);
+        // Apply package URIs to all contexts
+        const contexts = uri.startsWith('mo:')
+            ? allContexts()
+            : [getContext(uri)];
+
+        contexts.forEach((context) => {
+            const { astResolver, importResolver } = context;
+            let program: Program | undefined;
+            try {
+                astResolver.notify(uri, content);
+                // program = astResolver.request(uri)?.program; // TODO: re-enable for field imports
+            } catch (err) {
+                console.error(`Error while parsing (${uri}): ${err}`);
+            }
+            importResolver.update(uri, program);
+        });
     }
 }
 
 function notifyDeleteUri(uri: string) {
     if (uri.endsWith('.mo')) {
+        const { astResolver, importResolver } = getContext(uri);
         astResolver.delete(uri);
         importResolver.delete(uri);
     }
@@ -626,11 +716,11 @@ function writeVirtual(path: string, content: string) {
     // if (virtualPath.endsWith('.mo')) {
     //     content = preprocessMotoko(content);
     // }
-    mo.write(path, content);
+    allContexts().forEach(({ motoko }) => motoko.write(path, content));
 }
 
 function deleteVirtual(path: string) {
-    mo.delete(path);
+    allContexts().forEach(({ motoko }) => motoko.delete(path));
 }
 
 connection.onCodeAction((event) => {
@@ -643,6 +733,7 @@ connection.onCodeAction((event) => {
             diagnostic.message,
         )?.[1];
         if (name) {
+            const { importResolver } = getContext(uri);
             importResolver.getImportPaths(name, uri).forEach((path) => {
                 // Add import suggestion
                 results.push({
@@ -684,6 +775,7 @@ connection.onCompletion((event) => {
     try {
         const text = getFileText(uri);
         const lines = text.split(/\r?\n/g);
+        const { astResolver, importResolver } = getContext(uri);
         const program = astResolver.request(uri)?.program;
 
         const [dot, identStart] = /(\s*\.\s*)?([a-zA-Z_]?[a-zA-Z0-9_]*)$/
@@ -781,6 +873,7 @@ connection.onCompletion((event) => {
 connection.onHover((event) => {
     const { position } = event;
     const { uri } = event.textDocument;
+    const { astResolver } = getContext(uri);
     const status = astResolver.requestTyped(uri);
     if (!status || status.outdated || !status.ast) {
         return;
@@ -895,14 +988,16 @@ let validatingTimeout: ReturnType<typeof setTimeout>;
 let validatingUri: string | undefined;
 documents.onDidChangeContent((event) => {
     const document = event.document;
-    if (document.uri === validatingUri) {
+    const { uri } = document;
+    if (uri === validatingUri) {
         clearTimeout(validatingTimeout);
     }
     validatingTimeout = setTimeout(() => {
         validate(document);
-        astResolver.update(document.uri, true); /// TODO: also use for type checking?
+        const { astResolver } = getContext(uri);
+        astResolver.update(uri, true); /// TODO: also use for type checking?
     }, 100);
-    validatingUri = document.uri;
+    validatingUri = uri;
 });
 
 // documents.onDidClose((event) =>

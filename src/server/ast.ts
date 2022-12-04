@@ -1,7 +1,7 @@
 import { AST } from 'motoko/lib/ast';
 import { resolveVirtualPath, tryGetFileText } from './utils';
 import { fromAST, Program } from './syntax';
-import mo from 'motoko';
+import { getContext } from './context';
 
 export interface AstStatus {
     uri: string;
@@ -11,8 +11,10 @@ export interface AstStatus {
     outdated: boolean;
 }
 
+const globalCache = new Map<string, AstStatus>(); // Share non-typed ASTs across all contexts
+
 export default class AstResolver {
-    private _cache = new Map<string, AstStatus>();
+    private _cache = globalCache;
     private _typedCache = new Map<string, AstStatus>();
 
     clear() {
@@ -48,9 +50,10 @@ export default class AstResolver {
             status.text = text;
         }
         try {
+            const { motoko } = getContext(uri);
             const ast = typed
-                ? mo.parseMotokoTyped(resolveVirtualPath(uri)).ast
-                : mo.parseMotoko(text);
+                ? motoko.parseMotokoTyped(resolveVirtualPath(uri)).ast
+                : motoko.parseMotoko(text);
             status.ast = ast;
             const program = fromAST(ast);
             if (program instanceof Program) {

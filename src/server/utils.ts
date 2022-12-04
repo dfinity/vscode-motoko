@@ -1,7 +1,6 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { URI } from 'vscode-uri';
-import { documents } from './server';
 import * as prettier from 'prettier/standalone';
 import * as motokoPlugin from 'prettier-plugin-motoko';
 
@@ -23,7 +22,7 @@ export function resolveVirtualPath(uri: string, ...parts: string[]): string {
  * Reads a file from the given URI.
  */
 export function getFileText(uri: string): string {
-    const document = documents.get(uri);
+    const document = require('./server').documents.get(uri);
     if (document) {
         return document.getText();
     } else {
