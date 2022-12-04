@@ -11,8 +11,10 @@ export interface AstStatus {
     outdated: boolean;
 }
 
+const globalCache = new Map<string, AstStatus>(); // Share non-typed ASTs across all contexts
+
 export default class AstResolver {
-    private _cache = new Map<string, AstStatus>();
+    private _cache = globalCache;
     private _typedCache = new Map<string, AstStatus>();
 
     clear() {

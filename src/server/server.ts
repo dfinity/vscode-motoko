@@ -31,8 +31,7 @@ import { watchGlob as virtualFilePattern } from '../common/watchConfig';
 import DfxResolver from './dfx';
 import { getAstInformation } from './information';
 import { findNodes, Program } from './syntax';
-import { addContext, getContext, hasContext } from './context';
-import { allContexts, resetContexts } from './context';
+import { addContext, getContext, allContexts, resetContexts } from './context';
 import {
     formatMotoko,
     getFileText,
@@ -170,15 +169,13 @@ async function notifyVesselChange() {
                 }
             });
 
-            if (hasContext('')) {
-                // Add base library autocompletions for default context
-                // TODO: possibly refactor into `context.ts`
-                Object.entries(baseLibrary.files).forEach(
-                    ([path, { content }]: [string, { content: string }]) => {
-                        notifyWriteUri(`mo:base/${path}`, content);
-                    },
-                );
-            }
+            // Add base library autocompletions
+            // TODO: possibly refactor into `context.ts`
+            Object.entries(baseLibrary.files).forEach(
+                ([path, { content }]: [string, { content: string }]) => {
+                    notifyWriteUri(`mo:base/${path}`, content);
+                },
+            );
 
             notifyWorkspace(); // Update virtual file system
             notifyDfxChange(); // Reload dfx.json
@@ -427,7 +424,7 @@ function notifyWorkspace() {
                     folder.uri,
                     relativePath,
                 );
-                console.log('*', virtualPath);
+                console.log('*', virtualPath, `(${allContexts().length})`);
                 const content = readFileSync(path, 'utf8');
                 writeVirtual(virtualPath, content);
                 const uri = URI.file(
@@ -688,15 +685,22 @@ function checkImmediate(uri: string | TextDocument): boolean {
 
 function notifyWriteUri(uri: string, content: string) {
     if (uri.endsWith('.mo')) {
-        const { astResolver, importResolver } = getContext(uri);
-        let program: Program | undefined;
-        try {
-            astResolver.notify(uri, content);
-            // program = astResolver.request(uri)?.program; // TODO: re-enable for field imports
-        } catch (err) {
-            console.error(`Error while parsing (${uri}): ${err}`);
-        }
-        importResolver.update(uri, program);
+        // Apply package URIs to all contexts
+        const contexts = uri.startsWith('mo:')
+            ? allContexts()
+            : [getContext(uri)];
+
+        contexts.forEach((context) => {
+            const { astResolver, importResolver } = context;
+            let program: Program | undefined;
+            try {
+                astResolver.notify(uri, content);
+                // program = astResolver.request(uri)?.program; // TODO: re-enable for field imports
+            } catch (err) {
+                console.error(`Error while parsing (${uri}): ${err}`);
+            }
+            importResolver.update(uri, program);
+        });
     }
 }
 

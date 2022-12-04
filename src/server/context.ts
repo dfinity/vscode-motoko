@@ -1,5 +1,5 @@
-// import defaultMotoko from 'motoko';
 import { Motoko } from 'motoko/lib';
+import * as baseLibrary from 'motoko/packages/latest/base.json';
 import ImportResolver from './imports';
 import AstResolver from './ast';
 
@@ -18,11 +18,13 @@ const contexts: Context[] = [];
 // Reuse `motoko` npm package instances to limit memory usage
 const previousMotokoInstances = new Map<string, Motoko>();
 
+/**
+ * Create or reuse a `moc.js` compiler instance.
+ */
 function requestMotokoInstance(uri: string): Motoko {
-    let motoko = previousMotokoInstances.get(uri);
+    let motoko = previousMotokoInstances.get(uri)!;
     if (motoko) {
         motoko.clearPackages();
-        return motoko;
     } else {
         Object.keys(require.cache).forEach((key) => {
             if (
@@ -33,8 +35,10 @@ function requestMotokoInstance(uri: string): Motoko {
                 delete require.cache[key];
             }
         });
-        return require(motokoPath).default;
+        motoko = require(motokoPath).default;
     }
+    motoko.loadPackage(baseLibrary);
+    return motoko;
 }
 
 let defaultContext: Context | undefined;
@@ -45,7 +49,11 @@ function requestDefaultContext() {
     }
     return defaultContext;
 }
+requestDefaultContext(); // Always add a default context (provisional)
 
+/**
+ * Create a new context with the given directory and compiler instance.
+ */
 function createContext(uri: string, motoko: Motoko): Context {
     return {
         uri,
@@ -56,17 +64,23 @@ function createContext(uri: string, motoko: Motoko): Context {
     };
 }
 
+/**
+ * Reset all contexts (used to update Vessel configuration).
+ */
 export function resetContexts() {
     contexts.forEach(({ uri, motoko }) => {
-        // reusableMotokoInstances.push(context.motoko);
         previousMotokoInstances.set(uri, motoko);
     });
     contexts.length = 0;
     if (defaultContext) {
         defaultContext = undefined;
+        requestDefaultContext(); // Regenerate default context
     }
 }
 
+/**
+ * Register a context for the given directory (specified as a URI).
+ */
 export function addContext(uri: string): Context {
     const existing = contexts.find((other) => uri === other.uri);
     if (existing) {
@@ -92,10 +106,16 @@ export function addContext(uri: string): Context {
     return context;
 }
 
+/**
+ * Return all currently active contexts.
+ */
 export function allContexts(): Context[] {
     return contexts;
 }
 
+/**
+ * Find the most relevant context for the given URI.
+ */
 export function getContext(uri: string): Context {
     const context = contexts.find((context) => uri.startsWith(context.uri));
     if (context) {
@@ -105,6 +125,9 @@ export function getContext(uri: string): Context {
     return requestDefaultContext();
 }
 
+/**
+ * Check if a context is available for the given URI.
+ */
 export function hasContext(uri: string): boolean {
     return contexts.some((context) => uri.startsWith(context.uri));
 }
