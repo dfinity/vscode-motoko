@@ -1,6 +1,5 @@
 // import defaultMotoko from 'motoko';
 import { Motoko } from 'motoko/lib';
-import * as baseLibrary from 'motoko/packages/latest/base.json';
 import ImportResolver from './imports';
 import AstResolver from './ast';
 
@@ -58,7 +57,8 @@ export function resetContexts() {
     // console.log('Reset contexts');
     contexts.length = 0;
     if (defaultContext) {
-        contexts.push(defaultContext);
+        // contexts.push(defaultContext);
+        defaultContext = undefined;
     }
 }
 
@@ -98,4 +98,8 @@ export function getContext(uri: string): Context {
     }
     console.warn('Unknown context for URI:', uri);
     return requestDefaultContext();
+}
+
+export function hasContext(uri: string): boolean {
+    return contexts.some((context) => uri.startsWith(context.uri));
 }

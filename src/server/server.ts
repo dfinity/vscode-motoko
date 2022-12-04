@@ -31,7 +31,7 @@ import { watchGlob as virtualFilePattern } from '../common/watchConfig';
 import DfxResolver from './dfx';
 import { getAstInformation } from './information';
 import { findNodes, Program } from './syntax';
-import { addContext, getContext } from './context';
+import { addContext, getContext, hasContext } from './context';
 import { allContexts, resetContexts } from './context';
 import {
     formatMotoko,
@@ -163,13 +163,15 @@ async function notifyVesselChange() {
             }
         });
 
-        // Add base library autocompletions
-        // TODO: possibly refactor into `context.ts`
-        Object.entries(baseLibrary.files).forEach(
-            ([path, { content }]: [string, { content: string }]) => {
-                notifyWriteUri(`mo:base/${path}`, content);
-            },
-        );
+        if (hasContext('')) {
+            // Add base library autocompletions for default context
+            // TODO: possibly refactor into `context.ts`
+            Object.entries(baseLibrary.files).forEach(
+                ([path, { content }]: [string, { content: string }]) => {
+                    notifyWriteUri(`mo:base/${path}`, content);
+                },
+            );
+        }
 
         notifyWorkspace(); // Update virtual file system
         notifyDfxChange(); // Reload dfx.json
@@ -177,6 +179,8 @@ async function notifyVesselChange() {
         console.error(`Error while loading Motoko packages: ${err}`);
     }
 }
+
+setInterval(() => console.log(process.memoryUsage()), 1000);
 
 let dfxChangeTimeout: ReturnType<typeof setTimeout>;
 function notifyDfxChange() {
