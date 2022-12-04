@@ -46,7 +46,7 @@ let defaultContext: Context | undefined;
 function requestDefaultContext() {
     if (!defaultContext) {
         defaultContext = addContext('');
-        // console.log('Created default context');
+        // console.warn('Created default context');
     }
     return defaultContext;
 }
