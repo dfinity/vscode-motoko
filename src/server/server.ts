@@ -164,7 +164,8 @@ async function notifyVesselChange() {
             },
         );
 
-        notifyDfxChange();
+        notifyWorkspace(); // Update virtual file system
+        notifyDfxChange(); // Reload dfx.json
     } catch (err) {
         console.error(`Error while loading Motoko packages: ${err}`);
     }
@@ -346,7 +347,7 @@ connection.onInitialized(() => {
         notifyWorkspace();
     });
 
-    notifyWorkspace();
+    // notifyWorkspace();
 
     // loadPrimaryDfxConfig();
 

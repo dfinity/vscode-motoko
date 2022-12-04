@@ -1,4 +1,4 @@
-import defaultMotoko from 'motoko';
+// import defaultMotoko from 'motoko';
 import { Motoko } from 'motoko/lib';
 import * as baseLibrary from 'motoko/packages/latest/base.json';
 import ImportResolver from './imports';
@@ -11,24 +11,26 @@ export interface Context {
     importResolver: ImportResolver;
 }
 
-const defaultContext = createContext('', defaultMotoko);
+const motokoPath = './motoko'; //
 
+const defaultMotoko = require(motokoPath).default;
 defaultMotoko.loadPackage(baseLibrary);
+
+const defaultContext = createContext('', defaultMotoko);
 
 const contexts: Context[] = [];
 
 function newMotokoInstance(): Motoko {
     Object.keys(require.cache).forEach((key) => {
         if (
-            true
-            // key.includes('/node_modules/motoko/') ||
-            // key.includes('\\node_modules\\motoko\\')
+            key.endsWith('/out/motoko.js') ||
+            key.endsWith('\\out\\motoko.js')
         ) {
-            console.error('Deleting cache:', key);/////
+            console.error('Deleting cache:', key); /////
             delete require.cache[key];
         }
     });
-    return require('motoko').default;
+    return require(motokoPath).default;
 }
 
 export function resetContexts() {
