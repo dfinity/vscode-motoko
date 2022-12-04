@@ -159,7 +159,7 @@ async function notifyVesselChange() {
                         }
                     } catch (err) {
                         context.error =
-                            'unable to load project dependencies (try checking for syntax errors in `package-set.dhall` and `vessel.dhall`)';
+                            'unable to load project dependencies (try manually running `vessel install`)';
                         console.warn(err);
                         return;
                     }
