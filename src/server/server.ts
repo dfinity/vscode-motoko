@@ -40,6 +40,7 @@ import {
     resolveVirtualPath,
 } from './utils';
 import * as baseLibrary from 'motoko/packages/latest/base.json';
+import which = require('which');
 
 interface Settings {
     motoko: MotokoSettings;
@@ -57,38 +58,37 @@ const ignoreGlobs = [
 ];
 
 function getVesselArgs(cwd: string): { args: string[] } | undefined {
-    try {
-        // for (const folder of workspaceFolders || []) {
-        //     const uri = folder.uri;
-        //     if (!uri) {
-        //         continue;
-        //     }
-        //     const ws = resolveFilePath(uri);
-        //     if (
-        //         !existsSync(join(ws, 'vessel.dhall')) &&
-        //         !existsSync(join(ws, 'vessel.json'))
-        //     ) {
-        //         continue;
-        //     }
-        //     const flags = execSync('vessel sources', {
-        //         cwd: ws,
-        //     }).toString('utf8');
-        //     return {
-        //         workspaceFolder: folder,
-        //         args: flags.split(' '), // TODO: account for quoted arguments
-        //     };
-        // }
+    // for (const folder of workspaceFolders || []) {
+    //     const uri = folder.uri;
+    //     if (!uri) {
+    //         continue;
+    //     }
+    //     const ws = resolveFilePath(uri);
+    //     if (
+    //         !existsSync(join(ws, 'vessel.dhall')) &&
+    //         !existsSync(join(ws, 'vessel.json'))
+    //     ) {
+    //         continue;
+    //     }
+    //     const flags = execSync('vessel sources', {
+    //         cwd: ws,
+    //     }).toString('utf8');
+    //     return {
+    //         workspaceFolder: folder,
+    //         args: flags.split(' '), // TODO: account for quoted arguments
+    //     };
+    // }
 
-        const flags = execSync('vessel sources', {
-            cwd,
-        }).toString('utf8');
-        return {
-            args: flags.split(' '), // TODO: account for quoted arguments
-        };
-    } catch (err) {
-        console.warn(err);
+    if (!which.sync('vessel')) {
+        return;
     }
-    return;
+
+    const flags = execSync('vessel sources', {
+        cwd,
+    }).toString('utf8');
+    return {
+        args: flags.split(' '), // TODO: account for quoted arguments
+    };
 }
 
 async function notifyVesselChange() {
@@ -97,21 +97,17 @@ async function notifyVesselChange() {
 
         const directories: string[] = [];
         try {
-            await Promise.all(
-                workspaceFolders?.map(async (folder) => {
-                    const filename = 'vessel.dhall';
-                    const paths = glob.sync(`**/${filename}`, {
-                        cwd: resolveFilePath(folder.uri),
-                        ignore: ignoreGlobs,
-                        dot: false,
-                    });
-                    paths.forEach((path) => {
-                        directories.push(
-                            resolve(path.slice(0, -filename.length)),
-                        );
-                    });
-                }) || [],
-            );
+            workspaceFolders?.forEach((workspaceFolder) => {
+                const filename = 'vessel.dhall';
+                const paths = glob.sync(`**/${filename}`, {
+                    cwd: resolveFilePath(workspaceFolder.uri),
+                    ignore: ignoreGlobs,
+                    dot: false,
+                });
+                paths.forEach((path) => {
+                    directories.push(resolve(path.slice(0, -filename.length)));
+                });
+            });
         } catch (err) {
             console.error(`Error while resolving Vessel directories: ${err}`);
         }
@@ -123,35 +119,46 @@ async function notifyVesselChange() {
                 const uri = URI.file(dir).toString();
                 const context = addContext(uri);
 
-                const vesselArgs = getVesselArgs(dir);
-                if (vesselArgs) {
-                    const { args } = vesselArgs;
-                    // Load packages from Vessel
-                    let nextArg;
-                    while ((nextArg = args.shift())) {
-                        if (nextArg === '--package') {
-                            const name = args.shift()!;
-                            const relativePath = args.shift();
-                            if (!relativePath) {
-                                continue;
+                try {
+                    const vesselArgs = getVesselArgs(dir);
+                    if (vesselArgs) {
+                        // Load packages from Vessel
+                        const { args } = vesselArgs;
+                        let nextArg;
+                        while ((nextArg = args.shift())) {
+                            if (nextArg === '--package') {
+                                const name = args.shift()!;
+                                const relativePath = args.shift();
+                                if (!relativePath) {
+                                    continue;
+                                }
+                                const path = resolveVirtualPath(
+                                    uri,
+                                    relativePath,
+                                );
+                                console.log(
+                                    'Package:',
+                                    name,
+                                    '->',
+                                    path,
+                                    `(${uri})`,
+                                );
+                                context.motoko.usePackage(name, path);
                             }
-                            const path = resolveVirtualPath(uri, relativePath);
-                            console.log(
-                                'Package:',
-                                name,
-                                '->',
-                                path,
-                                `(${uri})`,
-                            );
-                            context.motoko.usePackage(name, path);
                         }
+                    } else {
+                        context.error =
+                            'unable to find `vessel` on your system path (is the Vessel package manager installed?)';
                     }
-                } else {
-                    // connection.sendNotification('')
+                } catch (err) {
+                    context.error =
+                        'unable to load project dependencies (try checking for syntax errors in `package-set.dhall` and `vessel.dhall`)';
+                    console.warn(err);
+                    return;
                 }
             } catch (err) {
                 console.error(
-                    `Error while configuring Vessel directory (${dir}): ${err}`,
+                    `error configuring Vessel directory (${dir}): ${err}`,
                 );
             }
         });
@@ -586,9 +593,22 @@ function checkImmediate(uri: string | TextDocument): boolean {
             return false;
         }
 
-        const { uri: contextUri, motoko } = getContext(resolvedUri);
+        const { uri: contextUri, motoko, error } = getContext(resolvedUri);
         console.log('~', virtualPath, `(${contextUri || 'default'})`);
         let diagnostics = motoko.check(virtualPath) as any as Diagnostic[];
+        if (error) {
+            // Context initialization error
+            diagnostics.length = 0;
+            diagnostics.push({
+                source: virtualPath,
+                message: error,
+                severity: DiagnosticSeverity.Error,
+                range: {
+                    start: { line: 0, character: 0 },
+                    end: { line: 0, character: 0 },
+                },
+            });
+        }
 
         if (settings) {
             if (settings.maxNumberOfProblems > 0) {
@@ -634,7 +654,7 @@ function checkImmediate(uri: string | TextDocument): boolean {
         Object.entries(diagnosticMap).forEach(([path, diagnostics]) => {
             connection.sendDiagnostics({
                 uri: URI.file(path).toString(),
-                diagnostics: diagnostics,
+                diagnostics,
             });
         });
         return true;
