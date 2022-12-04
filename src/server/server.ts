@@ -1,7 +1,6 @@
 import { execSync } from 'child_process';
 import * as glob from 'fast-glob';
 import { existsSync, readFileSync } from 'fs';
-import mo from 'motoko';
 import { Node } from 'motoko/lib/ast';
 import { keywords } from 'motoko/lib/keywords';
 import * as baseLibrary from 'motoko/packages/latest/base.json';
@@ -35,6 +34,7 @@ import DfxResolver from './dfx';
 import ImportResolver from './imports';
 import { getAstInformation } from './information';
 import { findNodes, Program } from './syntax';
+import { allMotokoInstances, getMotokoInstance } from './motoko';
 import {
     formatMotoko,
     getFileText,
@@ -88,7 +88,7 @@ function getVesselArgs():
             }).toString('utf8');
             return {
                 workspaceFolder: folder,
-                args: flags.split(' '),
+                args: flags.split(' '), // TODO: account for quoted arguments
             };
         }
     } catch (err) {
@@ -98,34 +98,39 @@ function getVesselArgs():
 }
 
 async function loadPackages() {
-    mo.clearPackages();
-
     try {
-        // Load default base library
-        mo.loadPackage(baseLibrary);
-    } catch (err) {
-        console.error(`Error while loading base library: ${err}`);
-    }
+        mo.clearPackages();
 
-    const vesselArgs = getVesselArgs();
-    if (vesselArgs) {
-        const { workspaceFolder, args } = vesselArgs;
-        // Load packages from Vessel
-        let nextArg;
-        while ((nextArg = args.shift())) {
-            if (nextArg === '--package') {
-                const name = args.shift()!;
-                const path = resolveVirtualPath(
-                    workspaceFolder.uri,
-                    args.shift()!,
-                );
-                console.log('Package:', name, '->', path);
-                mo.usePackage(name, path);
+        try {
+            // Load default base library
+            mo.loadPackage(baseLibrary);
+        } catch (err) {
+            console.error(`Error while loading base library: ${err}`);
+        }
+
+        const vesselArgs = getVesselArgs();
+        if (vesselArgs) {
+            const { workspaceFolder, args } = vesselArgs;
+            // Load packages from Vessel
+            let nextArg;
+            while ((nextArg = args.shift())) {
+                if (nextArg === '--package') {
+                    const name = args.shift()!;
+                    const path = resolveVirtualPath(
+                        workspaceFolder.uri,
+                        args.shift()!,
+                    );
+                    console.log('Package:', name, '->', path);
+                    mo.usePackage(name, path);
+                }
             }
         }
-    }
 
-    notifyDfxChange();
+        notifyDfxChange();
+    } catch (err) {
+        console.error('Error while loading Motoko packages:');
+        console.error(err);
+    }
 }
 
 let dfxChangeTimeout: ReturnType<typeof setTimeout>;
@@ -175,7 +180,9 @@ function notifyDfxChange() {
                             );
                             const path = join(projectDir, `.dfx/local/lsp`);
                             const uri = URI.file(path).toString();
-                            mo.setAliases(resolveVirtualPath(uri), aliases);
+                            allMotokoInstances().forEach((mo) => {
+                                mo.setAliases(resolveVirtualPath(uri), aliases);
+                            });
                         }
                     } catch (err) {
                         console.error(
@@ -301,10 +308,7 @@ connection.onInitialized(() => {
 
     // loadPrimaryDfxConfig();
 
-    loadPackages().catch((err) => {
-        console.error('Error while loading Motoko packages:');
-        console.error(err);
-    });
+    loadPackages();
 });
 
 connection.onDidChangeWatchedFiles((event) => {
@@ -534,6 +538,7 @@ function checkImmediate(uri: string | TextDocument): boolean {
         }
 
         console.log('~', virtualPath);
+        const mo = getMotokoInstance(virtualPath);
         let diagnostics = mo.check(virtualPath) as any as Diagnostic[];
 
         if (settings) {
@@ -626,11 +631,11 @@ function writeVirtual(path: string, content: string) {
     // if (virtualPath.endsWith('.mo')) {
     //     content = preprocessMotoko(content);
     // }
-    mo.write(path, content);
+    allMotokoInstances().map((mo) => mo.write(path, content));
 }
 
 function deleteVirtual(path: string) {
-    mo.delete(path);
+    allMotokoInstances().map((mo) => mo.delete(path));
 }
 
 connection.onCodeAction((event) => {
