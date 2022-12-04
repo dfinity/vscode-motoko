@@ -1,0 +1,26 @@
+[package]
+name = "vscode_motoko"
+version = "0.0.0"
+authors = ["DFINITY Foundation"]
+edition = "2021"
+publish = false
+
+[lib]
+name = "vscode_motoko"
+crate-type = ["cdylib"]
+
+# [[bin]]
+# name = "vscode_motoko"
+# path = "src/bin/main.rs"
+# default-features = ["bin"]
+
+[dependencies]
+vessel = { git = "https://github.com/dfinity/vessel" }
+node-bindgen = { version = "5.0.0" }
+# cargo_metadata = { version = "0.15.2", optional = true }
+
+[build-dependencies]
+node-bindgen = { version = "5.0.0", default-features = false, features = ["build"] }
+
+# [features]
+# bin = ["cargo_metadata"]
