@@ -3,3 +3,4 @@
 *.vsix
 /src/generated/**/*
 /snippets.json
+.vessel
