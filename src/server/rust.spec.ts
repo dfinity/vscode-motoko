@@ -19,6 +19,6 @@ describe('rust', () => {
 
         expect(
             vesselSources(resolve(__dirname, '../../test/workspace')),
-        ).toStrictEqual([['base', '.vessel/base/master/src']]);
+        ).toEqual([['base', '.vessel/base/master/src']]);
     });
 });
