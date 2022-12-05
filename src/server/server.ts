@@ -159,7 +159,7 @@ async function notifyVesselChange() {
         } catch (err) {
             console.error(`Error while loading Vessel packages: ${err}`);
         }
-    }, 100);
+    }, 1000);
 }
 
 let dfxChangeTimeout: ReturnType<typeof setTimeout>;
@@ -252,7 +252,7 @@ function notifyDfxChange() {
         }
 
         checkWorkspace();
-    }, 100);
+    }, 1000);
 }
 
 // Create a connection for the language server
