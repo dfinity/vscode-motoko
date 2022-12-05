@@ -9,7 +9,7 @@ describe('context', () => {
         let a = addContext('A');
         jest.resetModules(); // TODO: test `require.cache` directly
         let b = addContext('B');
-        expect(a.motoko).not.toBe(b.motoko);
+        expect(a.motoko.compiler).not.toBe(b.motoko.compiler);
     });
 
     test('sorted by URI length and then alphabetical order', () => {

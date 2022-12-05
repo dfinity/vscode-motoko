@@ -52,9 +52,7 @@ export function startServer(context: ExtensionContext) {
     }
 
     // Cross-platform language server
-    const module = context.asAbsolutePath(
-        path.join('out', 'server.js'),
-    );
+    const module = context.asAbsolutePath(path.join('out', 'server.js'));
     launchClient(context, {
         run: { module, transport: TransportKind.ipc },
         debug: {
@@ -70,7 +68,7 @@ function launchDfxProject(context: ExtensionContext, dfxConfig: DfxConfig) {
         const dfxPath = getDfxPath();
         if (!fs.existsSync(dfxPath)) {
             window.showErrorMessage(
-                `Failed to locate dfx at ${dfxPath} check that dfx is installed or try changing motoko.dfx in settings`,
+                `Failed to locate dfx at ${dfxPath}. Check that dfx is installed or try changing motoko.dfx in settings`,
             );
             throw Error('Failed to locate dfx');
         }

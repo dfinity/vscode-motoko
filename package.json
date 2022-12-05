@@ -2,7 +2,7 @@
     "name": "vscode-motoko",
     "displayName": "Motoko",
     "description": "Motoko language support",
-    "version": "0.5.9",
+    "version": "0.6.0",
     "publisher": "dfinity-foundation",
     "repository": "https://github.com/dfinity/vscode-motoko",
     "engines": {
@@ -158,11 +158,12 @@
     },
     "scripts": {
         "vscode:prepublish": "npm run compile",
-        "compile": "npm run compile:pre && run-p compile:main compile:browser compile:server compile:motoko",
+        "compile": "npm run compile:pre && run-p compile:rust compile:extension compile:browser compile:server compile:motoko",
         "compile:pre": "run-s compile:pre:snippets compile:pre:formatter",
         "compile:pre:snippets": "cp node_modules/motoko/contrib/snippets.json .",
         "compile:pre:formatter": "rimraf ./out && mkdirp ./out && cp node_modules/prettier-plugin-motoko/wasm/pkg/nodejs/wasm_bg.wasm out/wasm_bg.wasm",
-        "compile:main": "esbuild ./src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node --minify",
+        "compile:rust": "cd rust && nj-cli build --release && cp dist/index.node ../out/vscode_motoko.node",
+        "compile:extension": "esbuild ./src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node --minify",
         "compile:browser": "esbuild ./src/browser.ts --bundle --outfile=out/browser.js --external:vscode --format=cjs --platform=node --minify",
         "compile:server": "esbuild ./src/server/server.ts --bundle --outfile=out/server.js --external:vscode --format=cjs --platform=node --minify",
         "compile:motoko": "esbuild motoko --bundle --outfile=out/motoko.js --format=cjs --platform=node --minify",
