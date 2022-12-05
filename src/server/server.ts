@@ -39,7 +39,7 @@ import {
     resolveVirtualPath,
 } from './utils';
 import * as baseLibrary from 'motoko/packages/latest/base.json';
-import which = require('which');
+import { vesselSources } from './rust';
 
 interface Settings {
     motoko: MotokoSettings;
@@ -56,38 +56,29 @@ const ignoreGlobs = [
     '**/.vessel/.tmp/**/*', // temporary Vessel files
 ];
 
-function getVesselArgs(cwd: string): { args: string[] } | undefined {
-    // for (const folder of workspaceFolders || []) {
-    //     const uri = folder.uri;
-    //     if (!uri) {
-    //         continue;
-    //     }
-    //     const ws = resolveFilePath(uri);
-    //     if (
-    //         !existsSync(join(ws, 'vessel.dhall')) &&
-    //         !existsSync(join(ws, 'vessel.json'))
-    //     ) {
-    //         continue;
-    //     }
-    //     const flags = execSync('vessel sources', {
-    //         cwd: ws,
-    //     }).toString('utf8');
-    //     return {
-    //         workspaceFolder: folder,
-    //         args: flags.split(' '), // TODO: account for quoted arguments
-    //     };
-    // }
-
-    if (!which.sync('vessel')) {
-        return;
+function getVesselSources(directory: string): [string, string][] {
+    if (!existsSync('vessel')) {
+        // Fallback Vessel functionality
+        return vesselSources(directory);
     }
 
     const flags = execSync('vessel sources', {
-        cwd,
+        cwd: directory,
     }).toString('utf8');
-    return {
-        args: flags.split(' '), // TODO: account for quoted arguments
-    };
+    const args = flags.split(' ');
+    const sources: [string, string][] = [];
+    let nextArg;
+    while ((nextArg = args.shift())) {
+        if (nextArg === '--package') {
+            const name = args.shift()!;
+            const relativePath = args.shift();
+            if (!relativePath) {
+                continue;
+            }
+            sources.push([name, relativePath]);
+        }
+    }
+    return sources;
 }
 
 let vesselChangeTimeout: ReturnType<typeof setTimeout>;
@@ -126,45 +117,31 @@ async function notifyVesselChange() {
                     const context = addContext(uri);
 
                     try {
-                        const vesselArgs = getVesselArgs(dir);
-                        if (vesselArgs) {
-                            // Load packages from Vessel
-                            const { args } = vesselArgs;
-                            let nextArg;
-                            while ((nextArg = args.shift())) {
-                                if (nextArg === '--package') {
-                                    const name = args.shift()!;
-                                    const relativePath = args.shift();
-                                    if (!relativePath) {
-                                        continue;
-                                    }
-                                    const path = resolveVirtualPath(
-                                        uri,
-                                        relativePath,
-                                    );
-                                    console.log(
-                                        'Package:',
-                                        name,
-                                        '->',
-                                        path,
-                                        `(${uri})`,
-                                    );
-                                    context.motoko.usePackage(name, path);
-                                }
-                            }
-                        } else {
-                            context.error =
-                                'unable to find `vessel` on your system path (is the Vessel package manager installed?)';
-                        }
+                        getVesselSources(dir).forEach(
+                            ([name, relativePath]) => {
+                                const path = resolveVirtualPath(
+                                    uri,
+                                    relativePath,
+                                );
+                                console.log(
+                                    'Package:',
+                                    name,
+                                    '->',
+                                    path,
+                                    `(${uri})`,
+                                );
+                                context.motoko.usePackage(name, path);
+                            },
+                        );
                     } catch (err) {
-                        context.error =
-                            'unable to load project dependencies (try manually running `vessel install`)';
+                        // context.error = `unable to load project dependencies: ${err}`;
+                        context.error = String(err);
                         console.warn(err);
                         return;
                     }
                 } catch (err) {
                     console.error(
-                        `error configuring Vessel directory (${dir}): ${err}`,
+                        `Error while configuring Vessel directory (${dir}): ${err}`,
                     );
                 }
             });
@@ -400,8 +377,7 @@ connection.onDidChangeWatchedFiles((event) => {
 
 connection.onDidChangeConfiguration((event) => {
     settings = (<Settings>event.settings).motoko;
-    checkWorkspace();
-    notifyDfxChange();
+    notifyVesselChange();
 });
 
 /**

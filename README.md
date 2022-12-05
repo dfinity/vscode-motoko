@@ -57,13 +57,21 @@ If you encounter any bugs, please [open a GitHub issue](https://github.com/dfini
 
 ### Set up your local development environment:
 
+Ensure that [Node.js >= 14.x](https://nodejs.org/en/) and [Cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html) are installed on your system.
+
 ```bash
 git clone https://github.com/dfinity/vscode-motoko
 cd vscode-motoko
 npm install
 ```
 
-### Build the extension with your local changes:
+### Run unit tests:
+
+```bash
+npm test
+```
+
+### Build the extension:
 
 ```bash
 npm run package
@@ -71,7 +79,7 @@ npm run package
 
 This generates a file named `vscode-motoko-*.*.*.vsix` in the project root.
 
-### Install your local extension in VS Code:
+### Install in VS Code:
 
 ```bash
 code --install-extension vscode-motoko-*.*.*.vsix
