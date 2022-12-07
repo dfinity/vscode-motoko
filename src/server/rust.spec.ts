@@ -1,5 +1,5 @@
 import rust, { vesselSources } from './rust';
-import { resolve } from 'path';
+import { join, resolve } from 'path';
 
 describe('rust', () => {
     test('init', () => {
@@ -19,6 +19,6 @@ describe('rust', () => {
 
         expect(
             vesselSources(resolve(__dirname, '../../test/workspace')),
-        ).toEqual([['base', '.vessel/base/master/src']]);
+        ).toEqual([['base', join('.vessel', 'base', 'master', 'src')]]);
     });
 });

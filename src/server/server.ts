@@ -581,14 +581,14 @@ function checkImmediate(uri: string | TextDocument): boolean {
         let diagnostics = motoko.check(virtualPath) as any as Diagnostic[];
         if (error) {
             // Context initialization error
-            diagnostics.length = 0;
+            // diagnostics.length = 0;
             diagnostics.push({
                 source: virtualPath,
                 message: error,
-                severity: DiagnosticSeverity.Error,
+                severity: DiagnosticSeverity.Information,
                 range: {
                     start: { line: 0, character: 0 },
-                    end: { line: 0, character: 0 },
+                    end: { line: 0, character: 100 },
                 },
             });
         }
