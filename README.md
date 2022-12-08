@@ -63,7 +63,6 @@ Ensure that [Node.js >= 14.x](https://nodejs.org/en/) and [Cargo](https://doc.ru
 git clone https://github.com/dfinity/vscode-motoko
 cd vscode-motoko
 npm install
-cargo install nj-cli # Required for Rust functionality
 ```
 
 ### Run unit tests:

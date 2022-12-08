@@ -7,16 +7,9 @@ describe('rust', () => {
     });
 
     test('vesselSources', () => {
-        let error;
-        try {
-            vesselSources();
-        } catch (e) {
-            error = e;
-        }
-        expect(error).toEqual(
-            "Error while loading package-set: Could not find a 'vessel.dhall' file in this directory or a parent one.",
+        expect(() => vesselSources()).toThrowError(
+            "Could not find a 'vessel.dhall' file in this directory or a parent one.",
         );
-
         expect(
             vesselSources(resolve(__dirname, '../../test/workspace')),
         ).toEqual([['base', join('.vessel', 'base', 'master', 'src')]]);
