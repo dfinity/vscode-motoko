@@ -14,7 +14,7 @@ describe('rust', () => {
             error = e;
         }
         expect(error).toEqual(
-            "Error while loading package-set: Could not find a 'vessel.dhall' file in this directory or a parent one.",
+            "[Error: Couldn't find a Vessel installation on your system path]",
         );
 
         expect(

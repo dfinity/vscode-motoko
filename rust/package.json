@@ -1,0 +1,19 @@
+{
+  "name": "rust",
+  "version": "0.0.0",
+  "description": "",
+  "author": "DFINITY Foundation",
+  "main": "index.node",
+  "private": true,
+  "scripts": {
+    "build": "cargo-cp-artifact -nc index.node -- cargo build --message-format=json-render-diagnostics",
+    "build-debug": "npm run build --",
+    "build-release": "npm run build -- --release",
+    "install": "npm run build-release",
+    "test": "cargo test"
+  },
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "cargo-cp-artifact": "^0.1"
+  }
+}
