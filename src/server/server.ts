@@ -57,28 +57,28 @@ const ignoreGlobs = [
 ];
 
 function getVesselSources(directory: string): [string, string][] {
-    if (!existsSync('vessel')) {
-        // Fallback Vessel functionality
+    try {
+        const flags = execSync('vessel sources', {
+            cwd: directory,
+        }).toString('utf8');
+        const args = flags.split(' ');
+        const sources: [string, string][] = [];
+        let nextArg;
+        while ((nextArg = args.shift())) {
+            if (nextArg === '--package') {
+                const name = args.shift()!;
+                const relativePath = args.shift();
+                if (!relativePath) {
+                    continue;
+                }
+                sources.push([name, relativePath]);
+            }
+        }
+        return sources;
+    } catch (err) {
+        console.error('Error while running `vessel sources`:', err);
         return vesselSources(directory);
     }
-
-    const flags = execSync('vessel sources', {
-        cwd: directory,
-    }).toString('utf8');
-    const args = flags.split(' ');
-    const sources: [string, string][] = [];
-    let nextArg;
-    while ((nextArg = args.shift())) {
-        if (nextArg === '--package') {
-            const name = args.shift()!;
-            const relativePath = args.shift();
-            if (!relativePath) {
-                continue;
-            }
-            sources.push([name, relativePath]);
-        }
-    }
-    return sources;
 }
 
 let vesselChangeTimeout: ReturnType<typeof setTimeout>;
