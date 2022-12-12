@@ -1,15 +1,15 @@
 import { resolve } from 'path';
 
-const path = __filename.endsWith('rust.ts')
-    ? '../../rust/index.node'
-    : './vscode_motoko.node';
+// const path = __filename.endsWith('rust.ts')
+//     ? '../../rust/index.node'
+//     : './vscode_motoko.node';
 
 let rust: any;
-try {
-    rust = require(path);
-} catch (err) {
-    console.error(err);
-}
+// try {
+//     rust = require(path);
+// } catch (err) {
+//     console.error(err);
+// }
 
 export function vesselSources(directory?: string | undefined) {
     if (!rust) {

@@ -40,6 +40,7 @@ import {
 } from './utils';
 import * as baseLibrary from 'motoko/packages/latest/base.json';
 import { vesselSources } from './rust';
+// import { mopsSources } from './mops';
 
 interface Settings {
     motoko: MotokoSettings;
@@ -56,12 +57,19 @@ const ignoreGlobs = [
     '**/.vessel/.tmp/**/*', // temporary Vessel files
 ];
 
-function getVesselSources(directory: string): [string, string][] {
-    try {
-        const flags = execSync('vessel sources', {
+async function getPackageSources(
+    directory: string,
+): Promise<[string, string][]> {
+    function sourcesFromCommand(command: string) {
+        console.log(`Running command: \`${directory}\``);
+        const result = execSync(command, {
             cwd: directory,
         }).toString('utf8');
-        const args = flags.split(' ');
+        const args = result.split(/\s/); // TODO: account for quoted strings
+        console.log('Received:', args);
+        if (!args) {
+            return [];
+        }
         const sources: [string, string][] = [];
         let nextArg;
         while ((nextArg = args.shift())) {
@@ -75,76 +83,126 @@ function getVesselSources(directory: string): [string, string][] {
             }
         }
         return sources;
-    } catch (err) {
-        console.error('Error while running `vessel sources`:', err);
-        return vesselSources(directory);
+    }
+
+    // Prioritize MOPS over Vessel
+    if (existsSync(join(directory, 'mops.toml'))) {
+        const command = 'mops sources';
+        try {
+            return sourcesFromCommand(command);
+        } catch (err: any) {
+            // try {
+            //     const sources = await mopsSources(directory);
+            //     if (!sources) {
+            //         throw new Error('Unexpected output');
+            //     }
+            //     return Object.entries(sources);
+            // } catch (fallbackError) {
+            //     console.error(
+            //         `Error in fallback MOPS implementation:`,
+            //         fallbackError,
+            //     );
+            //     // Provide a verbose error message for MOPS command
+            //     throw new Error(
+            //         `Error while running \`${command}\`: ${
+            //             err?.message || err
+            //         }`,
+            //     );
+            // }
+
+            throw new Error(
+                `Error while running \`${command}\`: ${
+                    err?.message || err
+                }`,
+            );
+        }
+    } else if (existsSync(join(directory, 'vessel.dhall'))) {
+        const command = 'vessel sources';
+        try {
+            return sourcesFromCommand(command);
+        } catch (err) {
+            console.error(`Error while running \`${command}\`:`, err);
+            return vesselSources(directory);
+        }
+    } else {
+        return [];
     }
 }
 
-let vesselChangeTimeout: ReturnType<typeof setTimeout>;
-async function notifyVesselChange() {
-    clearTimeout(vesselChangeTimeout);
-    setTimeout(() => {
+let packageConfigChangeTimeout: ReturnType<typeof setTimeout>;
+function notifyPackageConfigChange() {
+    clearTimeout(packageConfigChangeTimeout);
+    setTimeout(async () => {
         try {
             resetContexts();
 
             const directories: string[] = [];
             try {
                 workspaceFolders?.forEach((workspaceFolder) => {
-                    const filename = 'vessel.dhall';
-                    const paths = glob.sync(`**/${filename}`, {
+                    const filenames = ['mops.toml', 'vessel.dhall'];
+                    const paths = glob.sync(`**/{${filenames.join(',')}}`, {
                         cwd: resolveFilePath(workspaceFolder.uri),
                         ignore: ignoreGlobs,
                         dot: false,
                     });
                     paths.forEach((path) => {
-                        directories.push(
-                            resolve(path.slice(0, -filename.length)),
-                        );
+                        filenames.forEach((filename) => {
+                            const dir = resolve(
+                                path.slice(0, -filename.length),
+                            );
+                            if (!directories.includes(dir)) {
+                                directories.push(dir);
+                            }
+                        });
                     });
                 });
             } catch (err) {
                 console.error(
-                    `Error while resolving Vessel directories: ${err}`,
+                    `Error while resolving package config directories: ${err}`,
                 );
             }
 
-            directories.forEach((dir) => {
-                try {
-                    console.log('Configuring Vessel directory:', dir);
-
-                    const uri = URI.file(dir).toString();
-                    const context = addContext(uri);
-
+            await Promise.all(
+                directories.map(async (dir) => {
                     try {
-                        getVesselSources(dir).forEach(
-                            ([name, relativePath]) => {
-                                const path = resolveVirtualPath(
-                                    uri,
-                                    relativePath,
-                                );
-                                console.log(
-                                    'Package:',
-                                    name,
-                                    '->',
-                                    path,
-                                    `(${uri})`,
-                                );
-                                context.motoko.usePackage(name, path);
-                            },
+                        console.log(
+                            'Configuring package config directory:',
+                            dir,
                         );
+
+                        const uri = URI.file(dir).toString();
+                        const context = addContext(uri);
+
+                        try {
+                            (await getPackageSources(dir)).forEach(
+                                ([name, relativePath]) => {
+                                    const path = resolveVirtualPath(
+                                        uri,
+                                        relativePath,
+                                    );
+                                    console.log(
+                                        'Package:',
+                                        name,
+                                        '->',
+                                        path,
+                                        `(${uri})`,
+                                    );
+                                    context.motoko.usePackage(name, path);
+                                },
+                            );
+                        } catch (err) {
+                            // context.error = `unable to load project dependencies: ${err}`;
+                            context.error = String(err);
+                            console.warn(err);
+                            return;
+                        }
                     } catch (err) {
-                        // context.error = `unable to load project dependencies: ${err}`;
-                        context.error = String(err);
-                        console.warn(err);
-                        return;
+                        console.error(
+                            `Error while configuring Vessel directory (${dir}): ${err}`,
+                        );
                     }
-                } catch (err) {
-                    console.error(
-                        `Error while configuring Vessel directory (${dir}): ${err}`,
-                    );
-                }
-            });
+                }),
+            );
 
             // Add base library autocompletions
             // TODO: possibly refactor into `context.ts`
@@ -157,7 +215,7 @@ async function notifyVesselChange() {
             notifyWorkspace(); // Update virtual file system
             notifyDfxChange(); // Reload dfx.json
         } catch (err) {
-            console.error(`Error while loading Vessel packages: ${err}`);
+            console.error(`Error while loading packages: ${err}`);
         }
     }, 1000);
 }
@@ -342,7 +400,7 @@ connection.onInitialized(() => {
 
     // loadPrimaryDfxConfig();
 
-    notifyVesselChange();
+    notifyPackageConfigChange();
 });
 
 connection.onDidChangeWatchedFiles((event) => {
@@ -364,8 +422,11 @@ connection.onDidChangeWatchedFiles((event) => {
                 change.uri.endsWith('/dfx.json')
             ) {
                 notifyDfxChange();
-            } else if (change.uri.endsWith('.dhall')) {
-                notifyVesselChange();
+            } else if (
+                change.uri.endsWith('.dhall') ||
+                change.uri.endsWith('/mops.toml')
+            ) {
+                notifyPackageConfigChange();
             }
         } catch (err) {
             console.error(`Error while handling Motoko file change: ${err}`);
@@ -377,7 +438,7 @@ connection.onDidChangeWatchedFiles((event) => {
 
 connection.onDidChangeConfiguration((event) => {
     settings = (<Settings>event.settings).motoko;
-    notifyVesselChange();
+    notifyPackageConfigChange();
 });
 
 /**

@@ -2,7 +2,7 @@
     "name": "vscode-motoko",
     "displayName": "Motoko",
     "description": "Motoko language support",
-    "version": "0.6.1",
+    "version": "0.6.2",
     "publisher": "dfinity-foundation",
     "repository": "https://github.com/dfinity/vscode-motoko",
     "engines": {
@@ -162,7 +162,7 @@
         "compile:pre": "shx rm -rf ./out && shx mkdir -p ./out",
         "compile:snippets": "shx cp node_modules/motoko/contrib/snippets.json .",
         "compile:formatter": "shx cp node_modules/prettier-plugin-motoko/wasm/pkg/nodejs/wasm_bg.wasm out/wasm_bg.wasm",
-        "compile:rust": "cd rust && npm run build-release && shx cp ./index.node ../out/vscode_motoko.node",
+        "compile:rust": "# cd rust && npm run build-release && shx cp ./index.node ../out/vscode_motoko.node",
         "compile:extension": "esbuild ./src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node --minify",
         "compile:browser": "esbuild ./src/browser.ts --bundle --outfile=out/browser.js --external:vscode --format=cjs --platform=node --minify",
         "compile:server": "esbuild ./src/server/server.ts --bundle --outfile=out/server.js --external:vscode --format=cjs --platform=node --minify",
