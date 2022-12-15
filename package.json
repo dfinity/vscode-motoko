@@ -149,7 +149,7 @@
         "@types/which": "^2.0.1",
         "@typescript-eslint/eslint-plugin": "^5.46.1",
         "@typescript-eslint/parser": "^5.46.1",
-        "esbuild": "^0.15.14",
+        "esbuild": "^0.16.7",
         "eslint": "^8.29.0",
         "eslint-plugin-jest": "^27.1.6",
         "husky": "^8.0.2",
