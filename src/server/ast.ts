@@ -99,8 +99,8 @@ export default class AstResolver {
     }
 
     delete(uri: string): boolean {
-        let deleted = this._cache.delete(uri);
-        let deletedTyped = this._typedCache.delete(uri);
+        const deleted = this._cache.delete(uri);
+        const deletedTyped = this._typedCache.delete(uri);
         return deleted || deletedTyped;
     }
 }

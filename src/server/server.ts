@@ -111,9 +111,7 @@ async function getPackageSources(
             // }
 
             throw new Error(
-                `Error while running \`${command}\`: ${
-                    err?.message || err
-                }`,
+                `Error while running \`${command}\`: ${err?.message || err}`,
             );
         }
     } else if (existsSync(join(directory, 'vessel.dhall'))) {
@@ -265,7 +263,7 @@ function notifyDfxChange() {
                                     }
                                 },
                             );
-                            const path = join(projectDir, `.dfx/local/lsp`);
+                            const path = join(projectDir, '.dfx/local/lsp');
                             const uri = URI.file(path).toString();
                             allContexts().forEach(({ motoko }) => {
                                 motoko.setAliases(
@@ -324,7 +322,7 @@ const forwardMessage =
                 return typeof value === 'string'
                     ? value
                     : value instanceof Promise
-                    ? `<Promise>`
+                    ? '<Promise>'
                     : value instanceof Error
                     ? value.stack || value.message || value
                     : JSON.stringify(value);

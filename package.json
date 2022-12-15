@@ -162,6 +162,9 @@
     },
     "scripts": {
         "prepare": "husky install && cd rust && npm install",
+        "lint": "eslint . --ext ts",
+        "lint:fix": "npm run lint -- --fix",
+        "format": "prettier --write src",
         "precommit": "lint-staged",
         "vscode:prepublish": "npm run compile",
         "compile": "npm run compile:pre && run-p compile:snippets compile:formatter compile:rust && run-p compile:extension compile:browser compile:server compile:motoko",
@@ -175,7 +178,6 @@
         "compile:motoko": "esbuild motoko --bundle --outfile=out/motoko.js --format=cjs --platform=node --minify",
         "test": "jest",
         "package": "vsce package && npm test",
-        "format": "prettier --write .",
         "publish": "vsce publish"
     },
     "lint-staged": {
