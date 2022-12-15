@@ -79,8 +79,8 @@ function launchDfxProject(context: ExtensionContext, dfxConfig: DfxConfig) {
         launchClient(context, { run: serverCommand, debug: serverCommand });
     };
 
-    let canister = config.get<string>('canister');
-    let canisters = Object.keys(dfxConfig.canisters);
+    const canister = config.get<string>('canister');
+    const canisters = Object.keys(dfxConfig.canisters);
 
     if (canister) {
         start(canister);
@@ -103,7 +103,7 @@ function launchClient(context: ExtensionContext, serverOptions: ServerOptions) {
         console.log('Restarting Motoko language server');
         client.stop().catch((err) => console.error(err.stack || err));
     }
-    let clientOptions: LanguageClientOptions = {
+    const clientOptions: LanguageClientOptions = {
         documentSelector: [
             { scheme: 'file', language: 'motoko' },
             // { scheme: 'untitled', language: 'motoko' },
