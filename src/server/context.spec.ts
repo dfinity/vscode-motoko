@@ -6,9 +6,9 @@ describe('context', () => {
     });
 
     test('unique Motoko instances', () => {
-        let a = addContext('A');
+        const a = addContext('A');
         jest.resetModules(); // TODO: test `require.cache` directly
-        let b = addContext('B');
+        const b = addContext('B');
         expect(a.motoko.compiler).not.toBe(b.motoko.compiler);
     });
 
