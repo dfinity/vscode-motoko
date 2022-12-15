@@ -9,10 +9,19 @@
         "ecmaVersion": "latest",
         "sourceType": "script"
     },
-    "plugins": ["@typescript-eslint", "jest"],
+    "overrides": [
+        {
+            "files": ["**/*.spec.ts"],
+            "plugins": ["jest"],
+            "extends": ["plugin:jest/recommended"],
+            "rules": {
+                "jest/no-commented-out-tests": "off"
+            }
+        }
+    ],
+    "plugins": ["@typescript-eslint"],
     "rules": {
         "no-extra-semi": "warn",
-        "prefer-const": "warn",
-        "quotes": ["warn", "single"]
+        "prefer-const": "warn"
     }
 }

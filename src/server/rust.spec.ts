@@ -7,7 +7,7 @@ describe('rust', () => {
     // });
 
     test('vesselSources', () => {
-        expect(() => vesselSources()).toThrowError(
+        expect(() => vesselSources()).toThrow(
             "Couldn't find a Vessel installation on your system path",
         );
 
