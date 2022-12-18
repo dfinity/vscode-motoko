@@ -133,7 +133,7 @@
         "mnemonist": "0.39.5",
         "motoko": "3.1.1",
         "prettier": "2.8.0",
-        "prettier-plugin-motoko": "0.2.3",
+        "prettier-plugin-motoko": "0.2.4",
         "url-relative": "1.0.0",
         "vscode-languageclient": "8.0.2",
         "vscode-languageserver": "8.0.2",
