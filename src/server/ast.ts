@@ -11,11 +11,16 @@ export interface AstStatus {
     outdated: boolean;
 }
 
+export interface AstImport {
+    path: string;
+    field?: string;
+}
+
 const globalCache = new Map<string, AstStatus>(); // Share non-typed ASTs across all contexts
 
 export default class AstResolver {
-    private _cache = globalCache;
-    private _typedCache = new Map<string, AstStatus>();
+    private readonly _cache = globalCache;
+    private readonly _typedCache = new Map<string, AstStatus>();
 
     clear() {
         this._cache.clear();
@@ -26,7 +31,7 @@ export default class AstResolver {
         const text = tryGetFileText(uri);
         if (!text) {
             this.delete(uri);
-            return false;
+            return true;
         }
         return this._updateWithFileText(uri, text, typed);
     }
@@ -51,13 +56,22 @@ export default class AstResolver {
         }
         try {
             const { motoko } = getContext(uri);
-            const ast = typed
-                ? motoko.parseMotokoTyped(resolveVirtualPath(uri)).ast
-                : motoko.parseMotoko(text);
+            const virtualPath = resolveVirtualPath(uri);
+            let ast: AST;
+            try {
+                ast = typed
+                    ? motoko.parseMotokoTyped(virtualPath).ast
+                    : motoko.parseMotoko(text);
+            } catch (err) {
+                throw new SyntaxError(String(err));
+            }
             status.ast = ast;
             const program = fromAST(ast);
             if (program instanceof Program) {
                 status.program = program;
+            } else {
+                console.log(`Unexpected AST node for URI: ${uri}`);
+                console.log(ast);
             }
             status.outdated = false;
             if (typed) {
@@ -65,6 +79,10 @@ export default class AstResolver {
             }
             return true;
         } catch (err) {
+            if (!(err instanceof SyntaxError)) {
+                console.error(`Error while parsing AST for ${uri}:`);
+                console.error(err);
+            }
             status.outdated = true;
             return false;
         }

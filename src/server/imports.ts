@@ -3,6 +3,7 @@ import { getRelativeUri } from './utils';
 import { matchNode, Program } from './syntax';
 import { Node, AST } from 'motoko/lib/ast';
 import { pascalCase } from 'change-case';
+import { Context, getContext } from './context';
 
 interface ResolvedField {
     name: string;
@@ -11,24 +12,28 @@ interface ResolvedField {
 }
 
 export default class ImportResolver {
+    public readonly context: Context;
+
     // (module name -> uri)
-    private _moduleNameUriMap = new MultiMap<string, string>(Set);
+    private readonly _moduleNameUriMap = new MultiMap<string, string>(Set);
     // (uri -> resolved field)
-    private _fieldMap = new MultiMap<string, ResolvedField>(Set);
+    private readonly _fieldMap = new MultiMap<string, ResolvedField>(Set);
+
+    constructor(context: Context) {
+        this.context = context;
+    }
 
     clear() {
         this._moduleNameUriMap.clear();
     }
 
     update(uri: string, program: Program | undefined): boolean {
-        const motokoUri = getImportUri(uri);
-        if (!motokoUri) {
+        const info = getImportInfo(uri, this.context);
+        if (!info) {
             return false;
         }
-        const name = pascalCase(/([^/]+)$/i.exec(motokoUri)?.[1] || '');
-        if (name) {
-            this._moduleNameUriMap.set(name, motokoUri);
-        }
+        const [name, importUri] = info;
+        this._moduleNameUriMap.set(name, importUri);
         if (program?.export) {
             // Resolve field names
             const { ast } = program.export;
@@ -77,14 +82,15 @@ export default class ImportResolver {
     }
 
     delete(uri: string): boolean {
-        const motokoUri = getImportUri(uri);
-        if (!motokoUri) {
+        const info = getImportInfo(uri, this.context);
+        if (!info) {
             return false;
         }
+        const [, importUri] = info;
 
         let changed = false;
         for (const key of this._moduleNameUriMap.keys()) {
-            if (this._moduleNameUriMap.remove(key, motokoUri)) {
+            if (this._moduleNameUriMap.remove(key, importUri)) {
                 changed = true;
             }
         }
@@ -134,19 +140,46 @@ export default class ImportResolver {
     }
 }
 
-function getImportUri(uri: string): string | undefined {
+function getImportName(path: string): string {
+    return pascalCase(path);
+}
+
+function getImportInfo(
+    uri: string,
+    context: Context,
+): [string, string] | undefined {
     if (!uri.endsWith('.mo')) {
         return;
     }
     uri = uri.slice(0, -'.mo'.length);
-    const match = /\.vessel\/([^/]+)\/[^/]+\/src\/(.+)/.exec(uri);
-    if (match) {
-        // Resolve `mo:` URI for Vessel packages
-        const [, pkgName, path] = match;
-        uri = `mo:${pkgName}/${path}`;
-    } else if (/\.vessel\//.test(uri)) {
-        // Ignore everything else in `.vessel`
+    // Resolve package import paths
+    for (const regex of [
+        /\.vessel\/([^\/]+)\/[^\/]+\/src\/(.+)/,
+        /\.mops\/([^%\/]+)%40[^\/]+\/src\/(.+)/,
+        /\.mops\/_github\/([^%\/]+)%40[^\/]+\/src\/(.+)/,
+    ]) {
+        const match = regex.exec(uri);
+        if (match) {
+            if (getContext(uri) !== context) {
+                // Skip packages from other contexts
+                return;
+            }
+            const [, name, path] = match;
+            if (path === 'lib') {
+                // Account for `lib.mo` entry point
+                return [getImportName(name), `mo:${name}`];
+            } else {
+                // Resolve `mo:` URI for Vessel and MOPS packages
+                return [
+                    getImportName(/([^/]+)$/i.exec(uri)?.[1] || name),
+                    `mo:${name}/${path}`,
+                ];
+            }
+        }
+    }
+    if (uri.includes('/.vessel/') || uri.includes('/.mops/')) {
+        // Ignore everything else in Vessel and MOPS cache directories
         return;
     }
-    return uri;
+    return [getImportName(uri), uri];
 }

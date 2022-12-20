@@ -3,6 +3,7 @@ import * as glob from 'fast-glob';
 import { existsSync, readFileSync } from 'fs';
 import { Node } from 'motoko/lib/ast';
 import { keywords } from 'motoko/lib/keywords';
+import * as baseLibrary from 'motoko/packages/latest/base.json';
 import { join, resolve } from 'path';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import {
@@ -10,7 +11,6 @@ import {
     CodeActionKind,
     CompletionItemKind,
     CompletionList,
-    createConnection,
     Diagnostic,
     DiagnosticSeverity,
     FileChangeType,
@@ -21,26 +21,31 @@ import {
     ProposedFeatures,
     SignatureHelp,
     TextDocumentPositionParams,
-    TextDocuments,
     TextDocumentSyncKind,
+    TextDocuments,
     TextEdit,
     WorkspaceFolder,
+    createConnection,
 } from 'vscode-languageserver/node';
 import { URI } from 'vscode-uri';
 import { watchGlob as virtualFilePattern } from '../common/watchConfig';
+import {
+    Context,
+    addContext,
+    allContexts,
+    getContext,
+    resetContexts,
+} from './context';
 import DfxResolver from './dfx';
 import { getAstInformation } from './information';
-import { findNodes, Program } from './syntax';
-import { addContext, getContext, allContexts, resetContexts } from './context';
+import { vesselSources } from './rust';
+import { Program, findNodes } from './syntax';
 import {
     formatMotoko,
     getFileText,
     resolveFilePath,
     resolveVirtualPath,
 } from './utils';
-import * as baseLibrary from 'motoko/packages/latest/base.json';
-import { vesselSources } from './rust';
-// import { mopsSources } from './mops';
 
 interface Settings {
     motoko: MotokoSettings;
@@ -128,8 +133,10 @@ async function getPackageSources(
 }
 
 let packageConfigChangeTimeout: ReturnType<typeof setTimeout>;
+let loadingPackages = false;
 function notifyPackageConfigChange() {
     clearTimeout(packageConfigChangeTimeout);
+    loadingPackages = true;
     setTimeout(async () => {
         try {
             resetContexts();
@@ -145,11 +152,13 @@ function notifyPackageConfigChange() {
                     });
                     paths.forEach((path) => {
                         filenames.forEach((filename) => {
-                            const dir = resolve(
-                                path.slice(0, -filename.length),
-                            );
-                            if (!directories.includes(dir)) {
-                                directories.push(dir);
+                            if (path.endsWith(filename)) {
+                                const dir = resolve(
+                                    path.slice(0, -filename.length),
+                                );
+                                if (!directories.includes(dir)) {
+                                    directories.push(dir);
+                                }
                             }
                         });
                     });
@@ -210,9 +219,11 @@ function notifyPackageConfigChange() {
                 },
             );
 
+            loadingPackages = false;
             notifyWorkspace(); // Update virtual file system
             notifyDfxChange(); // Reload dfx.json
         } catch (err) {
+            loadingPackages = false;
             console.error(`Error while loading packages: ${err}`);
         }
     }, 1000);
@@ -309,6 +320,19 @@ function notifyDfxChange() {
 
         checkWorkspace();
     }, 1000);
+}
+
+// TODO: refactor
+function findNewImportPosition(uri: string, context: Context): Position {
+    const imports = context.astResolver.request(uri)?.program?.imports;
+    if (imports?.length) {
+        const lastImport = imports[imports.length - 1];
+        const end = (lastImport.ast as Node)?.end;
+        if (end) {
+            return Position.create(end[0], 0);
+        }
+    }
+    return Position.create(0, 0);
 }
 
 // Create a connection for the language server
@@ -493,6 +517,9 @@ function processQueue() {
     }, 0);
 }
 function scheduleCheck(uri: string | TextDocument) {
+    if (loadingPackages) {
+        return;
+    }
     if (checkQueue.length === 0) {
         processQueue();
     }
@@ -768,8 +795,8 @@ connection.onCodeAction((event) => {
             diagnostic.message,
         )?.[1];
         if (name) {
-            const { importResolver } = getContext(uri);
-            importResolver.getImportPaths(name, uri).forEach((path) => {
+            const context = getContext(uri);
+            context.importResolver.getImportPaths(name, uri).forEach((path) => {
                 // Add import suggestion
                 results.push({
                     kind: CodeActionKind.QuickFix,
@@ -779,7 +806,7 @@ connection.onCodeAction((event) => {
                         changes: {
                             [uri]: [
                                 TextEdit.insert(
-                                    Position.create(0, 0),
+                                    findNewImportPosition(uri, context),
                                     `import ${name} "${path}";\n`,
                                 ),
                             ],
@@ -810,27 +837,46 @@ connection.onCompletion((event) => {
     try {
         const text = getFileText(uri);
         const lines = text.split(/\r?\n/g);
-        const { astResolver, importResolver } = getContext(uri);
-        const program = astResolver.request(uri)?.program;
+        const context = getContext(uri);
+        const program = context.astResolver.request(uri)?.program;
 
         const [dot, identStart] = /(\s*\.\s*)?([a-zA-Z_]?[a-zA-Z0-9_]*)$/
             .exec(lines[position.line].substring(0, position.character))
             ?.slice(1) ?? ['', ''];
 
         if (!dot) {
-            importResolver.getNameEntries(uri).forEach(([name, path]) => {
-                if (name.startsWith(identStart)) {
-                    list.items.push({
-                        label: name,
-                        detail: path,
-                        insertText: name,
-                        kind: path.startsWith('mo:')
-                            ? CompletionItemKind.Module
-                            : CompletionItemKind.Class, // TODO: resolve actors, classes, etc.
-                        // additionalTextEdits: import
-                    });
-                }
-            });
+            context.importResolver
+                .getNameEntries(uri)
+                .forEach(([name, path]) => {
+                    if (name.startsWith(identStart)) {
+                        // const importUri = getAbsoluteUri(uri, path);
+                        const status = context.astResolver.request(uri);
+                        const existingImport = status?.program?.imports.find(
+                            (i) =>
+                                i.name === name ||
+                                i.fields.some(([, alias]) => alias === name),
+                        );
+                        if (existingImport || !status?.program) {
+                            // Skip alternatives with already imported name
+                            return;
+                        }
+                        const edits: TextEdit[] = [
+                            TextEdit.insert(
+                                findNewImportPosition(uri, context),
+                                `import ${name} "${path}";\n`,
+                            ),
+                        ];
+                        list.items.push({
+                            label: name,
+                            detail: path,
+                            insertText: name,
+                            kind: path.startsWith('mo:')
+                                ? CompletionItemKind.Module
+                                : CompletionItemKind.Class, // TODO: resolve actors, classes, etc.
+                            additionalTextEdits: edits,
+                        });
+                    }
+                });
 
             if (identStart) {
                 keywords.forEach((keyword) => {
