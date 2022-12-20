@@ -735,23 +735,6 @@ function notifyWriteUri(uri: string, content: string) {
             } catch (err) {
                 console.error(`Error while parsing (${uri}): ${err}`);
             }
-            // Resolve package import paths
-            for (const regex of [
-                /\.vessel\/([^\/]+)\/[^\/]+\/src\/(.+)/,
-                /\.mops\/([^%\/]+)%40[^\/]+\/src\/(.+)/,
-                /\.mops\/_github\/([^%\/]+)%40[^\/]+\/src\/(.+)/,
-            ]) {
-                const match = regex.exec(uri);
-                if (match) {
-                    if (getContext(uri) !== context) {
-                        // Skip packages from other contexts
-                        return;
-                    }
-                    const [, name, path] = match;
-                    uri = `mo:${name}/${path}`;
-                    break;
-                }
-            }
             importResolver.update(uri, program);
         });
     }
