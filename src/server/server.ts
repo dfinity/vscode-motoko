@@ -41,6 +41,7 @@ import {
 import * as baseLibrary from 'motoko/packages/latest/base.json';
 import { vesselSources } from './rust';
 // import { mopsSources } from './mops';
+import { getAbsoluteUri } from './utils';
 
 interface Settings {
     motoko: MotokoSettings;
@@ -734,6 +735,23 @@ function notifyWriteUri(uri: string, content: string) {
             } catch (err) {
                 console.error(`Error while parsing (${uri}): ${err}`);
             }
+            // Resolve package import paths
+            for (const regex of [
+                /\.vessel\/([^\/]+)\/[^\/]+\/src\/(.+)/,
+                /\.mops\/([^%\/]+)%40[^\/]+\/src\/(.+)/,
+                /\.mops\/_github\/([^%\/]+)%40[^\/]+\/src\/(.+)/,
+            ]) {
+                const match = regex.exec(uri);
+                if (match) {
+                    if (getContext(uri) !== context) {
+                        // Skip packages from other contexts
+                        return;
+                    }
+                    const [, name, path] = match;
+                    uri = `mo:${name}/${path}`;
+                    break;
+                }
+            }
             importResolver.update(uri, program);
         });
     }
@@ -820,6 +838,28 @@ connection.onCompletion((event) => {
         if (!dot) {
             importResolver.getNameEntries(uri).forEach(([name, path]) => {
                 if (name.startsWith(identStart)) {
+                    const importUri = getAbsoluteUri(uri, path);
+                    const ast = astResolver.request(importUri);
+                    const existingImport = ast?.program?.imports.find(
+                        (i) =>
+                            i.name === name ||
+                            i.fields.some(([, alias]) => alias === name),
+                    );
+                    if (
+                        existingImport &&
+                        getAbsoluteUri(uri, existingImport.path) !== importUri
+                    ) {
+                        // Skip alternatives with already imported name
+                        return;
+                    }
+                    const edits: TextEdit[] = existingImport
+                        ? []
+                        : [
+                              TextEdit.insert(
+                                  Position.create(0, 0),
+                                  `import ${name} "${path}";\n`,
+                              ),
+                          ];
                     list.items.push({
                         label: name,
                         detail: path,
@@ -827,7 +867,7 @@ connection.onCompletion((event) => {
                         kind: path.startsWith('mo:')
                             ? CompletionItemKind.Module
                             : CompletionItemKind.Class, // TODO: resolve actors, classes, etc.
-                        // additionalTextEdits: import
+                        additionalTextEdits: edits,
                     });
                 }
             });

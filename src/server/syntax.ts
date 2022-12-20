@@ -111,7 +111,7 @@ export class Program extends Syntax {
 
 export class Import extends Syntax {
     name: string | undefined;
-    fields: [string, string][] = [];
+    fields: [string, string][] = []; // [name, alias]
     path: string;
 
     constructor(ast: AST, path: string) {

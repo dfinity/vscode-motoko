@@ -1,6 +1,6 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { URI } from 'vscode-uri';
+import { URI, Utils } from 'vscode-uri';
 import * as prettier from 'prettier/standalone';
 import * as motokoPlugin from 'prettier-plugin-motoko';
 
@@ -60,4 +60,8 @@ export function getRelativeUri(from: string, to: string): string {
         return from.substring(from.lastIndexOf('/') + 1);
     }
     return require('url-relative')(from, to);
+}
+
+export function getAbsoluteUri(base: string, path: string): string {
+    return Utils.joinPath(URI.parse(base), path).toString();
 }
