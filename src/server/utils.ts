@@ -63,5 +63,8 @@ export function getRelativeUri(from: string, to: string): string {
 }
 
 export function getAbsoluteUri(base: string, path: string): string {
+    if (/^[a-z]:/i.test(path)) {
+        return path;
+    }
     return Utils.joinPath(URI.parse(base), path).toString();
 }

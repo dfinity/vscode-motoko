@@ -3,6 +3,7 @@ import * as glob from 'fast-glob';
 import { existsSync, readFileSync } from 'fs';
 import { Node } from 'motoko/lib/ast';
 import { keywords } from 'motoko/lib/keywords';
+import * as baseLibrary from 'motoko/packages/latest/base.json';
 import { join, resolve } from 'path';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import {
@@ -10,7 +11,6 @@ import {
     CodeActionKind,
     CompletionItemKind,
     CompletionList,
-    createConnection,
     Diagnostic,
     DiagnosticSeverity,
     FileChangeType,
@@ -21,33 +21,34 @@ import {
     ProposedFeatures,
     SignatureHelp,
     TextDocumentPositionParams,
-    TextDocuments,
     TextDocumentSyncKind,
+    TextDocuments,
     TextEdit,
     WorkspaceFolder,
+    createConnection,
 } from 'vscode-languageserver/node';
 import { URI } from 'vscode-uri';
 import { watchGlob as virtualFilePattern } from '../common/watchConfig';
+import {
+    Context,
+    addContext,
+    allContexts,
+    getContext,
+    resetContexts,
+} from './context';
 import DfxResolver from './dfx';
 import { getAstInformation } from './information';
-import { findNodes, Program } from './syntax';
-import {
-    addContext,
-    getContext,
-    allContexts,
-    resetContexts,
-    Context,
-} from './context';
+import { vesselSources } from './rust';
+import { Program, findNodes } from './syntax';
 import {
     formatMotoko,
     getFileText,
     resolveFilePath,
     resolveVirtualPath,
 } from './utils';
-import * as baseLibrary from 'motoko/packages/latest/base.json';
-import { vesselSources } from './rust';
 // import { mopsSources } from './mops';
 import { getAbsoluteUri } from './utils';
+import { dir } from 'console';
 
 interface Settings {
     motoko: MotokoSettings;
@@ -154,11 +155,13 @@ function notifyPackageConfigChange() {
                     });
                     paths.forEach((path) => {
                         filenames.forEach((filename) => {
-                            const dir = resolve(
-                                path.slice(0, -filename.length),
-                            );
-                            if (!directories.includes(dir)) {
-                                directories.push(dir);
+                            if (path.endsWith(filename)) {
+                                const dir = resolve(
+                                    path.slice(0, -filename.length),
+                                );
+                                if (!directories.includes(dir)) {
+                                    directories.push(dir);
+                                }
                             }
                         });
                     });
@@ -323,8 +326,8 @@ function notifyDfxChange() {
 }
 
 // TODO: refactor
-function findNewImportPosition(uri: string, context: Context) {
-    const imports = context.astResolver.request(uri)?.program?.imports;
+function findNewImportPosition(uri: string, context: Context): Position {
+    const imports = context.astResolver.request(uri, true)?.program?.imports;
     if (imports?.length) {
         const lastImport = imports[imports.length - 1];
         const end = (lastImport.ast as Node)?.end;
@@ -849,29 +852,23 @@ connection.onCompletion((event) => {
                 .getNameEntries(uri)
                 .forEach(([name, path]) => {
                     if (name.startsWith(identStart)) {
-                        const importUri = getAbsoluteUri(uri, path);
-                        const ast = context.astResolver.request(importUri);
-                        const existingImport = ast?.program?.imports.find(
+                        // const importUri = getAbsoluteUri(uri, path);
+                        const status = context.astResolver.request(uri, true);
+                        const existingImport = status?.program?.imports.find(
                             (i) =>
                                 i.name === name ||
                                 i.fields.some(([, alias]) => alias === name),
                         );
-                        if (
-                            existingImport &&
-                            getAbsoluteUri(uri, existingImport.path) !==
-                                importUri
-                        ) {
+                        if (existingImport || !status?.program) {
                             // Skip alternatives with already imported name
                             return;
                         }
-                        const edits: TextEdit[] = existingImport
-                            ? []
-                            : [
-                                  TextEdit.insert(
-                                      findNewImportPosition(uri, context),
-                                      `import ${name} "${path}";\n`,
-                                  ),
-                              ];
+                        const edits: TextEdit[] = [
+                            TextEdit.insert(
+                                findNewImportPosition(uri, context),
+                                `import ${name} "${path}";\n`,
+                            ),
+                        ];
                         list.items.push({
                             label: name,
                             detail: path,
