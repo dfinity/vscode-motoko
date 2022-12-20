@@ -135,8 +135,10 @@ async function getPackageSources(
 }
 
 let packageConfigChangeTimeout: ReturnType<typeof setTimeout>;
+let loadingPackages = false;
 function notifyPackageConfigChange() {
     clearTimeout(packageConfigChangeTimeout);
+    loadingPackages = true;
     setTimeout(async () => {
         try {
             resetContexts();
@@ -217,9 +219,11 @@ function notifyPackageConfigChange() {
                 },
             );
 
+            loadingPackages = false;
             notifyWorkspace(); // Update virtual file system
             notifyDfxChange(); // Reload dfx.json
         } catch (err) {
+            loadingPackages = false;
             console.error(`Error while loading packages: ${err}`);
         }
     }, 1000);
@@ -513,6 +517,9 @@ function processQueue() {
     }, 0);
 }
 function scheduleCheck(uri: string | TextDocument) {
+    if (loadingPackages) {
+        return;
+    }
     if (checkQueue.length === 0) {
         processQueue();
     }
