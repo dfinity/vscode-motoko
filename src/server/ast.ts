@@ -88,25 +88,17 @@ export default class AstResolver {
         }
     }
 
-    request(uri: string, allowOudated = false): AstStatus | undefined {
+    request(uri: string): AstStatus | undefined {
         const status = this._cache.get(uri);
-        if (
-            (!status || status.outdated) &&
-            !this.update(uri, false) &&
-            !allowOudated
-        ) {
+        if ((!status || status.outdated) && !this.update(uri, false)) {
             return;
         }
         return this._cache.get(uri);
     }
 
-    requestTyped(uri: string, allowOudated = false): AstStatus | undefined {
+    requestTyped(uri: string): AstStatus | undefined {
         const status = this._typedCache.get(uri);
-        if (
-            (!status || status.outdated) &&
-            !this.update(uri, true) &&
-            !allowOudated
-        ) {
+        if ((!status || status.outdated) && !this.update(uri, true)) {
             return;
         }
         return this._typedCache.get(uri);

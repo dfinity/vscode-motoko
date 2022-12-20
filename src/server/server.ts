@@ -327,7 +327,7 @@ function notifyDfxChange() {
 
 // TODO: refactor
 function findNewImportPosition(uri: string, context: Context): Position {
-    const imports = context.astResolver.request(uri, true)?.program?.imports;
+    const imports = context.astResolver.request(uri)?.program?.imports;
     if (imports?.length) {
         const lastImport = imports[imports.length - 1];
         const end = (lastImport.ast as Node)?.end;
@@ -853,7 +853,7 @@ connection.onCompletion((event) => {
                 .forEach(([name, path]) => {
                     if (name.startsWith(identStart)) {
                         // const importUri = getAbsoluteUri(uri, path);
-                        const status = context.astResolver.request(uri, true);
+                        const status = context.astResolver.request(uri);
                         const existingImport = status?.program?.imports.find(
                             (i) =>
                                 i.name === name ||
