@@ -31,7 +31,13 @@ import { watchGlob as virtualFilePattern } from '../common/watchConfig';
 import DfxResolver from './dfx';
 import { getAstInformation } from './information';
 import { findNodes, Program } from './syntax';
-import { addContext, getContext, allContexts, resetContexts } from './context';
+import {
+    addContext,
+    getContext,
+    allContexts,
+    resetContexts,
+    Context,
+} from './context';
 import {
     formatMotoko,
     getFileText,
@@ -310,6 +316,19 @@ function notifyDfxChange() {
 
         checkWorkspace();
     }, 1000);
+}
+
+// TODO: refactor
+function findNewImportPosition(uri: string, context: Context) {
+    const imports = context.astResolver.request(uri)?.program?.imports;
+    if (imports?.length) {
+        const lastImport = imports[imports.length - 1];
+        const end = (lastImport.ast as Node)?.end;
+        if (end) {
+            return Position.create(end[0], 0);
+        }
+    }
+    return Position.create(0, 0);
 }
 
 // Create a connection for the language server
@@ -769,8 +788,8 @@ connection.onCodeAction((event) => {
             diagnostic.message,
         )?.[1];
         if (name) {
-            const { importResolver } = getContext(uri);
-            importResolver.getImportPaths(name, uri).forEach((path) => {
+            const context = getContext(uri);
+            context.importResolver.getImportPaths(name, uri).forEach((path) => {
                 // Add import suggestion
                 results.push({
                     kind: CodeActionKind.QuickFix,
@@ -780,7 +799,7 @@ connection.onCodeAction((event) => {
                         changes: {
                             [uri]: [
                                 TextEdit.insert(
-                                    Position.create(0, 0),
+                                    findNewImportPosition(uri, context),
                                     `import ${name} "${path}";\n`,
                                 ),
                             ],
@@ -811,49 +830,52 @@ connection.onCompletion((event) => {
     try {
         const text = getFileText(uri);
         const lines = text.split(/\r?\n/g);
-        const { astResolver, importResolver } = getContext(uri);
-        const program = astResolver.request(uri)?.program;
+        const context = getContext(uri);
+        const program = context.astResolver.request(uri)?.program;
 
         const [dot, identStart] = /(\s*\.\s*)?([a-zA-Z_]?[a-zA-Z0-9_]*)$/
             .exec(lines[position.line].substring(0, position.character))
             ?.slice(1) ?? ['', ''];
 
         if (!dot) {
-            importResolver.getNameEntries(uri).forEach(([name, path]) => {
-                if (name.startsWith(identStart)) {
-                    const importUri = getAbsoluteUri(uri, path);
-                    const ast = astResolver.request(importUri);
-                    const existingImport = ast?.program?.imports.find(
-                        (i) =>
-                            i.name === name ||
-                            i.fields.some(([, alias]) => alias === name),
-                    );
-                    if (
-                        existingImport &&
-                        getAbsoluteUri(uri, existingImport.path) !== importUri
-                    ) {
-                        // Skip alternatives with already imported name
-                        return;
+            context.importResolver
+                .getNameEntries(uri)
+                .forEach(([name, path]) => {
+                    if (name.startsWith(identStart)) {
+                        const importUri = getAbsoluteUri(uri, path);
+                        const ast = context.astResolver.request(importUri);
+                        const existingImport = ast?.program?.imports.find(
+                            (i) =>
+                                i.name === name ||
+                                i.fields.some(([, alias]) => alias === name),
+                        );
+                        if (
+                            existingImport &&
+                            getAbsoluteUri(uri, existingImport.path) !==
+                                importUri
+                        ) {
+                            // Skip alternatives with already imported name
+                            return;
+                        }
+                        const edits: TextEdit[] = existingImport
+                            ? []
+                            : [
+                                  TextEdit.insert(
+                                      findNewImportPosition(uri, context),
+                                      `import ${name} "${path}";\n`,
+                                  ),
+                              ];
+                        list.items.push({
+                            label: name,
+                            detail: path,
+                            insertText: name,
+                            kind: path.startsWith('mo:')
+                                ? CompletionItemKind.Module
+                                : CompletionItemKind.Class, // TODO: resolve actors, classes, etc.
+                            additionalTextEdits: edits,
+                        });
                     }
-                    const edits: TextEdit[] = existingImport
-                        ? []
-                        : [
-                              TextEdit.insert(
-                                  Position.create(0, 0),
-                                  `import ${name} "${path}";\n`,
-                              ),
-                          ];
-                    list.items.push({
-                        label: name,
-                        detail: path,
-                        insertText: name,
-                        kind: path.startsWith('mo:')
-                            ? CompletionItemKind.Module
-                            : CompletionItemKind.Class, // TODO: resolve actors, classes, etc.
-                        additionalTextEdits: edits,
-                    });
-                }
-            });
+                });
 
             if (identStart) {
                 keywords.forEach((keyword) => {
