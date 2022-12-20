@@ -46,9 +46,6 @@ import {
     resolveFilePath,
     resolveVirtualPath,
 } from './utils';
-// import { mopsSources } from './mops';
-import { getAbsoluteUri } from './utils';
-import { dir } from 'console';
 
 interface Settings {
     motoko: MotokoSettings;
