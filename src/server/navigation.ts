@@ -119,6 +119,15 @@ function findNameInPattern(search: Search, pat: Node): Node | undefined {
                 }
             }
         }) ||
+        matchNode(pat, 'TupP', (...args) => {
+            for (const field of args) {
+                const result = findNameInPattern(search, field);
+                if (result) {
+                    return result;
+                }
+            }
+            return;
+        }) ||
         matchNode(pat, 'VarP', (name: string) =>
             name === search.name ? pat : undefined,
         )
