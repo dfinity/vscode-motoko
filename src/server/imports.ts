@@ -1,9 +1,9 @@
-import { MultiMap } from 'mnemonist';
-import { getRelativeUri } from './utils';
-import { matchNode, Program } from './syntax';
-import { Node, AST } from 'motoko/lib/ast';
 import { pascalCase } from 'change-case';
+import { MultiMap } from 'mnemonist';
+import { AST, Node } from 'motoko/lib/ast';
 import { Context, getContext } from './context';
+import { Program, matchNode } from './syntax';
+import { getRelativeUri } from './utils';
 
 interface ResolvedField {
     name: string;
@@ -14,10 +14,12 @@ interface ResolvedField {
 export default class ImportResolver {
     public readonly context: Context;
 
-    // (module name -> uri)
+    // module name -> uri
     private readonly _moduleNameUriMap = new MultiMap<string, string>(Set);
-    // (uri -> resolved field)
+    // uri -> resolved field
     private readonly _fieldMap = new MultiMap<string, ResolvedField>(Set);
+    // import path -> file system uri
+    private readonly _fileSystemMap = new Map<string, string>();
 
     constructor(context: Context) {
         this.context = context;
@@ -34,6 +36,7 @@ export default class ImportResolver {
         }
         const [name, importUri] = info;
         this._moduleNameUriMap.set(name, importUri);
+        this._fileSystemMap.set(importUri, uri);
         if (program?.export) {
             // Resolve field names
             const { ast } = program.export;
@@ -137,6 +140,17 @@ export default class ImportResolver {
     getFields(uri: string): ResolvedField[] {
         const fields = this._fieldMap.get(uri);
         return fields ? [...fields] : [];
+    }
+
+    /**
+     * Converts a resolved import path into the corresponding file system URI.
+     * @param uri Absolute file import URI (e.g. `mo:package/File`, `canister:alias`, `file:///Lib`)
+     */
+    getFileSystemURI(path: string): string | undefined {
+        return (
+            this._fileSystemMap.get(path) ||
+            this._fileSystemMap.get(`${path}/lib`)
+        );
     }
 }
 
