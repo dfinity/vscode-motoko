@@ -15,6 +15,11 @@ interface Definition {
     body: Node;
 }
 
+interface Reference {
+    type: 'variable' | 'type';
+    name: string;
+}
+
 export function findMostSpecificNodeForPosition(
     ast: AST,
     position: Position,
@@ -114,15 +119,6 @@ function findVariableInPattern(expected: string, pat: Node): Node | undefined {
     );
 }
 
-type Reference = {
-    type: 'variable' | 'type';
-    name: string;
-};
-// | {
-//       type: 'import';
-//       path: string;
-//   }
-
 const nodePriorities: Record<string, number> = {
     DotE: 2,
     VarE: 1,
@@ -154,7 +150,7 @@ export function findDefinition(
         return;
     }
     // console.log('NODE:', node); ////
-    const path = resolveReferencePath(node);
+    const path = resolveReferences(node);
     if (!path.length) {
         console.log('Reference not found from AST node:', node.name);
         return;
@@ -171,14 +167,14 @@ export function findDefinition(
     return Location.create(definition.uri, rangeFromNode(definition.cursor)!);
 }
 
-function resolveReferencePath(node: Node): Reference[] {
+function resolveReferences(node: Node): Reference[] {
     return (
         // matchNode(source.node, 'ImportE', (path) => ({
         //     type: 'import',
         //     path,
         // })) ||
-        matchNode(node, 'DotE', (obj: Node, name: string) => [
-            ...resolveReferencePath(obj),
+        matchNode(node, 'DotE', (qual: Node, name: string) => [
+            ...resolveReferences(qual),
             {
                 type: 'variable',
                 name,
@@ -190,14 +186,46 @@ function resolveReferencePath(node: Node): Reference[] {
                 name,
             },
         ]) ||
-        matchNode(node, 'PathT', (path: string) =>
-            matchNode(path, 'IdH', (name) => [
+        matchNode(node, 'PathT', (path: Node) =>
+            resolveTypePathReferences(path),
+        ) ||
+        []
+    );
+}
+
+function resolveTypePathReferences(node: Node): Reference[] {
+    function resolveTypeQualifierReferences(node: Node): Reference[] {
+        return (
+            matchNode(node, 'IdH', (name) => [
+                {
+                    type: 'variable',
+                    name,
+                },
+            ]) ||
+            matchNode(node, 'DotH', (qual: Node, name: string) => [
+                ...resolveTypePathReferences(qual),
                 {
                     type: 'type',
                     name,
                 },
-            ]),
-        ) ||
+            ]) ||
+            []
+        );
+    }
+    return (
+        matchNode(node, 'IdH', (name) => [
+            {
+                type: 'type',
+                name,
+            },
+        ]) ||
+        matchNode(node, 'DotH', (qual: Node, name: string) => [
+            ...resolveTypeQualifierReferences(qual),
+            {
+                type: 'type',
+                name,
+            },
+        ]) ||
         []
     );
 }
@@ -369,15 +397,58 @@ function searchObjectDefinition(
                         },
                     );
             } else if (reference.type === 'type') {
-                definition = matchNode(arg, 'TypD', (name: string, typ: Node) =>
-                    name === reference.name
-                        ? {
-                              uri: source.uri,
-                              cursor: typ, // TODO: source location from `name`
-                              body: typ,
-                          }
-                        : undefined,
-                );
+                definition =
+                    matchNode(arg, 'TypD', (name: string, typ: Node) =>
+                        name === reference.name
+                            ? {
+                                  uri: source.uri,
+                                  cursor: typ, // TODO: source location from `name`
+                                  body: typ,
+                              }
+                            : undefined,
+                    ) ||
+                    matchNode(arg, 'DecField', (dec: Node) =>
+                        // TODO: DRY
+                        matchNode(dec, 'TypD', (name: string, typ: Node) =>
+                            name === reference.name
+                                ? {
+                                      uri: source.uri,
+                                      cursor: typ, // TODO: source location from `name`
+                                      body: typ,
+                                  }
+                                : undefined,
+                        ),
+                    ) ||
+                    matchNode(
+                        arg,
+                        'ObjBlockE',
+                        (_sort: string, ...fields: Node[]) => {
+                            for (const field of fields) {
+                                const definition = matchNode(
+                                    field,
+                                    'DecField',
+                                    (dec: Node) =>
+                                        // TODO: DRY
+                                        matchNode(
+                                            dec,
+                                            'TypD',
+                                            (name: string, typ: Node) =>
+                                                name === reference.name
+                                                    ? {
+                                                          uri: source.uri,
+                                                          cursor: typ, // TODO: source location from `name`
+                                                          body: typ,
+                                                      }
+                                                    : undefined,
+                                        ),
+                                );
+                                if (definition) {
+                                    return definition;
+                                }
+                            }
+                            return;
+                        },
+                    );
             }
             if (definition) {
                 return definition;
