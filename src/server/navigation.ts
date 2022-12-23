@@ -104,10 +104,23 @@ function locationFromDefinition(definition: Definition) {
 }
 
 function findNameInPattern(search: Search, pat: Node): Node | undefined {
+    const matchAny = (...args: Node[]) => {
+        for (const field of args) {
+            const result = findNameInPattern(search, field);
+            if (result) {
+                return result;
+            }
+        }
+        return;
+    };
+    const match = (arg: Node) => findNameInPattern(search, arg);
     return (
-        matchNode(pat, 'ObjP', (...args) => {
+        matchNode(pat, 'VarP', (name: string) =>
+            name === search.name ? pat : undefined,
+        ) ||
+        matchNode(pat, 'ObjP', (...args: Node[]) => {
             for (const field of args) {
-                const aliasNode = field.args[0];
+                const aliasNode = field.args![0] as Node;
                 const alias = matchNode(
                     aliasNode,
                     'VarP',
@@ -118,19 +131,14 @@ function findNameInPattern(search: Search, pat: Node): Node | undefined {
                     return aliasNode || field;
                 }
             }
-        }) ||
-        matchNode(pat, 'TupP', (...args) => {
-            for (const field of args) {
-                const result = findNameInPattern(search, field);
-                if (result) {
-                    return result;
-                }
-            }
             return;
         }) ||
-        matchNode(pat, 'VarP', (name: string) =>
-            name === search.name ? pat : undefined,
-        )
+        matchNode(pat, 'TupP', matchAny) ||
+        matchNode(pat, 'AltP', matchAny) ||
+        matchNode(pat, 'AnnotP', match) ||
+        matchNode(pat, 'ParP', match) ||
+        matchNode(pat, 'OptP', match) ||
+        matchNode(pat, 'TagP', (_tag, arg: Node) => match(arg))
     );
 }
 
@@ -456,6 +464,16 @@ function searchObject(
                             return;
                         },
                     );
+                if (!definition) {
+                    const pat = findNameInPattern(search, arg); // Function parameters
+                    if (pat) {
+                        definition = {
+                            uri: reference.uri,
+                            cursor: pat,
+                            body: pat,
+                        };
+                    }
+                }
             } else if (search.type === 'type') {
                 definition =
                     searchTypeBinding(reference, search, arg) ||
