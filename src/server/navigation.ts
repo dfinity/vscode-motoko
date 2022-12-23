@@ -330,15 +330,15 @@ function search(
     }
     // Follow subsequent parts of the qualified path
     for (let i = 1; definition && i < path.length; i++) {
-        console.log('NEXT:', definition.cursor.name, definition.body.name);
+        // console.log('NEXT:', definition.cursor.name, definition.body.name);
         const next = path[i];
         const nextSource = { uri: definition.uri, node: definition.body };
         definition = searchObject(nextSource, next);
-        if (definition) {
-            console.log('FOUND:', next, definition.uri);
-        } else {
-            console.log('LOST:', next, nextSource);
-        }
+        // if (definition) {
+        //     console.log('FOUND:', next, definition.uri);
+        // } else {
+        //     console.log('LOST:', next, nextSource);
+        // }
     }
     return definition;
 }
@@ -412,7 +412,6 @@ function searchObject(
     const scope = reference.node;
     if (scope?.args) {
         for (const arg of scope.args) {
-            console.log('ARG:', search.name, scope.name, arg); ////
             if (!arg || typeof arg !== 'object' || Array.isArray(arg)) {
                 // Skip everything except `Node` values
                 continue;
