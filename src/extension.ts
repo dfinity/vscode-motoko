@@ -1,12 +1,15 @@
 import * as fs from 'fs';
+import { Package } from 'motoko/lib/package';
+import * as baseLibrary from 'motoko/packages/latest/base.json';
 import * as path from 'path';
 import {
-    commands,
     ExtensionContext,
     FormattingOptions,
-    languages,
     TextDocument,
     TextEdit,
+    Uri,
+    commands,
+    languages,
     window,
     workspace,
 } from 'vscode';
@@ -37,6 +40,19 @@ export function activate(context: ExtensionContext) {
                 options: FormattingOptions,
             ): TextEdit[] {
                 return formatDocument(document, context, options);
+            },
+        }),
+    );
+    // Virtual base library URIs
+    context.subscriptions.push(
+        workspace.registerTextDocumentContentProvider('mo', {
+            provideTextDocumentContent(uri: Uri) {
+                const prefix = 'base/';
+                if (!uri.path.startsWith(prefix)) {
+                    return;
+                }
+                const path = uri.path.substring(prefix.length);
+                return (baseLibrary as Package).files[path]?.content ?? null;
             },
         }),
     );
