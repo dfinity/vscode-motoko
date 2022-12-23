@@ -161,7 +161,6 @@ export function findDefinition(
     if (importDefinition) {
         return locationFromDefinition(importDefinition);
     }
-    // console.log('NODE:', node); ////
     const path = getSearchPath(node);
     if (!path.length) {
         console.log('Reference not found from AST node:', node.name);
@@ -264,11 +263,10 @@ function followImport(
         const uri = context.importResolver.getFileSystemURI(
             path.includes(':')
                 ? path
-                : // : getAbsoluteUri(reference.uri, '..', `${path}.mo`); // TODO: `lib.mo`
-                  getAbsoluteUri(reference.uri, '..', path),
+                : getAbsoluteUri(reference.uri, '..', path),
         );
         if (!uri) {
-            console.log('Unknown file system URI:', uri);
+            console.log('Unknown file system URI for path:', path);
             return;
         }
         const status = context.astResolver.request(uri);
