@@ -1,10 +1,10 @@
 import { AST, Node, Span } from 'motoko/lib/ast';
 import { Location, Position, Range } from 'vscode-languageserver';
 import { Context, getContext } from './context';
-import { findNodes, matchNode } from './syntax';
+import { findNodes, matchNode, asNode } from './syntax';
 import { getAbsoluteUri } from './utils';
 
-export interface Source {
+interface Reference {
     uri: string;
     node: Node;
 }
@@ -15,7 +15,7 @@ interface Definition {
     body: Node;
 }
 
-interface Reference {
+interface Search {
     type: 'variable' | 'type';
     name: string;
 }
@@ -90,39 +90,47 @@ export function rangeFromNode(
     };
 }
 
-function findVariableInPattern(expected: string, pat: Node): Node | undefined {
+function locationFromDefinition(definition: Definition) {
+    const range = rangeFromNode(definition.cursor);
+    if (!range) {
+        throw new Error(`Missing range for definition in ${definition.uri}`);
+    }
+    const location = Location.create(definition.uri, range);
+    if (location && location.range.end.line > location.range.start.line) {
+        // Remove highlight for multi-line definitions
+        location.range.end = location.range.start;
+    }
+    return location;
+}
+
+function findNameInPattern(search: Search, pat: Node): Node | undefined {
     return (
         matchNode(pat, 'ObjP', (...args) => {
-            return args.map((field: Node & { args: [Node] }) => {
-                const name = field.name;
+            for (const field of args) {
+                const aliasNode = field.args[0];
                 const alias = matchNode(
-                    field.args[0],
+                    aliasNode,
                     'VarP',
                     (alias) => alias,
-                    name,
+                    field.name,
                 );
-                if (alias === expected) {
-                    return field.args[0];
+                if (alias === search.name) {
+                    return aliasNode || field;
                 }
-                if (!alias && name === expected) {
-                    return field;
-                }
-                return;
-            });
-        }) ||
-        matchNode(pat, 'VarP', (name) => {
-            if (name === expected) {
-                return pat;
             }
-            return;
-        })
+        }) ||
+        matchNode(pat, 'VarP', (name: string) =>
+            name === search.name ? pat : undefined,
+        )
     );
 }
 
 const nodePriorities: Record<string, number> = {
-    DotE: 2,
-    VarE: 1,
-    PathT: 1,
+    DotE: 3, // qulified variable
+    VarE: 2, // variable
+    PathT: 2, // type reference
+    ImportE: 1, // module import
+    VarP: 2, // field import
 };
 
 export function findDefinition(
@@ -149,13 +157,18 @@ export function findDefinition(
     if (!node) {
         return;
     }
+    const reference = { uri, node };
+    const importDefinition = followImport(context, reference);
+    if (importDefinition) {
+        return locationFromDefinition(importDefinition);
+    }
     // console.log('NODE:', node); ////
-    const path = resolveReferences(node);
+    const path = getSearchPath(node);
     if (!path.length) {
         console.log('Reference not found from AST node:', node.name);
         return;
     }
-    const definition = searchPath(context, { uri, node }, path);
+    const definition = search(context, reference, path);
     if (!definition) {
         console.log(
             'Definition not found for reference path:',
@@ -164,17 +177,17 @@ export function findDefinition(
         );
         return;
     }
-    return Location.create(definition.uri, rangeFromNode(definition.cursor)!);
+    return locationFromDefinition(definition);
 }
 
-function resolveReferences(node: Node): Reference[] {
+function getSearchPath(node: Node): Search[] {
     return (
         // matchNode(source.node, 'ImportE', (path) => ({
         //     type: 'import',
         //     path,
         // })) ||
         matchNode(node, 'DotE', (qual: Node, name: string) => [
-            ...resolveReferences(qual),
+            ...getSearchPath(qual),
             {
                 type: 'variable',
                 name,
@@ -186,15 +199,13 @@ function resolveReferences(node: Node): Reference[] {
                 name,
             },
         ]) ||
-        matchNode(node, 'PathT', (path: Node) =>
-            resolveTypePathReferences(path),
-        ) ||
+        matchNode(node, 'PathT', (path: Node) => getTypeSearchPath(path)) ||
         []
     );
 }
 
-function resolveTypePathReferences(node: Node): Reference[] {
-    function resolveTypeQualifierReferences(node: Node): Reference[] {
+function getTypeSearchPath(node: Node): Search[] {
+    function getQualifierSearchPath(node: Node): Search[] {
         return (
             matchNode(node, 'IdH', (name) => [
                 {
@@ -203,7 +214,7 @@ function resolveTypePathReferences(node: Node): Reference[] {
                 },
             ]) ||
             matchNode(node, 'DotH', (qual: Node, name: string) => [
-                ...resolveTypePathReferences(qual),
+                ...getTypeSearchPath(qual),
                 {
                     type: 'type',
                     name,
@@ -220,7 +231,7 @@ function resolveTypePathReferences(node: Node): Reference[] {
             },
         ]) ||
         matchNode(node, 'DotH', (qual: Node, name: string) => [
-            ...resolveTypeQualifierReferences(qual),
+            ...getQualifierSearchPath(qual),
             {
                 type: 'type',
                 name,
@@ -230,106 +241,35 @@ function resolveTypePathReferences(node: Node): Reference[] {
     );
 }
 
-function searchPath(
+function followImport(
     context: Context,
-    source: Source,
-    path: Reference[],
-): Definition | undefined {
-    if (!path.length) {
-        return;
-    }
-    const [first] = path;
-    // Search for the first reference in the local scope
-    let definition = searchScopeDefinition(source, first);
-    const importDefinition = searchImport(
-        context,
-        definition
-            ? // Follow a resolved import
-              {
-                  uri: definition.uri,
-                  node: definition.body,
-              }
-            : // Follow an import under the cursor (TODO: finish implementation)
-              matchNode(source.node, 'LetD', (_pat: Node, value: Node) => ({
-                  uri: source.uri,
-                  node: value,
-              })) || source,
-    );
-    if (importDefinition) {
-        definition = importDefinition;
-    }
-    // Follow subsequent parts of the qualified path
-    for (let i = 1; definition && i < path.length; i++) {
-        console.log('NEXT:', definition.cursor.name, definition.body.name);
-        const next = path[i];
-        const nextSource = { uri: definition.uri, node: definition.body };
-        definition = searchObjectDefinition(nextSource, next);
-        if (definition) {
-            console.log('FOUND:', next, definition.uri);
-        } else {
-            console.log('LOST:', next, nextSource);
-        }
-    }
-    return definition;
-}
-
-function searchScopeDefinition(
-    source: Source,
     reference: Reference,
 ): Definition | undefined {
-    let scope: Node | undefined = source.node.parent;
-    while (scope) {
-        const definition = searchObjectDefinition(
-            { uri: source.uri, node: scope },
-            reference,
-        );
-        if (definition) {
-            return definition;
-        }
-        scope = scope.parent;
+    let importNode: Node | undefined = reference.node;
+    while (
+        importNode &&
+        importNode.name !== 'ImportE' &&
+        importNode.name !== 'LetD'
+    ) {
+        importNode = importNode.parent;
     }
-    return;
-}
-
-function searchLetD(
-    source: Source,
-    reference: Reference,
-    dec: Node,
-): Definition | undefined {
-    return matchNode(dec, 'LetD', (pat: Node, body: Node) => {
-        // matchNode(exp, 'ImportE', (path) => {
-        //     const import_ = new Import(exp, path);
-        //     // Variable pattern name
-        //     import_.name = matchNode(pat, 'VarP', (name) => name);
-        //     // Object pattern fields
-        //     import_.fields =
-        //     prog.imports.push(import_);
-        // });
-        const varNode = findVariableInPattern(reference.name, pat);
-        if (varNode) {
-            return {
-                uri: source.uri,
-                cursor: varNode,
-                body,
-            };
-        }
-        return;
+    matchNode(importNode, 'LetD', (_pat, exp) => {
+        // Follow let declaration
+        importNode = exp;
     });
-}
-
-function searchImport(
-    context: Context,
-    source: Source,
-): Definition | undefined {
-    // console.log('IMPORT SOURCE:', source); /////////
-
-    return matchNode(source.node, 'ImportE', (path: string) => {
+    if (!importNode || importNode.name !== 'ImportE') {
+        return;
+    }
+    const field = matchNode(reference.node.parent?.parent, 'ObjP', () =>
+        matchNode(reference.node, 'VarP', (name: string) => name),
+    );
+    return matchNode(importNode, 'ImportE', (path: string) => {
         // Follow a module import
-        console.log('FOUND PATH:::', path); /////
+        console.log('FOUND PATH:', path); /////
 
         const uri = path.includes(':')
             ? path
-            : getAbsoluteUri(source.uri, '..', `${path}.mo`); // TODO: `lib.mo`
+            : getAbsoluteUri(reference.uri, '..', `${path}.mo`); // TODO: `lib.mo`
         const status = context.astResolver.request(uri);
         if (!status?.program?.export?.ast) {
             console.warn('Missing export for', uri);
@@ -339,44 +279,154 @@ function searchImport(
             console.log('Outdated AST for', uri);
             return;
         }
-        return {
+        const exportNode = asNode(status.program.export.ast);
+        if (!exportNode) {
+            console.log('Unexpected export AST for', uri);
+            console.log('AST:', status.program.export.ast);
+            return;
+        }
+        const declaration = {
             uri,
-            cursor: status.program.export.ast as Node,
-            body: status.program.export.ast as Node,
+            cursor: exportNode,
+            body: exportNode,
         };
+        console.log('FIELD:', field); ///
+        if (field) {
+            return searchObject(
+                { uri: declaration.uri, node: declaration.body },
+                { type: 'variable', name: field },
+            ); // || declaration
+        }
+        return declaration;
     });
 }
 
-function searchObjectDefinition(
-    source: Source,
+function search(
+    context: Context,
     reference: Reference,
+    path: Search[],
 ): Definition | undefined {
-    const scope = source.node;
+    if (!path.length) {
+        return;
+    }
+    const [base] = path;
+    // Search for the base reference in the local scope
+    let definition = searchInScope(reference, base);
+    if (definition) {
+        // Follow an import
+        definition =
+            followImport(context, {
+                uri: definition.uri,
+                node: definition.body,
+            }) || definition;
+    }
+    // Follow subsequent parts of the qualified path
+    for (let i = 1; definition && i < path.length; i++) {
+        console.log('NEXT:', definition.cursor.name, definition.body.name);
+        const next = path[i];
+        const nextSource = { uri: definition.uri, node: definition.body };
+        definition = searchObject(nextSource, next);
+        if (definition) {
+            console.log('FOUND:', next, definition.uri);
+        } else {
+            console.log('LOST:', next, nextSource);
+        }
+    }
+    return definition;
+}
+
+function searchInScope(
+    reference: Reference,
+    search: Search,
+): Definition | undefined {
+    let scope: Node | undefined = reference.node.parent;
+    while (scope) {
+        const definition = searchObject(
+            { uri: reference.uri, node: scope },
+            search,
+        );
+        if (definition) {
+            return definition;
+        }
+        scope = scope.parent;
+    }
+    return;
+}
+
+function searchVariableBinding(
+    reference: Reference,
+    search: Search,
+    dec: Node,
+): Definition | undefined {
+    return (
+        matchNode(dec, 'LetD', (pat: Node, body: Node) => {
+            const varNode = findNameInPattern(search, pat);
+            console.log('VAR NODE:', varNode); //////
+            return (
+                varNode && {
+                    uri: reference.uri,
+                    cursor: varNode,
+                    body,
+                }
+            );
+        }) ||
+        matchNode(dec, 'VarD', (name: string, body: Node) =>
+            name === search.name
+                ? {
+                      uri: reference.uri,
+                      cursor: dec, // TODO: cursor on variable name
+                      body,
+                  }
+                : undefined,
+        )
+    );
+}
+
+function searchTypeBinding(
+    reference: Reference,
+    search: Search,
+    dec: Node,
+): Definition | undefined {
+    return matchNode(dec, 'TypD', (name: string, typ: Node) =>
+        name === search.name
+            ? {
+                  uri: reference.uri,
+                  cursor: typ, // TODO: source location from `name`
+                  body: typ,
+              }
+            : undefined,
+    );
+}
+
+function searchObject(
+    reference: Reference,
+    search: Search,
+): Definition | undefined {
+    const scope = reference.node;
     if (scope?.args) {
         for (const arg of scope.args) {
-            console.log('ARG:', reference.name, scope.name, arg); ////
+            console.log('ARG:', search.name, scope.name, arg); ////
             if (!arg || typeof arg !== 'object' || Array.isArray(arg)) {
                 // Skip everything except `Node` values
                 continue;
             }
-            console.log('Searching:', reference.name, scope.name, arg.name); ////
+            console.log('Searching:', search.name, scope.name, arg.name); ////
             let definition: Definition | undefined;
-            if (reference.type === 'variable') {
+            if (search.type === 'variable') {
                 definition =
-                    // TODO: recursive instead of `searchLetD()`
-                    searchLetD(source, reference, arg) ||
+                    searchVariableBinding(reference, search, arg) ||
                     matchNode(
                         arg,
                         'ExpField',
                         (_mut, name, body) =>
-                            name === reference.name && {
-                                uri: source.uri,
+                            name === search.name && {
+                                uri: reference.uri,
                                 cursor: arg,
                                 body,
                             },
                     ) ||
                     matchNode(arg, 'DecField', (dec: Node) =>
-                        searchLetD(source, reference, dec),
+                        searchVariableBinding(reference, search, dec),
                     ) ||
                     matchNode(
                         arg,
@@ -387,7 +437,11 @@ function searchObjectDefinition(
                                     field,
                                     'DecField',
                                     (dec: Node) =>
-                                        searchLetD(source, reference, dec),
+                                        searchVariableBinding(
+                                            reference,
+                                            search,
+                                            dec,
+                                        ),
                                 );
                                 if (definition) {
                                     return definition;
@@ -396,28 +450,11 @@ function searchObjectDefinition(
                             return;
                         },
                     );
-            } else if (reference.type === 'type') {
+            } else if (search.type === 'type') {
                 definition =
-                    matchNode(arg, 'TypD', (name: string, typ: Node) =>
-                        name === reference.name
-                            ? {
-                                  uri: source.uri,
-                                  cursor: typ, // TODO: source location from `name`
-                                  body: typ,
-                              }
-                            : undefined,
-                    ) ||
+                    searchTypeBinding(reference, search, arg) ||
                     matchNode(arg, 'DecField', (dec: Node) =>
-                        // TODO: DRY
-                        matchNode(dec, 'TypD', (name: string, typ: Node) =>
-                            name === reference.name
-                                ? {
-                                      uri: source.uri,
-                                      cursor: typ, // TODO: source location from `name`
-                                      body: typ,
-                                  }
-                                : undefined,
-                        ),
+                        searchTypeBinding(reference, search, dec),
                     ) ||
                     matchNode(
                         arg,
@@ -428,18 +465,10 @@ function searchObjectDefinition(
                                     field,
                                     'DecField',
                                     (dec: Node) =>
-                                        // TODO: DRY
-                                        matchNode(
+                                        searchTypeBinding(
+                                            reference,
+                                            search,
                                             dec,
-                                            'TypD',
-                                            (name: string, typ: Node) =>
-                                                name === reference.name
-                                                    ? {
-                                                          uri: source.uri,
-                                                          cursor: typ, // TODO: source location from `name`
-                                                          body: typ,
-                                                      }
-                                                    : undefined,
                                         ),
                                 );
                                 if (definition) {

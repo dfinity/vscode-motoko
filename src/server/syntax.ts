@@ -88,8 +88,14 @@ export function fromAST(ast: AST): Syntax {
     }
 }
 
+export function asNode(ast: AST | undefined): Node | undefined {
+    return ast && typeof ast === 'object' && !Array.isArray(ast)
+        ? ast
+        : undefined;
+}
+
 export function matchNode<T>(
-    ast: AST,
+    ast: AST | undefined,
     name: string,
     fn: (...args: any) => T,
     defaultValue?: T,

@@ -384,7 +384,7 @@ connection.onInitialize((event): InitializeResult => {
                 triggerCharacters: ['.'],
             },
             definitionProvider: true,
-            declarationProvider: true,
+            // declarationProvider: true,
             // referencesProvider: true,
             codeActionProvider: true,
             hoverProvider: true,
@@ -1030,18 +1030,25 @@ connection.onDefinition(
         event: TextDocumentPositionParams,
     ): Promise<Location | Location[]> => {
         console.log('[Definition]');
-        return findDefinition(event.textDocument.uri, event.position) || [];
+        try {
+            return findDefinition(event.textDocument.uri, event.position) || [];
+        } catch (err) {
+            console.error(`Error while finding definition:`);
+            console.error(err);
+            // throw err;
+            return [];
+        }
     },
 );
 
-connection.onDeclaration(
-    async (
-        event: TextDocumentPositionParams,
-    ): Promise<Location | Location[]> => {
-        console.log('[Declaration]');
-        return findDefinition(event.textDocument.uri, event.position) || [];
-    },
-);
+// connection.onDeclaration(
+//     async (
+//         event: TextDocumentPositionParams,
+//     ): Promise<Location | Location[]> => {
+//         console.log('[Declaration]');
+//         return findDefinition(event.textDocument.uri, event.position) || [];
+//     },
+// );
 
 connection.onReferences(
     async (_event: ReferenceParams): Promise<Location[]> => {
