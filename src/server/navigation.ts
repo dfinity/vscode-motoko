@@ -1,6 +1,6 @@
 import { AST, Node, Span } from 'motoko/lib/ast';
 import { Location, Position, Range } from 'vscode-languageserver';
-import { getContext } from './context';
+import { Context, getContext } from './context';
 import { findNodes, matchNode } from './syntax';
 
 export interface Source {
@@ -122,7 +122,6 @@ function findInPattern(expected: string, pat: Node): Node | undefined {
             });
         }) ||
         matchNode(pat, 'VarP', (name) => {
-            console.log('VAR:', name, name === expected); ///////
             if (name === expected) {
                 return pat;
             }
@@ -131,14 +130,17 @@ function findInPattern(expected: string, pat: Node): Node | undefined {
     );
 }
 
-interface Reference {
+type Reference = {
+    type: 'variable' | 'type';
     name: string;
-    type: boolean;
-    source: Source;
-}
+};
+// | {
+//       type: 'import';
+//       path: string;
+//   }
 
 const nodePriorities: Record<string, number> = {
-    // ImportE: 2,
+    DotE: 2,
     VarE: 1,
     PathT: 1,
 };
@@ -164,17 +166,16 @@ export function findDefinition(
         return;
     }
     console.log('NODE:', node); ////
-    const reference = resolveReference({ uri, node });
-    if (!reference) {
+    const path = resolveReferencePath(node);
+    if (!path.length) {
         console.log('Reference not found from AST node:', node.name);
         return;
     }
-    const definition = findDefinitionForReference(reference);
-    console.log('DEF:', definition); /////
+    const definition = searchPath(context, { uri, node }, path);
     if (!definition) {
         console.log(
-            'Definition not found for reference:',
-            reference.name,
+            'Definition not found for reference path:',
+            path,
             `(${node.name})`,
         );
         return;
@@ -182,68 +183,128 @@ export function findDefinition(
     return Location.create(definition.uri, rangeFromNode(definition.node)!);
 }
 
-function resolveReference(source: Source): Reference | undefined {
+function resolveReferencePath(node: Node): Reference[] {
     return (
-        matchNode(source.node, 'VarE', (name) => ({
-            name,
-            type: false,
-            source,
-        })) ||
-        matchNode(source.node, 'PathT', (path) =>
-            matchNode(path, 'IdH', (name) => ({ name, type: true, source })),
-        )
+        // matchNode(source.node, 'ImportE', (path) => ({
+        //     type: 'import',
+        //     path,
+        // })) ||
+        matchNode(node, 'DotE', (obj: Node, name: string) => [
+            ...resolveReferencePath(obj),
+            {
+                type: 'variable',
+                name,
+            },
+        ]) ||
+        matchNode(node, 'VarE', (name: string) => [
+            {
+                type: 'variable',
+                name,
+            },
+        ]) ||
+        matchNode(node, 'PathT', (path: string) =>
+            matchNode(path, 'IdH', (name) => [
+                {
+                    type: 'type',
+                    name,
+                },
+            ]),
+        ) ||
+        []
     );
 }
 
-function findDefinitionForReference(reference: Reference): Source | undefined {
-    console.log('Search:', reference); ////
+function searchPath(
+    _context: Context,
+    source: Source,
+    path: Reference[],
+): Source | undefined {
+    if (!path.length) {
+        return;
+    }
+    const [first] = path;
+    let resultSource = searchScopeDefinition(source, first);
+    for (let i = 1; resultSource && i < path.length; i++) {
+        const next = path[i];
+        resultSource = searchObjectDefinition(resultSource, next);
+        if (resultSource) {
+            console.log('FOUND:', next);
+        } else {
+            console.log('LOST:', next);
+        }
+    }
+    return resultSource;
+}
 
-    let searchNode = reference.source.node.parent;
-    console.log('PARENT:::', reference.source.node.parent); ///////
-    while (searchNode) {
-        if (searchNode.args) {
-            for (const arg of searchNode.args) {
-                console.log('ARG:', searchNode.name, arg); /////
-                if (reference.type) {
-                    const declaration: Node | undefined = matchNode(
-                        arg,
-                        'TypD',
-                        (name, typ) =>
-                            // TODO: source location from `name`
-                            name === reference.name ? typ : undefined,
-                    );
-                    if (declaration) {
-                        return {
-                            uri: reference.source.uri,
-                            node: declaration,
-                        };
-                    }
-                } else {
-                    const declaration: Node | undefined = matchNode(
-                        arg,
-                        'LetD',
-                        (pat) => {
-                            // matchNode(exp, 'ImportE', (path) => {
-                            //     const import_ = new Import(exp, path);
-                            //     // Variable pattern name
-                            //     import_.name = matchNode(pat, 'VarP', (name) => name);
-                            //     // Object pattern fields
-                            //     import_.fields =
-                            //     prog.imports.push(import_);
-                            // });
-                            return findInPattern(reference.name, pat);
-                        },
-                    );
-                    if (declaration) {
-                        return {
-                            uri: reference.source.uri,
-                            node: declaration,
-                        };
-                    }
+function searchScopeDefinition(
+    source: Source,
+    reference: Reference,
+): Source | undefined {
+    // console.log('SCOPE:', reference); ////
+
+    let scope: Node | undefined = source.node;
+    while (scope) {
+        const definition = searchObjectDefinition(
+            { uri: source.uri, node: scope },
+            reference,
+        );
+        if (definition) {
+            return definition;
+        }
+        scope = scope.parent;
+    }
+    return;
+}
+
+function searchObjectDefinition(
+    source: Source,
+    reference: Reference,
+): Source | undefined {
+    // console.log('SEARCH:', reference); ////
+
+    const scope = source.node.parent;
+    console.log('PARENT:::', source.node.parent); ///////
+    if (scope?.args) {
+        for (const arg of scope.args) {
+            console.log('ARG:', scope.name, arg); /////
+            if (reference.type === 'variable') {
+                const declaration: Node | undefined = matchNode(
+                    arg,
+                    'LetD',
+                    (pat) => {
+                        // matchNode(exp, 'ImportE', (path) => {
+                        //     const import_ = new Import(exp, path);
+                        //     // Variable pattern name
+                        //     import_.name = matchNode(pat, 'VarP', (name) => name);
+                        //     // Object pattern fields
+                        //     import_.fields =
+                        //     prog.imports.push(import_);
+                        // });
+                        return findInPattern(reference.name, pat);
+                    },
+                );
+                if (declaration) {
+                    return {
+                        uri: source.uri,
+                        node: declaration,
+                    };
+                }
+            } else if (reference.type === 'type') {
+                const declaration: Node | undefined = matchNode(
+                    arg,
+                    'TypD',
+                    (name, typ) =>
+                        // TODO: source location from `name`
+                        name === reference.name ? typ : undefined,
+                );
+                if (declaration) {
+                    return {
+                        uri: source.uri,
+                        node: declaration,
+                    };
                 }
             }
         }
-        searchNode = searchNode.parent;
     }
     return;
 }
