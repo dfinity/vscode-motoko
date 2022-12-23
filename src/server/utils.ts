@@ -1,8 +1,8 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { URI, Utils } from 'vscode-uri';
-import * as prettier from 'prettier/standalone';
 import * as motokoPlugin from 'prettier-plugin-motoko';
+import * as prettier from 'prettier/standalone';
+import { URI, Utils } from 'vscode-uri';
 
 /**
  * Resolves the absolute file system path from the given URI.

@@ -1,15 +1,20 @@
 import { AST, Node } from 'motoko/lib/ast';
 
-export function findNodes(ast: AST, condition?: (node: Node) => any): Node[] {
+export function findNodes(
+    ast: AST,
+    condition?: (node: Node, parents: Node[]) => any,
+): Node[] {
     const nodes: Node[] = [];
-    findNodes_(ast, condition, nodes);
+    const parents: Node[] = [];
+    findNodes_(ast, condition, nodes, parents);
     return nodes;
 }
 
 function findNodes_(
     ast: AST,
-    condition: ((node: Node) => any) | undefined,
-    nodes: Node[] = [],
+    condition: ((node: Node, parents: Node[]) => any) | undefined,
+    nodes: Node[],
+    parents: Node[],
 ) {
     if (!ast || typeof ast === 'string' || typeof ast === 'number') {
         return;
@@ -17,16 +22,20 @@ function findNodes_(
     if (Array.isArray(ast)) {
         for (let i = 0; i < ast.length; i++) {
             const arg = ast[i];
-            findNodes_(arg, condition, nodes);
+            findNodes_(arg, condition, nodes, parents);
         }
         return;
     }
 
-    if (condition?.(ast)) {
+    if (condition?.(ast, parents)) {
         nodes.push(ast);
     }
     if (ast.args) {
-        findNodes_(ast.args, condition, nodes);
+        parents.push(ast);
+        findNodes_(ast.args, condition, nodes, parents);
+        if (parents.pop() !== ast) {
+            throw new Error('Unexpected parent node in stack');
+        }
     }
 }
 

@@ -19,6 +19,7 @@ import {
     MarkupKind,
     Position,
     ProposedFeatures,
+    ReferenceParams,
     SignatureHelp,
     TextDocumentPositionParams,
     TextDocumentSyncKind,
@@ -38,6 +39,11 @@ import {
 } from './context';
 import DfxResolver from './dfx';
 import { getAstInformation } from './information';
+import {
+    findDefinition,
+    findMostSpecificNodeForPosition,
+    rangeFromNode,
+} from './navigation';
 import { vesselSources } from './rust';
 import { Program, findNodes } from './syntax';
 import {
@@ -66,7 +72,7 @@ async function getPackageSources(
     directory: string,
 ): Promise<[string, string][]> {
     function sourcesFromCommand(command: string) {
-        console.log(`Running command: \`${directory}\``);
+        console.log(`Running \`${command}\` in directory: ${directory}`);
         const result = execSync(command, {
             cwd: directory,
         }).toString('utf8');
@@ -377,8 +383,9 @@ connection.onInitialize((event): InitializeResult => {
                 resolveProvider: false,
                 triggerCharacters: ['.'],
             },
-            // definitionProvider: true,
-            // declarationProvider: true,
+            definitionProvider: true,
+            declarationProvider: true,
+            // referencesProvider: true,
             codeActionProvider: true,
             hoverProvider: true,
             // diagnosticProvider: {
@@ -483,7 +490,7 @@ function notifyWorkspace() {
                     folder.uri,
                     relativePath,
                 );
-                console.log('*', virtualPath, `(${allContexts().length})`);
+                // console.log('*', virtualPath, `(${allContexts().length})`);
                 const content = readFileSync(path, 'utf8');
                 writeVirtual(virtualPath, content);
                 const uri = URI.file(
@@ -960,43 +967,13 @@ connection.onHover((event) => {
         return;
     }
     // Find AST nodes which include the cursor position
-    const nodes = findNodes(
+    const node = findMostSpecificNodeForPosition(
         status.ast,
-        (node) =>
-            !node.file &&
-            node.start &&
-            node.end &&
-            position.line >= node.start[0] - 1 &&
-            position.line <= node.end[0] - 1 &&
-            // position.line == node.start[0] - 1 &&
-            (position.line !== node.start[0] - 1 ||
-                position.character >= node.start[1]) &&
-            (position.line !== node.end[0] - 1 ||
-                position.character < node.end[1]),
+        position,
+        (node) => !!node.type,
+        true, // Include last character
     );
-
-    // Find the most specific AST node for the cursor position
-    let node: Node | undefined;
-    let nodeLines: number;
-    let nodeChars: number;
-    nodes.forEach((n: Node) => {
-        // if (ignoredAstNodes.includes(n.name)) {
-        //     return;
-        // }
-        const nLines = n.end![0] - n.start![0];
-        const nChars = n.end![1] - n.start![1];
-        if (
-            !node ||
-            (n.type && !node.type) ||
-            nLines < nodeLines ||
-            (nLines == nodeLines && nChars < nodeChars)
-        ) {
-            node = n;
-            nodeLines = nLines;
-            nodeChars = nChars;
-        }
-    });
-    if (!node || !node.start || !node.end) {
+    if (!node) {
         return;
     }
 
@@ -1044,23 +1021,58 @@ connection.onHover((event) => {
             kind: MarkupKind.Markdown,
             value: docs.join('\n\n---\n\n'),
         },
-        range: {
-            start: {
-                line: node.start[0] - 1,
-                character: isSameLine ? node.start[1] : 0,
-            },
-            end: {
-                line: node.end[0] - 1,
-                character: node.end[1],
-            },
-        },
+        range: rangeFromNode(node, true),
     };
 });
 
 connection.onDefinition(
     async (
-        _handler: TextDocumentPositionParams,
+        event: TextDocumentPositionParams,
     ): Promise<Location | Location[]> => {
+        console.log('[Definition]');
+        return (await onDefinition(event)) || [];
+    },
+);
+
+connection.onDeclaration(
+    async (
+        event: TextDocumentPositionParams,
+    ): Promise<Location | Location[]> => {
+        console.log('[Declaration]');
+        return (await onDefinition(event)) || [];
+    },
+);
+
+async function onDefinition(
+    event: TextDocumentPositionParams,
+): Promise<Location | undefined> {
+    const { uri } = event.textDocument;
+    const context = getContext(uri);
+    const status = context.astResolver.request(uri);
+    if (!status?.ast || status.outdated) {
+        console.warn('Missing AST for', uri);
+        return;
+    }
+    console.log(status.ast); ///
+    const node = findMostSpecificNodeForPosition(
+        status.ast,
+        event.position,
+        (node) => node.name === 'VarE',
+    );
+    if (!node) {
+        return;
+    }
+    const def = findDefinition(node.args![0] as string, { uri, node });
+    console.log('DEF:', def); /////
+    if (!def) {
+        return;
+    }
+    return Location.create(def.uri, rangeFromNode(def.node)!);
+}
+
+connection.onReferences(
+    async (_event: ReferenceParams): Promise<Location[]> => {
+        console.log('[References]');
         return [];
     },
 );
