@@ -355,7 +355,7 @@ const forwardMessage =
                     ? '<Promise>'
                     : value instanceof Error
                     ? value.stack || value.message || value
-                    : JSON.stringify(value);
+                    : String(JSON.stringify(value));
             } catch (err) {
                 return `<${err}>`;
             }
