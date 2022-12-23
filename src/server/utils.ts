@@ -62,9 +62,9 @@ export function getRelativeUri(from: string, to: string): string {
     return require('url-relative')(from, to);
 }
 
-export function getAbsoluteUri(base: string, path: string): string {
-    if (/^[a-z]+:/i.test(path)) {
-        return path;
-    }
-    return Utils.joinPath(URI.parse(base), path).toString();
+export function getAbsoluteUri(base: string, ...paths: string[]): string {
+    // if (/^[a-z]+:/i.test(path)) {
+    //     return path;
+    // }
+    return Utils.joinPath(URI.parse(base), ...paths).toString();
 }

@@ -95,7 +95,7 @@ export function matchNode<T>(
     defaultValue?: T,
 ): T | undefined {
     if (
-        !!ast &&
+        ast &&
         typeof ast === 'object' &&
         !Array.isArray(ast) &&
         ast.name === name

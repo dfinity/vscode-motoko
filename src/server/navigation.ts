@@ -2,6 +2,7 @@ import { AST, Node, Span } from 'motoko/lib/ast';
 import { Location, Position, Range } from 'vscode-languageserver';
 import { Context, getContext } from './context';
 import { findNodes, matchNode } from './syntax';
+import { getAbsoluteUri } from './utils';
 
 export interface Source {
     uri: string;
@@ -139,7 +140,7 @@ export function findDefinition(
         console.warn('Missing AST for', uri);
         return;
     }
-    console.log(status.ast); ///
+    // console.log(status.ast); ///
     const node = findMostSpecificNodeForPosition(
         status.ast,
         position,
@@ -198,7 +199,7 @@ function resolveReferencePath(node: Node): Reference[] {
 }
 
 function searchPath(
-    _context: Context,
+    context: Context,
     source: Source,
     path: Reference[],
 ): Definition | undefined {
@@ -206,7 +207,29 @@ function searchPath(
         return;
     }
     const [first] = path;
+    // Search for the first reference in the local scope
     let definition = searchScopeDefinition(source, first);
+    if (definition) {
+        console.log('BODY:', definition.body); ///////////////
+        matchNode(definition.body, 'ImportE', (path: string) => {
+            // Follow a module import
+            console.log('FOUND PATH:::', path); /////
+
+            const uri = path.includes(':')
+                ? path
+                : getAbsoluteUri(source.uri, '..', `${path}.mo`); // TODO: `lib.mo`
+            const status = context.astResolver.request(uri);
+            if (!status?.program?.export?.ast) {
+                console.error('Missing export for Motoko file:', uri);
+                return;
+            }
+            definition = {
+                uri,
+                cursor: status.program.export.ast as Node,
+                body: status.program.export.ast as Node,
+            };
+        });
+    }
     for (let i = 1; definition && i < path.length; i++) {
         console.log('NEXT:', definition.cursor.name, definition.body.name);
         const next = path[i];
