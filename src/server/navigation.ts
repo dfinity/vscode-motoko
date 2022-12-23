@@ -1,33 +1,34 @@
 import { AST, Node, Span } from 'motoko/lib/ast';
+import { Location, Position, Range } from 'vscode-languageserver';
+import { getContext } from './context';
 import { findNodes, matchNode } from './syntax';
-import { Position, Range } from 'vscode-languageserver';
 
 export interface Source {
     uri: string;
     node: Node;
 }
 
-export class Definition {
-    readonly name: string;
-    readonly source: Source;
+// export class Definition {
+//     readonly name: string;
+//     readonly source: Source;
 
-    constructor(name: string, source: Source) {
-        this.name = name;
-        this.source = source;
-    }
-}
+//     constructor(name: string, source: Source) {
+//         this.name = name;
+//         this.source = source;
+//     }
+// }
 
-export class Reference {
-    readonly name: string;
-    readonly source: Source;
-    readonly definition: Definition;
+// export class Reference {
+//     readonly name: string;
+//     readonly source: Source;
+//     readonly definition: Definition;
 
-    constructor(name: string, source: Source, definition: Definition) {
-        this.name = name;
-        this.source = source;
-        this.definition = definition;
-    }
-}
+//     constructor(name: string, source: Source, definition: Definition) {
+//         this.name = name;
+//         this.source = source;
+//         this.definition = definition;
+//     }
+// }
 
 export function findMostSpecificNodeForPosition(
     ast: AST,
@@ -130,38 +131,113 @@ function findInPattern(expected: string, pat: Node): Node | undefined {
     );
 }
 
-export function findDefinition(
-    expected: string,
-    source: Source,
-): Source | undefined {
-    console.log('Expected:', expected); ////
+interface Reference {
+    name: string;
+    type: boolean;
+    source: Source;
+}
 
-    let node = source.node.parent;
-    console.log('PARENT:::', source.node.parent); ///////
-    while (node) {
-        if (node.args) {
-            for (const arg of node.args) {
-                console.log('ARG:', arg); /////
-                const declaration = matchNode(arg, 'LetD', (pat) => {
-                    // matchNode(exp, 'ImportE', (path) => {
-                    //     const import_ = new Import(exp, path);
-                    //     // Variable pattern name
-                    //     import_.name = matchNode(pat, 'VarP', (name) => name);
-                    //     // Object pattern fields
-                    //     import_.fields =
-                    //     prog.imports.push(import_);
-                    // });
-                    return findInPattern(expected, pat);
-                });
-                if (declaration) {
-                    return {
-                        uri: source.uri,
-                        node: declaration,
-                    };
+export function findDefinition(
+    uri: string,
+    position: Position,
+): Location | undefined {
+    // Get relevant AST node
+    const context = getContext(uri);
+    const status = context.astResolver.request(uri);
+    if (!status?.ast || status.outdated) {
+        console.warn('Missing AST for', uri);
+        return;
+    }
+    console.log(status.ast); ///
+    const node = findMostSpecificNodeForPosition(
+        status.ast,
+        position,
+        (node) => node.name === 'VarE' || node.name === 'PathT',
+    );
+    if (!node) {
+        return;
+    }
+    console.log('NODE:', node); ////
+    const reference = resolveReference({ uri, node });
+    if (!reference) {
+        console.log('Reference not found from AST node:', node.name);
+        return;
+    }
+    const definition = findDefinitionForReference(reference);
+    console.log('DEF:', definition); /////
+    if (!definition) {
+        console.log(
+            'Definition not found for reference:',
+            reference.name,
+            `(${node.name})`,
+        );
+        return;
+    }
+    return Location.create(definition.uri, rangeFromNode(definition.node)!);
+}
+
+function resolveReference(source: Source): Reference | undefined {
+    return (
+        matchNode(source.node, 'VarE', (name) => ({
+            name,
+            type: false,
+            source,
+        })) ||
+        matchNode(source.node, 'PathT', (path) =>
+            matchNode(path, 'IdH', (name) => ({ name, type: true, source })),
+        )
+    );
+}
+
+function findDefinitionForReference(reference: Reference): Source | undefined {
+    console.log('Search:', reference); ////
+
+    let searchNode = reference.source.node.parent;
+    console.log('PARENT:::', reference.source.node.parent); ///////
+    while (searchNode) {
+        if (searchNode.args) {
+            for (const arg of searchNode.args) {
+                console.log('ARG:', searchNode.name, arg); /////
+                if (reference.type) {
+                    const declaration: Node | undefined = matchNode(
+                        arg,
+                        'TypD',
+                        (name, typ) =>
+                            // TODO: source location from `name`
+                            name === reference.name ? typ : undefined,
+                    );
+                    if (declaration) {
+                        return {
+                            uri: reference.source.uri,
+                            node: declaration,
+                        };
+                    }
+                } else {
+                    const declaration: Node | undefined = matchNode(
+                        arg,
+                        'LetD',
+                        (pat) => {
+                            // matchNode(exp, 'ImportE', (path) => {
+                            //     const import_ = new Import(exp, path);
+                            //     // Variable pattern name
+                            //     import_.name = matchNode(pat, 'VarP', (name) => name);
+                            //     // Object pattern fields
+                            //     import_.fields =
+                            //     prog.imports.push(import_);
+                            // });
+                            return findInPattern(reference.name, pat);
+                        },
+                    );
+                    if (declaration) {
+                        return {
+                            uri: reference.source.uri,
+                            node: declaration,
+                        };
+                    }
                 }
             }
         }
-        node = node.parent;
+        searchNode = searchNode.parent;
     }
     return;
 }

@@ -1030,7 +1030,7 @@ connection.onDefinition(
         event: TextDocumentPositionParams,
     ): Promise<Location | Location[]> => {
         console.log('[Definition]');
-        return (await onDefinition(event)) || [];
+        return findDefinition(event.textDocument.uri, event.position) || [];
     },
 );
 
@@ -1039,36 +1039,9 @@ connection.onDeclaration(
         event: TextDocumentPositionParams,
     ): Promise<Location | Location[]> => {
         console.log('[Declaration]');
-        return (await onDefinition(event)) || [];
+        return findDefinition(event.textDocument.uri, event.position) || [];
     },
 );
-
-async function onDefinition(
-    event: TextDocumentPositionParams,
-): Promise<Location | undefined> {
-    const { uri } = event.textDocument;
-    const context = getContext(uri);
-    const status = context.astResolver.request(uri);
-    if (!status?.ast || status.outdated) {
-        console.warn('Missing AST for', uri);
-        return;
-    }
-    console.log(status.ast); ///
-    const node = findMostSpecificNodeForPosition(
-        status.ast,
-        event.position,
-        (node) => node.name === 'VarE',
-    );
-    if (!node) {
-        return;
-    }
-    const def = findDefinition(node.args![0] as string, { uri, node });
-    console.log('DEF:', def); /////
-    if (!def) {
-        return;
-    }
-    return Location.create(def.uri, rangeFromNode(def.node)!);
-}
 
 connection.onReferences(
     async (_event: ReferenceParams): Promise<Location[]> => {
