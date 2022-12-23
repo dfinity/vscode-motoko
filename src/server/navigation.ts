@@ -306,7 +306,6 @@ function followImport(
             cursor: exportNode,
             body: exportNode,
         };
-        console.log('FIELD:', field); ///
         if (field) {
             return searchObject(
                 { uri: declaration.uri, node: declaration.body },
