@@ -137,6 +137,12 @@ interface Reference {
     source: Source;
 }
 
+const nodePriorities: Record<string, number> = {
+    // ImportE: 2,
+    VarE: 1,
+    PathT: 1,
+};
+
 export function findDefinition(
     uri: string,
     position: Position,
@@ -152,7 +158,7 @@ export function findDefinition(
     const node = findMostSpecificNodeForPosition(
         status.ast,
         position,
-        (node) => node.name === 'VarE' || node.name === 'PathT',
+        (node) => nodePriorities[node.name] || 0,
     );
     if (!node) {
         return;
