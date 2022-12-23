@@ -155,6 +155,9 @@ export default class ImportResolver {
 }
 
 function getImportName(path: string): string {
+    if (path.endsWith('/lib')) {
+        path = path.slice(-'/lib'.length);
+    }
     return pascalCase(/([^/]+)$/i.exec(path)?.[1] || '');
 }
 

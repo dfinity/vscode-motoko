@@ -91,7 +91,7 @@ export default class AstResolver {
     request(uri: string): AstStatus | undefined {
         const status = this._cache.get(uri);
         if ((!status || status.outdated) && !this.update(uri, false)) {
-            return;
+            return status;
         }
         return this._cache.get(uri);
     }
@@ -99,7 +99,7 @@ export default class AstResolver {
     requestTyped(uri: string): AstStatus | undefined {
         const status = this._typedCache.get(uri);
         if ((!status || status.outdated) && !this.update(uri, true)) {
-            return;
+            return status;
         }
         return this._typedCache.get(uri);
     }
