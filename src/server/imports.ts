@@ -155,7 +155,7 @@ export default class ImportResolver {
 }
 
 function getImportName(path: string): string {
-    return pascalCase(path);
+    return pascalCase(/([^/]+)$/i.exec(path)?.[1] || '');
 }
 
 function getImportInfo(
@@ -184,10 +184,7 @@ function getImportInfo(
                 return [getImportName(name), `mo:${name}`];
             } else {
                 // Resolve `mo:` URI for Vessel and MOPS packages
-                return [
-                    getImportName(/([^/]+)$/i.exec(uri)?.[1] || name),
-                    `mo:${name}/${path}`,
-                ];
+                return [getImportName(uri) || name, `mo:${name}/${path}`];
             }
         }
     }

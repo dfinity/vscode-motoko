@@ -388,6 +388,7 @@ connection.onInitialize((event): InitializeResult => {
             // referencesProvider: true,
             codeActionProvider: true,
             hoverProvider: true,
+            // workspaceSymbolProvider: true,
             // diagnosticProvider: {
             //     documentSelector: ['motoko'],
             //     interFileDependencies: true,
@@ -1049,6 +1050,11 @@ connection.onDefinition(
 //         return findDefinition(event.textDocument.uri, event.position) || [];
 //     },
 // );
+
+// connection.onWorkspaceSymbol((event) => {
+//     return [{
+//     }];
+// });
 
 connection.onReferences(
     async (_event: ReferenceParams): Promise<Location[]> => {
