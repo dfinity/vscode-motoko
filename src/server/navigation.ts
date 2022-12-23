@@ -136,8 +136,12 @@ export function findDefinition(
     // Get relevant AST node
     const context = getContext(uri);
     const status = context.astResolver.request(uri);
-    if (!status?.ast || status.outdated) {
+    if (!status?.ast) {
         console.warn('Missing AST for', uri);
+        return;
+    }
+    if (status.outdated) {
+        console.log('Outdated AST for', uri);
         return;
     }
     // console.log(status.ast); ///
@@ -209,34 +213,31 @@ function searchPath(
     const [first] = path;
     // Search for the first reference in the local scope
     let definition = searchScopeDefinition(source, first);
-    if (definition) {
-        console.log('BODY:', definition.body); ///////////////
-        matchNode(definition.body, 'ImportE', (path: string) => {
-            // Follow a module import
-            console.log('FOUND PATH:::', path); /////
-
-            const uri = path.includes(':')
-                ? path
-                : getAbsoluteUri(source.uri, '..', `${path}.mo`); // TODO: `lib.mo`
-            const status = context.astResolver.request(uri);
-            if (!status?.program?.export?.ast) {
-                console.error('Missing export for Motoko file:', uri);
-                return;
-            }
-            definition = {
-                uri,
-                cursor: status.program.export.ast as Node,
-                body: status.program.export.ast as Node,
-            };
-        });
+    const importDefinition = searchImport(
+        context,
+        definition
+            ? // Follow a resolved import
+              {
+                  uri: definition.uri,
+                  node: definition.body,
+              }
+            : // Follow an import under the cursor (TODO: finish implementation)
+              matchNode(source.node, 'LetD', (_pat: Node, value: Node) => ({
+                  uri: source.uri,
+                  node: value,
+              })) || source,
+    );
+    if (importDefinition) {
+        definition = importDefinition;
     }
+    // Follow subsequent parts of the qualified path
     for (let i = 1; definition && i < path.length; i++) {
         console.log('NEXT:', definition.cursor.name, definition.body.name);
         const next = path[i];
-        const nextSource = { uri: source.uri, node: definition.body };
+        const nextSource = { uri: definition.uri, node: definition.body };
         definition = searchObjectDefinition(nextSource, next);
         if (definition) {
-            console.log('FOUND:', next);
+            console.log('FOUND:', next, definition.uri);
         } else {
             console.log('LOST:', next, nextSource);
         }
@@ -288,6 +289,36 @@ function searchLetD(
     });
 }
 
+function searchImport(
+    context: Context,
+    source: Source,
+): Definition | undefined {
+    // console.log('IMPORT SOURCE:', source); /////////
+
+    return matchNode(source.node, 'ImportE', (path: string) => {
+        // Follow a module import
+        console.log('FOUND PATH:::', path); /////
+
+        const uri = path.includes(':')
+            ? path
+            : getAbsoluteUri(source.uri, '..', `${path}.mo`); // TODO: `lib.mo`
+        const status = context.astResolver.request(uri);
+        if (!status?.program?.export?.ast) {
+            console.warn('Missing export for', uri);
+            return;
+        }
+        if (status?.outdated) {
+            console.log('Outdated AST for', uri);
+            return;
+        }
+        return {
+            uri,
+            cursor: status.program.export.ast as Node,
+            body: status.program.export.ast as Node,
+        };
+    });
+}
+
 function searchObjectDefinition(
     source: Source,
     reference: Reference,
@@ -295,7 +326,7 @@ function searchObjectDefinition(
     const scope = source.node;
     if (scope?.args) {
         for (const arg of scope.args) {
-            console.log('>>>>', reference.name, scope.name, arg); ////
+            console.log('ARG:', reference.name, scope.name, arg); ////
             if (!arg || typeof arg !== 'object' || Array.isArray(arg)) {
                 // Skip everything except `Node` values
                 continue;
@@ -304,6 +335,7 @@ function searchObjectDefinition(
             let definition: Definition | undefined;
             if (reference.type === 'variable') {
                 definition =
+                    // TODO: recursive instead of `searchLetD()`
                     searchLetD(source, reference, arg) ||
                     matchNode(
                         arg,
@@ -317,6 +349,24 @@ function searchObjectDefinition(
                     ) ||
                     matchNode(arg, 'DecField', (dec: Node) =>
                         searchLetD(source, reference, dec),
+                    ) ||
+                    matchNode(
+                        arg,
+                        'ObjBlockE',
+                        (_sort: string, ...fields: Node[]) => {
+                            for (const field of fields) {
+                                const definition = matchNode(
+                                    field,
+                                    'DecField',
+                                    (dec: Node) =>
+                                        searchLetD(source, reference, dec),
+                                );
+                                if (definition) {
+                                    return definition;
+                                }
+                            }
+                            return;
+                        },
                     );
             } else if (reference.type === 'type') {
                 definition = matchNode(arg, 'TypD', (name: string, typ: Node) =>
