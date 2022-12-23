@@ -148,7 +148,6 @@ export function findDefinition(
         console.log('Outdated AST for', uri);
         return;
     }
-    // console.log(status.ast); ///
     const node = findMostSpecificNodeForPosition(
         status.ast,
         position,
@@ -182,10 +181,6 @@ export function findDefinition(
 
 function getSearchPath(node: Node): Search[] {
     return (
-        // matchNode(source.node, 'ImportE', (path) => ({
-        //     type: 'import',
-        //     path,
-        // })) ||
         matchNode(node, 'DotE', (qual: Node, name: string) => [
             ...getSearchPath(qual),
             {
@@ -254,25 +249,31 @@ function followImport(
         importNode = importNode.parent;
     }
     matchNode(importNode, 'LetD', (_pat, exp) => {
-        // Follow let declaration
+        // Follow let binding
         importNode = exp;
     });
     if (!importNode || importNode.name !== 'ImportE') {
         return;
     }
+    // Find the relevant field name
     const field = matchNode(reference.node.parent?.parent, 'ObjP', () =>
         matchNode(reference.node, 'VarP', (name: string) => name),
     );
+    // Follow the module import
     return matchNode(importNode, 'ImportE', (path: string) => {
-        // Follow a module import
-        console.log('FOUND PATH:', path); /////
-
-        const uri = path.includes(':')
-            ? path
-            : getAbsoluteUri(reference.uri, '..', `${path}.mo`); // TODO: `lib.mo`
+        const uri = context.importResolver.getFileSystemURI(
+            path.includes(':')
+                ? path
+                : // : getAbsoluteUri(reference.uri, '..', `${path}.mo`); // TODO: `lib.mo`
+                  getAbsoluteUri(reference.uri, '..', path),
+        );
+        if (!uri) {
+            console.log('Unknown file system URI:', uri);
+            return;
+        }
         const status = context.astResolver.request(uri);
         if (!status?.program?.export?.ast) {
-            console.warn('Missing export for', uri);
+            console.log('Missing export for', uri);
             return;
         }
         if (status?.outdated) {
@@ -361,7 +362,6 @@ function searchVariableBinding(
     return (
         matchNode(dec, 'LetD', (pat: Node, body: Node) => {
             const varNode = findNameInPattern(search, pat);
-            console.log('VAR NODE:', varNode); //////
             return (
                 varNode && {
                     uri: reference.uri,
