@@ -857,14 +857,12 @@ connection.onCompletion((event) => {
                 .getNameEntries(uri)
                 .forEach(([name, path]) => {
                     if (name.startsWith(identStart)) {
-                        // const importUri = getAbsoluteUri(uri, path);
                         const status = context.astResolver.request(uri);
                         const existingImport = status?.program?.imports.find(
                             (i) =>
                                 i.name === name ||
                                 i.fields.some(([, alias]) => alias === name),
                         );
-                        console.log('::', name, path, uri); ///////////////////
                         if (existingImport || !status?.program) {
                             // Skip alternatives with already imported name
                             return;
@@ -1052,9 +1050,8 @@ connection.onDefinition(
 //     },
 // );
 
-// connection.onWorkspaceSymbol((event) => {
-//     return [{
-//     }];
+// connection.onWorkspaceSymbol((_event) => {
+//     return [];
 // });
 
 connection.onReferences(
