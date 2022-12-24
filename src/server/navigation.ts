@@ -104,10 +104,23 @@ function locationFromDefinition(definition: Definition) {
 }
 
 function findNameInPattern(search: Search, pat: Node): Node | undefined {
+    const matchAny = (...args: Node[]) => {
+        for (const field of args) {
+            const result = findNameInPattern(search, field);
+            if (result) {
+                return result;
+            }
+        }
+        return;
+    };
+    const match = (arg: Node) => findNameInPattern(search, arg);
     return (
-        matchNode(pat, 'ObjP', (...args) => {
+        matchNode(pat, 'VarP', (name: string) =>
+            name === search.name ? pat : undefined,
+        ) ||
+        matchNode(pat, 'ObjP', (...args: Node[]) => {
             for (const field of args) {
-                const aliasNode = field.args[0];
+                const aliasNode = field.args![0] as Node;
                 const alias = matchNode(
                     aliasNode,
                     'VarP',
@@ -118,10 +131,14 @@ function findNameInPattern(search: Search, pat: Node): Node | undefined {
                     return aliasNode || field;
                 }
             }
+            return;
         }) ||
-        matchNode(pat, 'VarP', (name: string) =>
-            name === search.name ? pat : undefined,
-        )
+        matchNode(pat, 'TupP', matchAny) ||
+        matchNode(pat, 'AltP', matchAny) ||
+        matchNode(pat, 'AnnotP', match) ||
+        matchNode(pat, 'ParP', match) ||
+        matchNode(pat, 'OptP', match) ||
+        matchNode(pat, 'TagP', (_tag, arg: Node) => match(arg))
     );
 }
 
@@ -289,7 +306,6 @@ function followImport(
             cursor: exportNode,
             body: exportNode,
         };
-        console.log('FIELD:', field); ///
         if (field) {
             return searchObject(
                 { uri: declaration.uri, node: declaration.body },
@@ -321,15 +337,15 @@ function search(
     }
     // Follow subsequent parts of the qualified path
     for (let i = 1; definition && i < path.length; i++) {
-        console.log('NEXT:', definition.cursor.name, definition.body.name);
+        // console.log('NEXT:', definition.cursor.name, definition.body.name);
         const next = path[i];
         const nextSource = { uri: definition.uri, node: definition.body };
         definition = searchObject(nextSource, next);
-        if (definition) {
-            console.log('FOUND:', next, definition.uri);
-        } else {
-            console.log('LOST:', next, nextSource);
-        }
+        // if (definition) {
+        //     console.log('FOUND:', next, definition.uri);
+        // } else {
+        //     console.log('LOST:', next, nextSource);
+        // }
     }
     return definition;
 }
@@ -403,7 +419,6 @@ function searchObject(
     const scope = reference.node;
     if (scope?.args) {
         for (const arg of scope.args) {
-            console.log('ARG:', search.name, scope.name, arg); ////
             if (!arg || typeof arg !== 'object' || Array.isArray(arg)) {
                 // Skip everything except `Node` values
                 continue;
@@ -448,6 +463,16 @@ function searchObject(
                             return;
                         },
                     );
+                if (!definition) {
+                    const pat = findNameInPattern(search, arg); // Function parameters
+                    if (pat) {
+                        definition = {
+                            uri: reference.uri,
+                            cursor: pat,
+                            body: pat,
+                        };
+                    }
+                }
             } else if (search.type === 'type') {
                 definition =
                     searchTypeBinding(reference, search, arg) ||

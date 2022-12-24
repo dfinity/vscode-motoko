@@ -355,7 +355,7 @@ const forwardMessage =
                     ? '<Promise>'
                     : value instanceof Error
                     ? value.stack || value.message || value
-                    : JSON.stringify(value);
+                    : String(JSON.stringify(value));
             } catch (err) {
                 return `<${err}>`;
             }
@@ -388,6 +388,7 @@ connection.onInitialize((event): InitializeResult => {
             // referencesProvider: true,
             codeActionProvider: true,
             hoverProvider: true,
+            // workspaceSymbolProvider: true,
             // diagnosticProvider: {
             //     documentSelector: ['motoko'],
             //     interFileDependencies: true,
@@ -863,6 +864,7 @@ connection.onCompletion((event) => {
                                 i.name === name ||
                                 i.fields.some(([, alias]) => alias === name),
                         );
+                        console.log('::', name, path, uri); ///////////////////
                         if (existingImport || !status?.program) {
                             // Skip alternatives with already imported name
                             return;
@@ -890,7 +892,7 @@ connection.onCompletion((event) => {
                     if (keyword.startsWith(identStart)) {
                         list.items.push({
                             label: keyword,
-                            // detail: , // TODO: explanation of each keyword
+                            // detail: , // TODO: explanation for each keyword
                             insertText: keyword,
                             kind: CompletionItemKind.Keyword,
                         });
@@ -1049,6 +1051,11 @@ connection.onDefinition(
 //         return findDefinition(event.textDocument.uri, event.position) || [];
 //     },
 // );
+
+// connection.onWorkspaceSymbol((event) => {
+//     return [{
+//     }];
+// });
 
 connection.onReferences(
     async (_event: ReferenceParams): Promise<Location[]> => {
