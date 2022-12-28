@@ -1003,14 +1003,21 @@ connection.onHover((event) => {
     const source = (
         isSameLine ? startLine.substring(node.start[1], node.end[1]) : startLine
     ).trim();
-    if (node.type) {
+    const doc = findDocComment(node);
+    if (doc) {
+        const typeInfo = node.type ? formatMotoko(node.type).trim() : '';
+        const lineIndex = typeInfo.indexOf('\n');
+        if (lineIndex === -1) {
+            docs.push(codeSnippet(typeInfo));
+        }
+        docs.push(doc);
+        if (lineIndex !== -1) {
+            docs.push(`*Type definition:*\n${codeSnippet(typeInfo)}`);
+        }
+    } else if (node.type) {
         docs.push(codeSnippet(formatMotoko(node.type)));
     } else if (!isSameLine) {
         docs.push(codeSnippet(source));
-    }
-    const doc = findDocComment(node);
-    if (doc) {
-        docs.push(doc);
     }
     const info = getAstInformation(node /* , source */);
     if (info) {
