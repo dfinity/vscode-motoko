@@ -995,8 +995,10 @@ connection.onHover((event) => {
     }
     // Doc comment
     let docNode: Node | undefined = node;
-    while (!docNode.doc && docNode.parent) {
+    let depth = 0; // Max AST depth to display doc comment
+    while (!docNode.doc && docNode.parent && depth < 2) {
         docNode = docNode.parent;
+        depth++;
     }
     if (docNode.doc) {
         docs.push(docNode.doc);
