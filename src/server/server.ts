@@ -42,10 +42,11 @@ import { getAstInformation } from './information';
 import {
     findDefinition,
     findMostSpecificNodeForPosition,
+    locationFromDefinition,
     rangeFromNode,
 } from './navigation';
 import { vesselSources } from './rust';
-import { Program, findNodes } from './syntax';
+import { Program, findNodes, asNode } from './syntax';
 import {
     formatMotoko,
     getFileText,
@@ -959,6 +960,24 @@ connection.onCompletion((event) => {
 
 // const ignoredAstNodes = [];
 connection.onHover((event) => {
+    function findDocComment(node: Node): string | undefined {
+        const definition = findDefinition(uri, event.position, true);
+        let docNode: Node | undefined = definition?.cursor || node;
+        let depth = 0; // Max AST depth to display doc comment
+        while (!docNode.doc && docNode.parent && depth < 2) {
+            // if (docNode.parent.name === 'ObjBlockE') {
+            //     break;
+            // }
+            docNode = docNode.parent;
+            depth++;
+        }
+        if (docNode.name === 'Prog' && !docNode.doc) {
+            // Get doc comment at top of file
+            return asNode(docNode.args?.[0])?.doc;
+        }
+        return docNode.doc;
+    }
+
     const { position } = event;
     const { uri } = event.textDocument;
     const { astResolver } = getContext(uri);
@@ -971,7 +990,7 @@ connection.onHover((event) => {
         status.ast,
         position,
         (node) => !!node.type,
-        true, // Include last character
+        true, // Mouse cursor
     );
     if (!node) {
         return;
@@ -993,15 +1012,9 @@ connection.onHover((event) => {
     } else if (!isSameLine) {
         docs.push(codeSnippet(source));
     }
-    // Doc comment
-    let docNode: Node | undefined = node;
-    let depth = 0; // Max AST depth to display doc comment
-    while (!docNode.doc && docNode.parent && depth < 2) {
-        docNode = docNode.parent;
-        depth++;
-    }
-    if (docNode.doc) {
-        docs.push(docNode.doc);
+    const doc = findDocComment(node);
+    if (doc) {
+        docs.push(doc);
     }
     const info = getAstInformation(node /* , source */);
     if (info) {
@@ -1041,7 +1054,11 @@ connection.onDefinition(
     ): Promise<Location | Location[]> => {
         console.log('[Definition]');
         try {
-            return findDefinition(event.textDocument.uri, event.position) || [];
+            const definition = findDefinition(
+                event.textDocument.uri,
+                event.position,
+            );
+            return definition ? locationFromDefinition(definition) : [];
         } catch (err) {
             console.error(`Error while finding definition:`);
             console.error(err);

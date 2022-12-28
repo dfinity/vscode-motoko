@@ -24,7 +24,7 @@ export function findMostSpecificNodeForPosition(
     ast: AST,
     position: Position,
     scoreFn: (node: Node) => number | boolean,
-    includeEndCharacter = false,
+    isMouseCursor = false,
 ): (Node & { start: Span; end: Span }) | undefined {
     const nodes = findNodes(
         ast,
@@ -38,8 +38,7 @@ export function findMostSpecificNodeForPosition(
             (position.line !== node.start[0] - 1 ||
                 position.character >= node.start[1]) &&
             (position.line !== node.end[0] - 1 ||
-                position.character <
-                    node.end[1] + (includeEndCharacter ? 0 : 1)),
+                position.character < node.end[1] + (isMouseCursor ? 0 : 1)),
     );
 
     // Find the most specific AST node for the cursor position
@@ -90,7 +89,7 @@ export function rangeFromNode(
     };
 }
 
-function locationFromDefinition(definition: Definition) {
+export function locationFromDefinition(definition: Definition) {
     const range = rangeFromNode(definition.cursor);
     if (!range) {
         throw new Error(`Missing range for definition in ${definition.uri}`);
@@ -153,7 +152,8 @@ const nodePriorities: Record<string, number> = {
 export function findDefinition(
     uri: string,
     position: Position,
-): Location | undefined {
+    isMouseCursor = false,
+): Definition | undefined {
     // Get relevant AST node
     const context = getContext(uri);
     const status = context.astResolver.request(uri);
@@ -169,6 +169,7 @@ export function findDefinition(
         status.ast,
         position,
         (node) => nodePriorities[node.name] || 0,
+        isMouseCursor,
     );
     if (!node) {
         return;
@@ -176,7 +177,7 @@ export function findDefinition(
     const reference = { uri, node };
     const importDefinition = followImport(context, reference);
     if (importDefinition) {
-        return locationFromDefinition(importDefinition);
+        return importDefinition;
     }
     const path = getSearchPath(node);
     if (!path.length) {
@@ -192,7 +193,7 @@ export function findDefinition(
         );
         return;
     }
-    return locationFromDefinition(definition);
+    return definition;
 }
 
 function getSearchPath(node: Node): Search[] {
