@@ -958,16 +958,12 @@ connection.onCompletion((event) => {
     return list;
 });
 
-// const ignoredAstNodes = [];
 connection.onHover((event) => {
     function findDocComment(node: Node): string | undefined {
         const definition = findDefinition(uri, event.position, true);
         let docNode: Node | undefined = definition?.cursor || node;
         let depth = 0; // Max AST depth to display doc comment
         while (!docNode.doc && docNode.parent && depth < 2) {
-            // if (docNode.parent.name === 'ObjBlockE') {
-            //     break;
-            // }
             docNode = docNode.parent;
             depth++;
         }
