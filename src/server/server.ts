@@ -857,14 +857,12 @@ connection.onCompletion((event) => {
                 .getNameEntries(uri)
                 .forEach(([name, path]) => {
                     if (name.startsWith(identStart)) {
-                        // const importUri = getAbsoluteUri(uri, path);
                         const status = context.astResolver.request(uri);
                         const existingImport = status?.program?.imports.find(
                             (i) =>
                                 i.name === name ||
                                 i.fields.some(([, alias]) => alias === name),
                         );
-                        console.log('::', name, path, uri); ///////////////////
                         if (existingImport || !status?.program) {
                             // Skip alternatives with already imported name
                             return;
@@ -995,6 +993,16 @@ connection.onHover((event) => {
     } else if (!isSameLine) {
         docs.push(codeSnippet(source));
     }
+    // Doc comment
+    let docNode: Node | undefined = node;
+    let depth = 0; // Max AST depth to display doc comment
+    while (!docNode.doc && docNode.parent && depth < 2) {
+        docNode = docNode.parent;
+        depth++;
+    }
+    if (docNode.doc) {
+        docs.push(docNode.doc);
+    }
     const info = getAstInformation(node /* , source */);
     if (info) {
         docs.push(info);
@@ -1052,9 +1060,8 @@ connection.onDefinition(
 //     },
 // );
 
-// connection.onWorkspaceSymbol((event) => {
-//     return [{
-//     }];
+// connection.onWorkspaceSymbol((_event) => {
+//     return [];
 // });
 
 connection.onReferences(
