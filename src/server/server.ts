@@ -993,6 +993,14 @@ connection.onHover((event) => {
     } else if (!isSameLine) {
         docs.push(codeSnippet(source));
     }
+    // Doc comment
+    let docNode: Node | undefined = node;
+    while (!docNode.doc && docNode.parent) {
+        docNode = docNode.parent;
+    }
+    if (docNode.doc) {
+        docs.push(docNode.doc);
+    }
     const info = getAstInformation(node /* , source */);
     if (info) {
         docs.push(info);
