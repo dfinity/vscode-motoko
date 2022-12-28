@@ -333,7 +333,7 @@ function search(
         definition =
             followImport(context, {
                 uri: definition.uri,
-                node: definition.body,
+                node: definition.cursor,
             }) || definition;
     }
     // Follow subsequent parts of the qualified path
