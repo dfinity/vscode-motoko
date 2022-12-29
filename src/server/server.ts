@@ -963,7 +963,16 @@ connection.onHover((event) => {
         const definition = findDefinition(uri, event.position, true);
         let docNode: Node | undefined = definition?.cursor || node;
         let depth = 0; // Max AST depth to display doc comment
-        while (!docNode.doc && docNode.parent && depth < 2) {
+        while (
+            !docNode.doc &&
+            docNode.parent &&
+            // Unresolved import
+            !(
+                docNode.name === 'LetD' &&
+                asNode(docNode.args?.[1])?.name === 'ImportE'
+            ) &&
+            depth < 2
+        ) {
             docNode = docNode.parent;
             depth++;
         }
@@ -1007,8 +1016,12 @@ connection.onHover((event) => {
     if (doc) {
         const typeInfo = node.type ? formatMotoko(node.type).trim() : '';
         const lineIndex = typeInfo.indexOf('\n');
-        if (lineIndex === -1) {
-            docs.push(codeSnippet(typeInfo));
+        if (typeInfo) {
+            if (lineIndex === -1) {
+                docs.push(codeSnippet(typeInfo));
+            }
+        } else if (!isSameLine) {
+            docs.push(codeSnippet(source));
         }
         docs.push(doc);
         if (lineIndex !== -1) {
