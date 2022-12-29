@@ -18,6 +18,8 @@ This extension provides syntax highlighting, type checking, and code formatting 
 - Error checking
 - Automatic imports
 - Snippets ([contributions welcome](https://github.com/dfinity/node-motoko/blob/main/contrib/snippets.json))
+- Go-to-definition
+- Documentation tooltips
 
 ## Installation
 
