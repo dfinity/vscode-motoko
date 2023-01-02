@@ -816,8 +816,11 @@ connection.onCodeAction((event) => {
             console.warn('Unexpected import AST range format');
             return;
         }
-        const range = Range.create(start, end);
-        const source = organizeImports(imports);
+        const range = Range.create(
+            Position.create(start.line, 0),
+            Position.create(end.line + 1, 0),
+        );
+        const source = organizeImports(imports).trim() + '\n';
         results.push({
             title: 'Organize imports',
             kind: CodeActionKind.SourceOrganizeImports,

@@ -271,10 +271,5 @@ export function organizeImports(imports: Import[]): string {
             }
         });
 
-    return formatMotoko(
-        groupParts
-            .map((p) => p.join('\n'))
-            .join('\n\n')
-            .trim(),
-    );
+    return formatMotoko(groupParts.map((p) => p.join('\n')).join('\n\n'));
 }
