@@ -42,6 +42,22 @@ Get this extension through the [VS Marketplace](https://marketplace.visualstudio
 - `motoko.formatter`: The formatter used by the extension
 - `motoko.legacyDfxSupport`: Uses legacy `dfx`-dependent features when a relevant `dfx.json` file is available
 
+## Advanced Configuration
+
+If you want VS Code to automatically format Motoko files on save, consider adding the following to your `settings.json` configuration:
+
+```json
+{
+  "[motoko]": {
+    "editor.defaultFormatter": "dfinity-foundation.vscode-motoko",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+        "source.organizeImports": true
+    }
+  }
+}
+```
+
 ## Recent Changes
 
 Projects using `dfx >= 0.11.1` use a new, experimental language server.
