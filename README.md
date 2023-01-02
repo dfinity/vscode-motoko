@@ -33,7 +33,7 @@ Get this extension through the [VS Marketplace](https://marketplace.visualstudio
 
 ## Extension Commands
 
-- `motoko.startService`: Starts (or restarts) the language service
+- `Motoko: Restart language server`: Starts (or restarts) the language server
 
 ## Extension Settings
 
