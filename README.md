@@ -19,6 +19,7 @@ This extension provides syntax highlighting, type checking, and code formatting 
 - Automatic imports
 - Snippets ([contributions welcome](https://github.com/dfinity/node-motoko/blob/main/contrib/snippets.json))
 - Go-to-definition
+- Organize imports
 - Documentation tooltips
 
 ## Installation
@@ -32,7 +33,7 @@ Get this extension through the [VS Marketplace](https://marketplace.visualstudio
 
 ## Extension Commands
 
-- `motoko.startService`: Starts (or restarts) the language service
+- `Motoko: Restart language server`: Starts (or restarts) the language server
 
 ## Extension Settings
 
@@ -40,6 +41,22 @@ Get this extension through the [VS Marketplace](https://marketplace.visualstudio
 - `motoko.canister`: The default canister name to use in multi-canister projects
 - `motoko.formatter`: The formatter used by the extension
 - `motoko.legacyDfxSupport`: Uses legacy `dfx`-dependent features when a relevant `dfx.json` file is available
+
+## Advanced Configuration
+
+If you want VS Code to automatically format Motoko files on save, consider adding the following to your `settings.json` configuration:
+
+```json
+{
+  "[motoko]": {
+    "editor.defaultFormatter": "dfinity-foundation.vscode-motoko",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+        "source.organizeImports": true
+    }
+  }
+}
+```
 
 ## Recent Changes
 

@@ -2,8 +2,8 @@ import { pascalCase } from 'change-case';
 import { MultiMap } from 'mnemonist';
 import { AST, Node } from 'motoko/lib/ast';
 import { Context, getContext } from './context';
-import { Program, matchNode } from './syntax';
-import { getRelativeUri } from './utils';
+import { Import, Program, matchNode } from './syntax';
+import { formatMotoko, getRelativeUri } from './utils';
 
 interface ResolvedField {
     name: string;
@@ -197,4 +197,71 @@ function getImportInfo(
         return;
     }
     return [getImportName(uri), uri];
+}
+
+const importGroups: {
+    prefix: string;
+}[] = [
+    // IC imports
+    { prefix: 'ic:' },
+    // Canister alias imports
+    { prefix: 'canister:' },
+    // Package imports
+    { prefix: 'mo:' },
+    // Everything else
+    { prefix: '' },
+];
+
+export function organizeImports(imports: Import[]): string {
+    const groupParts: string[][] = importGroups.map(() => []);
+
+    // Combine imports with the same path
+    const combinedImports: Record<
+        string,
+        { names: string[]; fields: [string, string][] }
+    > = {};
+    imports.forEach((x) => {
+        const combined =
+            combinedImports[x.path] ||
+            (combinedImports[x.path] = { names: [], fields: [] });
+        if (x.name) {
+            combined.names.push(x.name);
+        }
+        combined.fields.push(...x.fields);
+    });
+
+    // Sort and print imports
+    Object.entries(combinedImports)
+        .sort(
+            // Sort by import path
+            (a, b) => a[0].localeCompare(b[0]),
+        )
+        .forEach(([path, { names, fields }]) => {
+            const parts =
+                groupParts[
+                    importGroups.findIndex((g) => path.startsWith(g.prefix))
+                ] || groupParts[groupParts.length - 1];
+            names.forEach((name) => {
+                parts.push(`import ${name} ${JSON.stringify(path)};`);
+            });
+            if (fields.length) {
+                parts.push(
+                    `import { ${fields
+                        .sort(
+                            // Sort by name, then alias
+                            (a, b) =>
+                                a[0].localeCompare(b[0]) ||
+                                (a[1] || a[0]).localeCompare(b[1] || b[0]),
+                        )
+                        .map(([name, alias]) =>
+                            !alias || name === alias
+                                ? name
+                                : `${name} = ${alias}`,
+                        )
+                        .join('; ')} } ${JSON.stringify(path)};`,
+                );
+            }
+        });
+
+    return formatMotoko(groupParts.map((p) => p.join('\n')).join('\n\n'));
 }

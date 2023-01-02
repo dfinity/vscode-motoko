@@ -69,7 +69,7 @@ export function startServer(context: ExtensionContext) {
 
     // Cross-platform language server
     const module = context.asAbsolutePath(path.join('out', 'server.js'));
-    launchClient(context, {
+    restartLanguageServer(context, {
         run: { module, transport: TransportKind.ipc },
         debug: {
             module,
@@ -92,7 +92,10 @@ function launchDfxProject(context: ExtensionContext, dfxConfig: DfxConfig) {
             command: getDfxPath(),
             args: ['_language-service', canister],
         };
-        launchClient(context, { run: serverCommand, debug: serverCommand });
+        restartLanguageServer(context, {
+            run: serverCommand,
+            debug: serverCommand,
+        });
     };
 
     const canister = config.get<string>('canister');
@@ -114,7 +117,10 @@ function launchDfxProject(context: ExtensionContext, dfxConfig: DfxConfig) {
     }
 }
 
-function launchClient(context: ExtensionContext, serverOptions: ServerOptions) {
+function restartLanguageServer(
+    context: ExtensionContext,
+    serverOptions: ServerOptions,
+) {
     if (client) {
         console.log('Restarting Motoko language server');
         client.stop().catch((err) => console.error(err.stack || err));

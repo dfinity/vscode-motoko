@@ -19,6 +19,7 @@ import {
     MarkupKind,
     Position,
     ProposedFeatures,
+    Range,
     ReferenceParams,
     SignatureHelp,
     TextDocumentPositionParams,
@@ -46,13 +47,14 @@ import {
     rangeFromNode,
 } from './navigation';
 import { vesselSources } from './rust';
-import { Program, findNodes, asNode } from './syntax';
+import { Program, asNode, findNodes } from './syntax';
 import {
     formatMotoko,
     getFileText,
     resolveFilePath,
     resolveVirtualPath,
 } from './utils';
+import { organizeImports } from './imports';
 
 interface Settings {
     motoko: MotokoSettings;
@@ -387,8 +389,14 @@ connection.onInitialize((event): InitializeResult => {
             definitionProvider: true,
             // declarationProvider: true,
             // referencesProvider: true,
-            codeActionProvider: true,
+            codeActionProvider: {
+                codeActionKinds: [
+                    CodeActionKind.QuickFix,
+                    CodeActionKind.SourceOrganizeImports,
+                ],
+            },
             hoverProvider: true,
+            // executeCommandProvider: { commands: [] },
             // workspaceSymbolProvider: true,
             // diagnosticProvider: {
             //     documentSelector: ['motoko'],
@@ -795,11 +803,38 @@ function deleteVirtual(path: string) {
 }
 
 connection.onCodeAction((event) => {
+    const uri = event.textDocument.uri;
     const results: CodeAction[] = [];
 
-    // Automatic imports
+    // Organize imports
+    const status = getContext(uri).astResolver.request(uri);
+    const imports = status?.program?.imports;
+    if (imports?.length) {
+        const start = rangeFromNode(asNode(imports[0].ast))?.start;
+        const end = rangeFromNode(asNode(imports[imports.length - 1].ast))?.end;
+        if (!start || !end) {
+            console.warn('Unexpected import AST range format');
+            return;
+        }
+        const range = Range.create(
+            Position.create(start.line, 0),
+            Position.create(end.line + 1, 0),
+        );
+        const source = organizeImports(imports).trim() + '\n';
+        results.push({
+            title: 'Organize imports',
+            kind: CodeActionKind.SourceOrganizeImports,
+            isPreferred: true,
+            edit: {
+                changes: {
+                    [uri]: [TextEdit.replace(range, source)],
+                },
+            },
+        });
+    }
+
+    // Import quick-fix actions
     event.context?.diagnostics?.forEach((diagnostic) => {
-        const uri = event.textDocument.uri;
         const name = /unbound variable ([a-z0-9_]+)/i.exec(
             diagnostic.message,
         )?.[1];
@@ -808,9 +843,10 @@ connection.onCodeAction((event) => {
             context.importResolver.getImportPaths(name, uri).forEach((path) => {
                 // Add import suggestion
                 results.push({
+                    title: `Import "${path}"`,
                     kind: CodeActionKind.QuickFix,
                     isPreferred: true,
-                    title: `Import "${path}"`,
+                    diagnostics: [diagnostic],
                     edit: {
                         changes: {
                             [uri]: [
