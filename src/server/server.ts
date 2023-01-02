@@ -19,6 +19,7 @@ import {
     MarkupKind,
     Position,
     ProposedFeatures,
+    Range,
     ReferenceParams,
     SignatureHelp,
     TextDocumentPositionParams,
@@ -53,6 +54,7 @@ import {
     resolveFilePath,
     resolveVirtualPath,
 } from './utils';
+import { organizeImports } from './imports';
 
 interface Settings {
     motoko: MotokoSettings;
@@ -795,11 +797,39 @@ function deleteVirtual(path: string) {
 }
 
 connection.onCodeAction((event) => {
+    const uri = event.textDocument.uri;
     const results: CodeAction[] = [];
 
-    // Automatic imports
+    // Organize imports
+    const status = getContext(uri).astResolver.request(uri);
+    const imports = status?.program?.imports;
+    if (imports?.length) {
+        const start = rangeFromNode(asNode(imports[0].ast))?.start;
+        const end = rangeFromNode(asNode(imports[imports.length - 1].ast))?.end;
+        if (!start || !end) {
+            console.warn('Unexpected import AST range format');
+            return;
+        }
+        const range = Range.create(start, end);
+        const source = organizeImports(imports);
+        [CodeActionKind.SourceOrganizeImports, CodeActionKind.QuickFix].forEach(
+            (kind) => {
+                results.push({
+                    kind,
+                    title: 'Organize imports',
+                    isPreferred: kind === CodeActionKind.SourceOrganizeImports,
+                    edit: {
+                        changes: {
+                            [uri]: [TextEdit.replace(range, source)],
+                        },
+                    },
+                });
+            },
+        );
+    }
+
+    // Import quick-fix actions
     event.context?.diagnostics?.forEach((diagnostic) => {
-        const uri = event.textDocument.uri;
         const name = /unbound variable ([a-z0-9_]+)/i.exec(
             diagnostic.message,
         )?.[1];
