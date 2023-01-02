@@ -47,7 +47,7 @@ import {
     rangeFromNode,
 } from './navigation';
 import { vesselSources } from './rust';
-import { Program, findNodes, asNode } from './syntax';
+import { Program, asNode, findNodes } from './syntax';
 import {
     formatMotoko,
     getFileText,
@@ -389,8 +389,14 @@ connection.onInitialize((event): InitializeResult => {
             definitionProvider: true,
             // declarationProvider: true,
             // referencesProvider: true,
-            codeActionProvider: true,
+            codeActionProvider: {
+                codeActionKinds: [
+                    CodeActionKind.QuickFix,
+                    CodeActionKind.SourceOrganizeImports,
+                ],
+            },
             hoverProvider: true,
+            // executeCommandProvider: { commands: [] },
             // workspaceSymbolProvider: true,
             // diagnosticProvider: {
             //     documentSelector: ['motoko'],
@@ -812,20 +818,16 @@ connection.onCodeAction((event) => {
         }
         const range = Range.create(start, end);
         const source = organizeImports(imports);
-        [CodeActionKind.SourceOrganizeImports, CodeActionKind.QuickFix].forEach(
-            (kind) => {
-                results.push({
-                    kind,
-                    title: 'Organize imports',
-                    isPreferred: kind === CodeActionKind.SourceOrganizeImports,
-                    edit: {
-                        changes: {
-                            [uri]: [TextEdit.replace(range, source)],
-                        },
-                    },
-                });
+        results.push({
+            title: 'Organize imports',
+            kind: CodeActionKind.SourceOrganizeImports,
+            isPreferred: true,
+            edit: {
+                changes: {
+                    [uri]: [TextEdit.replace(range, source)],
+                },
             },
-        );
+        });
     }
 
     // Import quick-fix actions
@@ -838,9 +840,10 @@ connection.onCodeAction((event) => {
             context.importResolver.getImportPaths(name, uri).forEach((path) => {
                 // Add import suggestion
                 results.push({
+                    title: `Import "${path}"`,
                     kind: CodeActionKind.QuickFix,
                     isPreferred: true,
-                    title: `Import "${path}"`,
+                    diagnostics: [diagnostic],
                     edit: {
                         changes: {
                             [uri]: [
