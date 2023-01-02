@@ -202,22 +202,14 @@ function getImportInfo(
 const importGroups: {
     prefix: string;
 }[] = [
-    {
-        // IC imports
-        prefix: 'ic:',
-    },
-    {
-        // Canister alias imports
-        prefix: 'canister:',
-    },
-    {
-        // Package imports
-        prefix: 'mo:',
-    },
-    {
-        // Everything else
-        prefix: '',
-    },
+    // IC imports
+    { prefix: 'ic:' },
+    // Canister alias imports
+    { prefix: 'canister:' },
+    // Package imports
+    { prefix: 'mo:' },
+    // Everything else
+    { prefix: '' },
 ];
 
 export function organizeImports(imports: Import[]): string {
