@@ -573,48 +573,10 @@ let checkWorkspaceTimeout: ReturnType<typeof setTimeout>;
 function checkWorkspace() {
     clearTimeout(checkWorkspaceTimeout);
     checkWorkspaceTimeout = setTimeout(() => {
-        // console.log('Checking workspace');
-        // workspaceFolders?.forEach((folder) => {
-        //     const folderPath = resolveFilePath(folder.uri);
-        //     glob.sync('**/*.mo', {
-        //         cwd: folderPath,
-        //         dot: false, // exclude directories such as `.vessel`
-        //         ignore: ignoreGlobs,
-        //     }).forEach((relativePath) => {
-        //         const path = join(folderPath, relativePath);
-        //         try {
-        //             const file = URI.file(path).toString();
-        //             // notify(file);
-        //             check(file);
-        //         } catch (err) {
-        //             console.error(`Error while checking Motoko file ${path}:`);
-        //             console.error(err);
-        //         }
-        //     });
-        // });
-        // validateOpenDocuments();
-        // loadPrimaryDfxConfig()
-        //     .then((dfxConfig) => {
-        //         if (!dfxConfig) {
-        //             return;
-        //         }
-        //         console.log('dfx.json:', JSON.stringify(dfxConfig));
-        //         Object.values(dfxConfig.canisters).forEach((canister) => {
-        //             if (
-        //                 (!canister.type || canister.type === 'motoko') &&
-        //                 canister.main
-        //             ) {
-        //                 const folder = workspaceFolders![0]; // temp
-        //                 const filePath = join(
-        //                     resolveFilePath(folder.uri),
-        //                     canister.main,
-        //                 );
-        //                 const uri = URI.file(filePath).toString();
-        //                 validate(uri);
-        //             }
-        //         });
-        //     })
-        //     .catch((err) => console.error(`Error while loading dfx.json: ${err}`));
+        console.log('Checking open files');
+        documents.all().forEach((document) => {
+            scheduleCheck(document.uri);
+        });
     }, 500);
 }
 
@@ -1149,7 +1111,7 @@ connection.onReferences(
 let validatingTimeout: ReturnType<typeof setTimeout>;
 let validatingUri: string | undefined;
 documents.onDidChangeContent((event) => {
-    const document = event.document;
+    const { document } = event;
     const { uri } = document;
     if (uri === validatingUri) {
         clearTimeout(validatingTimeout);
@@ -1162,12 +1124,12 @@ documents.onDidChangeContent((event) => {
     validatingUri = uri;
 });
 
-// documents.onDidClose((event) =>
-//     connection.sendDiagnostics({
-//         diagnostics: [],
-//         uri: event.document.uri,
-//     }),
-// );
+documents.onDidClose((event) =>
+    connection.sendDiagnostics({
+        diagnostics: [],
+        uri: event.document.uri,
+    }),
+);
 
 documents.listen(connection);
 connection.listen();
