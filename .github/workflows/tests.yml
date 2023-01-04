@@ -7,10 +7,11 @@ on:
   push:
     branches: [ "master" ]
   pull_request:
-    # branches: [ "master" ]
+    branches: [ "master" ]
 
 jobs:
   build:
+    if: ${{ false }} # Deactivate this workflow (temporary; requires a Nix installation)
 
     runs-on: ubuntu-latest
 
