@@ -25,7 +25,7 @@ export default class ImportResolver {
         if (!motokoUri) {
             return false;
         }
-        const name = pascalCase(/([^/]+)$/i.exec(motokoUri)?.[1]||'');
+        const name = pascalCase(/([^/]+)$/i.exec(motokoUri)?.[1] || '');
         if (name) {
             this._moduleNameUriMap.set(name, motokoUri);
         }

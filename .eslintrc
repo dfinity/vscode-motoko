@@ -1,0 +1,27 @@
+{
+    "env": {
+        "browser": true,
+        "es2017": true
+    },
+    "extends": [],
+    "parser": "@typescript-eslint/parser",
+    "parserOptions": {
+        "ecmaVersion": "latest",
+        "sourceType": "script"
+    },
+    "overrides": [
+        {
+            "files": ["**/*.spec.ts"],
+            "plugins": ["jest"],
+            "extends": ["plugin:jest/recommended"],
+            "rules": {
+                "jest/no-commented-out-tests": "off"
+            }
+        }
+    ],
+    "plugins": ["@typescript-eslint"],
+    "rules": {
+        "no-extra-semi": "warn",
+        "prefer-const": "warn"
+    }
+}

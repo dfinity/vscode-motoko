@@ -62,7 +62,7 @@ export async function activate(context: ExtensionContext) {
                         'workbench.extensions.uninstallExtension',
                         'dfinity-foundation.motoko-viper',
                     );
-                } 
+                }
                 uninstallPromise?.then(() =>
                     commands.executeCommand('workbench.action.reloadWindow'),
                 );
@@ -257,7 +257,7 @@ function launchClient(context: ExtensionContext, serverOptions: ServerOptions) {
         console.log('Restarting Motoko language server');
         client.stop().catch((err) => console.error(err.stack || err));
     }
-    let clientOptions: LanguageClientOptions = {
+    const clientOptions: LanguageClientOptions = {
         documentSelector: [
             { scheme: 'file', language: 'motoko' },
             // { scheme: 'untitled', language: 'motoko' },

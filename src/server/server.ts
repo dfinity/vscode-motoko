@@ -4,14 +4,13 @@ import { existsSync, readFileSync } from 'fs';
 import { Node } from 'motoko/lib/ast';
 import { keywords } from 'motoko/lib/keywords';
 import * as baseLibrary from 'motoko/packages/latest/base.json';
-import { join } from 'path';
+import { join, resolve } from 'path';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import {
     CodeAction,
     CodeActionKind,
     CompletionItemKind,
     CompletionList,
-    createConnection,
     Diagnostic,
     DiagnosticSeverity,
     FileChangeType,
@@ -22,26 +21,27 @@ import {
     ProposedFeatures,
     SignatureHelp,
     TextDocumentPositionParams,
-    TextDocuments,
     TextDocumentSyncKind,
+    TextDocuments,
     TextEdit,
     WorkspaceFolder,
+    createConnection,
 } from 'vscode-languageserver/node';
 import { URI } from 'vscode-uri';
 import { watchGlob as virtualFilePattern } from '../common/watchConfig';
-import AstResolver from './ast';
+import { addContext, allContexts, getContext, resetContexts } from './context';
 import DfxResolver from './dfx';
-import ImportResolver from './imports';
 import { getAstInformation } from './information';
-import mo from './motoko';
-import { findNodes, Program } from './syntax';
+import { vesselSources } from './rust';
+import { Program, findNodes } from './syntax';
 import {
     formatMotoko,
     getFileText,
     resolveFilePath,
     resolveVirtualPath,
 } from './utils';
-import { compileViper, invalidateViper } from './viper';
+import { compileViper } from './viper';
+// import { mopsSources } from './mops';
 
 interface Settings {
     motoko: MotokoSettings;
@@ -56,78 +56,170 @@ interface MotokoSettings {
 // Always ignore `node_modules/` (often used in frontend canisters)
 // const ignoreGlobs = ['**/node_modules/**/*'];
 const skipExtension = '.mo_';
+const ignoreGlobs = [
+    '**/node_modules/**/*', // npm packages
+    '**/.vessel/.tmp/**/*', // temporary Vessel files
+];
 
-// const moFileSet = new Set();
-
-// Set up import suggestions
-const importResolver = new ImportResolver();
-const astResolver = new AstResolver();
-
-Object.entries(baseLibrary.files).forEach(
-    ([path, { content }]: [string, { content: string }]) => {
-        notifyWriteUri(`mo:base/${path}`, content);
-    },
-);
-
-function getVesselArgs():
-    | { workspaceFolder: WorkspaceFolder; args: string[] }
-    | undefined {
-    try {
-        for (const folder of workspaceFolders || []) {
-            const uri = folder.uri;
-            if (!uri) {
-                continue;
-            }
-            const ws = resolveFilePath(uri);
-            if (
-                !existsSync(join(ws, 'vessel.dhall')) &&
-                !existsSync(join(ws, 'vessel.json'))
-            ) {
-                continue;
-            }
-            const flags = execSync('vessel sources', {
-                cwd: ws,
-            }).toString('utf8');
-            return {
-                workspaceFolder: folder,
-                args: flags.split(' '),
-            };
+async function getPackageSources(
+    directory: string,
+): Promise<[string, string][]> {
+    function sourcesFromCommand(command: string) {
+        console.log(`Running command: \`${directory}\``);
+        const result = execSync(command, {
+            cwd: directory,
+        }).toString('utf8');
+        const args = result.split(/\s/); // TODO: account for quoted strings
+        console.log('Received:', args);
+        if (!args) {
+            return [];
         }
-    } catch (err) {
-        console.warn(err);
-    }
-    return;
-}
-
-async function loadPackages() {
-    mo.clearPackages();
-
-    try {
-        // Load default base library
-        mo.loadPackage(baseLibrary);
-    } catch (err) {
-        console.error(`Error while loading base library: ${err}`);
-    }
-
-    const vesselArgs = getVesselArgs();
-    if (vesselArgs) {
-        const { workspaceFolder, args } = vesselArgs;
-        // Load packages from Vessel
+        const sources: [string, string][] = [];
         let nextArg;
         while ((nextArg = args.shift())) {
             if (nextArg === '--package') {
                 const name = args.shift()!;
-                const path = resolveVirtualPath(
-                    workspaceFolder.uri,
-                    args.shift()!,
-                );
-                console.log('Package:', name, '->', path);
-                mo.usePackage(name, path);
+                const relativePath = args.shift();
+                if (!relativePath) {
+                    continue;
+                }
+                sources.push([name, relativePath]);
             }
         }
+        return sources;
     }
 
-    notifyDfxChange();
+    // Prioritize MOPS over Vessel
+    if (existsSync(join(directory, 'mops.toml'))) {
+        const command = 'mops sources';
+        try {
+            return sourcesFromCommand(command);
+        } catch (err: any) {
+            // try {
+            //     const sources = await mopsSources(directory);
+            //     if (!sources) {
+            //         throw new Error('Unexpected output');
+            //     }
+            //     return Object.entries(sources);
+            // } catch (fallbackError) {
+            //     console.error(
+            //         `Error in fallback MOPS implementation:`,
+            //         fallbackError,
+            //     );
+            //     // Provide a verbose error message for MOPS command
+            //     throw new Error(
+            //         `Error while running \`${command}\`: ${
+            //             err?.message || err
+            //         }`,
+            //     );
+            // }
+
+            throw new Error(
+                `Error while running \`${command}\`: ${err?.message || err}`,
+            );
+        }
+    } else if (existsSync(join(directory, 'vessel.dhall'))) {
+        const command = 'vessel sources';
+        try {
+            return sourcesFromCommand(command);
+        } catch (err) {
+            console.error(`Error while running \`${command}\`:`, err);
+            return vesselSources(directory);
+        }
+    } else {
+        return [];
+    }
+}
+
+let packageConfigChangeTimeout: ReturnType<typeof setTimeout>;
+function notifyPackageConfigChange() {
+    clearTimeout(packageConfigChangeTimeout);
+    setTimeout(async () => {
+        try {
+            resetContexts();
+
+            const directories: string[] = [];
+            try {
+                workspaceFolders?.forEach((workspaceFolder) => {
+                    const filenames = ['mops.toml', 'vessel.dhall'];
+                    const paths = glob.sync(`**/{${filenames.join(',')}}`, {
+                        cwd: resolveFilePath(workspaceFolder.uri),
+                        ignore: ignoreGlobs,
+                        dot: false,
+                    });
+                    paths.forEach((path) => {
+                        filenames.forEach((filename) => {
+                            const dir = resolve(
+                                path.slice(0, -filename.length),
+                            );
+                            if (!directories.includes(dir)) {
+                                directories.push(dir);
+                            }
+                        });
+                    });
+                });
+            } catch (err) {
+                console.error(
+                    `Error while resolving package config directories: ${err}`,
+                );
+            }
+
+            await Promise.all(
+                directories.map(async (dir) => {
+                    try {
+                        console.log(
+                            'Configuring package config directory:',
+                            dir,
+                        );
+
+                        const uri = URI.file(dir).toString();
+                        const context = addContext(uri);
+
+                        try {
+                            (await getPackageSources(dir)).forEach(
+                                ([name, relativePath]) => {
+                                    const path = resolveVirtualPath(
+                                        uri,
+                                        relativePath,
+                                    );
+                                    console.log(
+                                        'Package:',
+                                        name,
+                                        '->',
+                                        path,
+                                        `(${uri})`,
+                                    );
+                                    context.motoko.usePackage(name, path);
+                                },
+                            );
+                        } catch (err) {
+                            // context.error = `unable to load project dependencies: ${err}`;
+                            context.error = String(err);
+                            console.warn(err);
+                            return;
+                        }
+                    } catch (err) {
+                        console.error(
+                            `Error while configuring Vessel directory (${dir}): ${err}`,
+                        );
+                    }
+                }),
+            );
+
+            // Add base library autocompletions
+            // TODO: possibly refactor into `context.ts`
+            Object.entries(baseLibrary.files).forEach(
+                ([path, { content }]: [string, { content: string }]) => {
+                    notifyWriteUri(`mo:base/${path}`, content);
+                },
+            );
+
+            notifyWorkspace(); // Update virtual file system
+            notifyDfxChange(); // Reload dfx.json
+        } catch (err) {
+            console.error(`Error while loading packages: ${err}`);
+        }
+    }, 1000);
 }
 
 let dfxChangeTimeout: ReturnType<typeof setTimeout>;
@@ -175,9 +267,14 @@ function notifyDfxChange() {
                                     }
                                 },
                             );
-                            const path = join(projectDir, `.dfx/local/lsp`);
+                            const path = join(projectDir, '.dfx/local/lsp');
                             const uri = URI.file(path).toString();
-                            mo.setAliases(resolveVirtualPath(uri), aliases);
+                            allContexts().forEach(({ motoko }) => {
+                                motoko.setAliases(
+                                    resolveVirtualPath(uri),
+                                    aliases,
+                                );
+                            });
                         }
                     } catch (err) {
                         console.error(
@@ -215,7 +312,7 @@ function notifyDfxChange() {
         }
 
         checkWorkspace();
-    }, 100);
+    }, 1000);
 }
 
 // Create a connection for the language server
@@ -229,7 +326,9 @@ const forwardMessage =
                 return typeof value === 'string'
                     ? value
                     : value instanceof Promise
-                    ? `<Promise>`
+                    ? '<Promise>'
+                    : value instanceof Error
+                    ? value.stack || value.message || value
                     : JSON.stringify(value);
             } catch (err) {
                 return `<${err}>`;
@@ -299,14 +398,11 @@ connection.onInitialized(() => {
         notifyWorkspace();
     });
 
-    notifyWorkspace();
+    // notifyWorkspace();
 
     // loadPrimaryDfxConfig();
 
-    loadPackages().catch((err) => {
-        console.error('Error while loading Motoko packages:');
-        console.error(err);
-    });
+    notifyPackageConfigChange();
 });
 
 connection.onDidChangeWatchedFiles((event) => {
@@ -323,8 +419,16 @@ connection.onDidChangeWatchedFiles((event) => {
             } else {
                 notify(change.uri);
             }
-            if (change.uri.endsWith('.did')) {
+            if (
+                change.uri.endsWith('.did') ||
+                change.uri.endsWith('/dfx.json')
+            ) {
                 notifyDfxChange();
+            } else if (
+                change.uri.endsWith('.dhall') ||
+                change.uri.endsWith('/mops.toml')
+            ) {
+                notifyPackageConfigChange();
             }
         } catch (err) {
             console.error(`Error while handling Motoko file change: ${err}`);
@@ -336,8 +440,7 @@ connection.onDidChangeWatchedFiles((event) => {
 
 connection.onDidChangeConfiguration((event) => {
     settings = (<Settings>event.settings).motoko;
-    checkWorkspace();
-    notifyDfxChange();
+    notifyPackageConfigChange();
 });
 
 /**
@@ -352,6 +455,7 @@ function notifyWorkspace() {
         glob.sync(virtualFilePattern, {
             cwd: folderPath,
             dot: true,
+            ignore: ignoreGlobs,
         }).forEach((relativePath) => {
             const path = join(folderPath, relativePath);
             try {
@@ -359,7 +463,7 @@ function notifyWorkspace() {
                     folder.uri,
                     relativePath,
                 );
-                console.log('*', virtualPath);
+                console.log('*', virtualPath, `(${allContexts().length})`);
                 const content = readFileSync(path, 'utf8');
                 writeVirtual(virtualPath, content);
                 const uri = URI.file(
@@ -425,7 +529,6 @@ function checkWorkspace() {
     clearTimeout(checkWorkspaceTimeout);
     checkWorkspaceTimeout = setTimeout(() => {
         // console.log('Checking workspace');
-
         // workspaceFolders?.forEach((folder) => {
         //     const folderPath = resolveFilePath(folder.uri);
         //     glob.sync('**/*.mo', {
@@ -444,9 +547,7 @@ function checkWorkspace() {
         //         }
         //     });
         // });
-
         // validateOpenDocuments();
-
         // loadPrimaryDfxConfig()
         //     .then((dfxConfig) => {
         //         if (!dfxConfig) {
@@ -598,7 +699,9 @@ function checkImmediate(uri: string | TextDocument): boolean {
             }
         }
         if (regularTypeCheck) {
-            diagnostics = mo.check(virtualPath) as any as Diagnostic[];
+            diagnostics = getContext(resolvedUri).motoko.check(
+                virtualPath,
+            ) as any as Diagnostic[];
         }
         sendDiagnostics(virtualPath, diagnostics);
         return true;
@@ -622,19 +725,28 @@ function checkImmediate(uri: string | TextDocument): boolean {
 
 function notifyWriteUri(uri: string, content: string) {
     if (uri.endsWith('.mo')) {
-        let program: Program | undefined;
-        try {
-            astResolver.notify(uri, content);
-            // program = astResolver.request(uri)?.program; // TODO: re-enable for field imports
-        } catch (err) {
-            console.error(`Error while parsing (${uri}): ${err}`);
-        }
-        importResolver.update(uri, program);
+        // Apply package URIs to all contexts
+        const contexts = uri.startsWith('mo:')
+            ? allContexts()
+            : [getContext(uri)];
+
+        contexts.forEach((context) => {
+            const { astResolver, importResolver } = context;
+            let program: Program | undefined;
+            try {
+                astResolver.notify(uri, content);
+                // program = astResolver.request(uri)?.program; // TODO: re-enable for field imports
+            } catch (err) {
+                console.error(`Error while parsing (${uri}): ${err}`);
+            }
+            importResolver.update(uri, program);
+        });
     }
 }
 
 function notifyDeleteUri(uri: string) {
     if (uri.endsWith('.mo')) {
+        const { astResolver, importResolver } = getContext(uri);
         astResolver.delete(uri);
         importResolver.delete(uri);
     }
@@ -644,13 +756,11 @@ function writeVirtual(path: string, content: string) {
     // if (virtualPath.endsWith('.mo')) {
     //     content = preprocessMotoko(content);
     // }
-    mo.write(path, content);
-    // (this arrives after compileViper!) invalidateViper(path);
+    allContexts().forEach(({ motoko }) => motoko.write(path, content));
 }
 
 function deleteVirtual(path: string) {
-    mo.delete(path);
-    invalidateViper(path);
+    allContexts().forEach(({ motoko }) => motoko.delete(path));
 }
 
 connection.onCodeAction((event) => {
@@ -663,6 +773,7 @@ connection.onCodeAction((event) => {
             diagnostic.message,
         )?.[1];
         if (name) {
+            const { importResolver } = getContext(uri);
             importResolver.getImportPaths(name, uri).forEach((path) => {
                 // Add import suggestion
                 results.push({
@@ -704,6 +815,7 @@ connection.onCompletion((event) => {
     try {
         const text = getFileText(uri);
         const lines = text.split(/\r?\n/g);
+        const { astResolver, importResolver } = getContext(uri);
         const program = astResolver.request(uri)?.program;
 
         const [dot, identStart] = /(\s*\.\s*)?([a-zA-Z_]?[a-zA-Z0-9_]*)$/
@@ -801,6 +913,7 @@ connection.onCompletion((event) => {
 connection.onHover((event) => {
     const { position } = event;
     const { uri } = event.textDocument;
+    const { astResolver } = getContext(uri);
     const status = astResolver.requestTyped(uri);
     if (!status || status.outdated || !status.ast) {
         return;
@@ -915,14 +1028,16 @@ let validatingTimeout: ReturnType<typeof setTimeout>;
 let validatingUri: string | undefined;
 documents.onDidChangeContent((event) => {
     const document = event.document;
-    if (document.uri === validatingUri) {
+    const { uri } = document;
+    if (uri === validatingUri) {
         clearTimeout(validatingTimeout);
     }
     validatingTimeout = setTimeout(() => {
         validate(document);
-        astResolver.update(document.uri, true); /// TODO: also use for type checking?
+        const { astResolver } = getContext(uri);
+        astResolver.update(uri, true); /// TODO: also use for type checking?
     }, 100);
-    validatingUri = document.uri;
+    validatingUri = uri;
 });
 
 // documents.onDidClose((event) =>

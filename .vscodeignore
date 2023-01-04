@@ -3,5 +3,9 @@
 .gitignore
 .vscode/**
 motoko/**
+.vessel/**
 node_modules/**
+
 src/**
+test/**
+rust/**

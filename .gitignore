@@ -1,5 +1,6 @@
 /node_modules/
 /out/
-result
 *.vsix
 /src/generated/**/*
+/snippets.json
+.vessel
