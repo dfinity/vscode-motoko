@@ -339,7 +339,10 @@ export function resolveViperMessage(diagnostic: Diagnostic): string {
     );
     if (match) {
         const [, method] = match;
-        return `Canister invariant violated by method '${method}'`;
+        return `Canister specification violated by method '${method}'`;
+    }
+    if (message.startsWith('Exhale might fail. Assertion ') {
+        return 'Canister invariant violated by async block'
     }
     return message;
 }
