@@ -29,10 +29,8 @@ function requestMotokoInstance(uri: string): Motoko {
     } else {
         Object.keys(require.cache).forEach((key) => {
             if (
-                key.endsWith('/out/motoko.js') ||
-                key.endsWith('\\out\\motoko.js') ||
-                key.endsWith('/generated/moc.js') ||
-                key.endsWith('\\generated\\moc.js')
+                key.endsWith('/out/server/motoko.js') ||
+                key.endsWith('\\out\\server\\motoko.js')
             ) {
                 // console.warn('Deleting cache:', key);
                 delete require.cache[key];
