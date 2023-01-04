@@ -19,6 +19,8 @@ import {
     MarkupKind,
     Position,
     ProposedFeatures,
+    Range,
+    ReferenceParams,
     SignatureHelp,
     TextDocumentPositionParams,
     TextDocumentSyncKind,
@@ -29,11 +31,23 @@ import {
 } from 'vscode-languageserver/node';
 import { URI } from 'vscode-uri';
 import { watchGlob as virtualFilePattern } from '../common/watchConfig';
-import { addContext, allContexts, getContext, resetContexts } from './context';
+import {
+    Context,
+    addContext,
+    allContexts,
+    getContext,
+    resetContexts,
+} from './context';
 import DfxResolver from './dfx';
 import { getAstInformation } from './information';
+import {
+    findDefinition,
+    findMostSpecificNodeForPosition,
+    locationFromDefinition,
+    rangeFromNode,
+} from './navigation';
 import { vesselSources } from './rust';
-import { Program, findNodes } from './syntax';
+import { Program, asNode, findNodes } from './syntax';
 import {
     formatMotoko,
     getFileText,
@@ -42,6 +56,7 @@ import {
 } from './utils';
 import { compileViper } from './viper';
 // import { mopsSources } from './mops';
+import { organizeImports } from './imports';
 
 interface Settings {
     motoko: MotokoSettings;
@@ -65,7 +80,7 @@ async function getPackageSources(
     directory: string,
 ): Promise<[string, string][]> {
     function sourcesFromCommand(command: string) {
-        console.log(`Running command: \`${directory}\``);
+        console.log(`Running \`${command}\` in directory: ${directory}`);
         const result = execSync(command, {
             cwd: directory,
         }).toString('utf8');
@@ -132,8 +147,10 @@ async function getPackageSources(
 }
 
 let packageConfigChangeTimeout: ReturnType<typeof setTimeout>;
+let loadingPackages = false;
 function notifyPackageConfigChange() {
     clearTimeout(packageConfigChangeTimeout);
+    loadingPackages = true;
     setTimeout(async () => {
         try {
             resetContexts();
@@ -149,11 +166,13 @@ function notifyPackageConfigChange() {
                     });
                     paths.forEach((path) => {
                         filenames.forEach((filename) => {
-                            const dir = resolve(
-                                path.slice(0, -filename.length),
-                            );
-                            if (!directories.includes(dir)) {
-                                directories.push(dir);
+                            if (path.endsWith(filename)) {
+                                const dir = resolve(
+                                    path.slice(0, -filename.length),
+                                );
+                                if (!directories.includes(dir)) {
+                                    directories.push(dir);
+                                }
                             }
                         });
                     });
@@ -214,9 +233,11 @@ function notifyPackageConfigChange() {
                 },
             );
 
+            loadingPackages = false;
             notifyWorkspace(); // Update virtual file system
             notifyDfxChange(); // Reload dfx.json
         } catch (err) {
+            loadingPackages = false;
             console.error(`Error while loading packages: ${err}`);
         }
     }, 1000);
@@ -315,6 +336,19 @@ function notifyDfxChange() {
     }, 1000);
 }
 
+// TODO: refactor
+function findNewImportPosition(uri: string, context: Context): Position {
+    const imports = context.astResolver.request(uri)?.program?.imports;
+    if (imports?.length) {
+        const lastImport = imports[imports.length - 1];
+        const end = (lastImport.ast as Node)?.end;
+        if (end) {
+            return Position.create(end[0], 0);
+        }
+    }
+    return Position.create(0, 0);
+}
+
 // Create a connection for the language server
 const connection = createConnection(ProposedFeatures.all);
 
@@ -329,7 +363,7 @@ const forwardMessage =
                     ? '<Promise>'
                     : value instanceof Error
                     ? value.stack || value.message || value
-                    : JSON.stringify(value);
+                    : String(JSON.stringify(value));
             } catch (err) {
                 return `<${err}>`;
             }
@@ -357,10 +391,18 @@ connection.onInitialize((event): InitializeResult => {
                 resolveProvider: false,
                 triggerCharacters: ['.'],
             },
-            // definitionProvider: true,
+            definitionProvider: true,
             // declarationProvider: true,
-            codeActionProvider: true,
+            // referencesProvider: true,
+            codeActionProvider: {
+                codeActionKinds: [
+                    CodeActionKind.QuickFix,
+                    CodeActionKind.SourceOrganizeImports,
+                ],
+            },
             hoverProvider: true,
+            // executeCommandProvider: { commands: [] },
+            // workspaceSymbolProvider: true,
             // diagnosticProvider: {
             //     documentSelector: ['motoko'],
             //     interFileDependencies: true,
@@ -463,7 +505,7 @@ function notifyWorkspace() {
                     folder.uri,
                     relativePath,
                 );
-                console.log('*', virtualPath, `(${allContexts().length})`);
+                // console.log('*', virtualPath, `(${allContexts().length})`);
                 const content = readFileSync(path, 'utf8');
                 writeVirtual(virtualPath, content);
                 const uri = URI.file(
@@ -497,6 +539,9 @@ function processQueue() {
     }, 0);
 }
 function scheduleCheck(uri: string | TextDocument) {
+    if (loadingPackages) {
+        return;
+    }
     if (checkQueue.length === 0) {
         processQueue();
     }
@@ -764,27 +809,55 @@ function deleteVirtual(path: string) {
 }
 
 connection.onCodeAction((event) => {
+    const uri = event.textDocument.uri;
     const results: CodeAction[] = [];
 
-    // Automatic imports
+    // Organize imports
+    const status = getContext(uri).astResolver.request(uri);
+    const imports = status?.program?.imports;
+    if (imports?.length) {
+        const start = rangeFromNode(asNode(imports[0].ast))?.start;
+        const end = rangeFromNode(asNode(imports[imports.length - 1].ast))?.end;
+        if (!start || !end) {
+            console.warn('Unexpected import AST range format');
+            return;
+        }
+        const range = Range.create(
+            Position.create(start.line, 0),
+            Position.create(end.line + 1, 0),
+        );
+        const source = organizeImports(imports).trim() + '\n';
+        results.push({
+            title: 'Organize imports',
+            kind: CodeActionKind.SourceOrganizeImports,
+            isPreferred: true,
+            edit: {
+                changes: {
+                    [uri]: [TextEdit.replace(range, source)],
+                },
+            },
+        });
+    }
+
+    // Import quick-fix actions
     event.context?.diagnostics?.forEach((diagnostic) => {
-        const uri = event.textDocument.uri;
         const name = /unbound variable ([a-z0-9_]+)/i.exec(
             diagnostic.message,
         )?.[1];
         if (name) {
-            const { importResolver } = getContext(uri);
-            importResolver.getImportPaths(name, uri).forEach((path) => {
+            const context = getContext(uri);
+            context.importResolver.getImportPaths(name, uri).forEach((path) => {
                 // Add import suggestion
                 results.push({
+                    title: `Import "${path}"`,
                     kind: CodeActionKind.QuickFix,
                     isPreferred: true,
-                    title: `Import "${path}"`,
+                    diagnostics: [diagnostic],
                     edit: {
                         changes: {
                             [uri]: [
                                 TextEdit.insert(
-                                    Position.create(0, 0),
+                                    findNewImportPosition(uri, context),
                                     `import ${name} "${path}";\n`,
                                 ),
                             ],
@@ -815,34 +888,52 @@ connection.onCompletion((event) => {
     try {
         const text = getFileText(uri);
         const lines = text.split(/\r?\n/g);
-        const { astResolver, importResolver } = getContext(uri);
-        const program = astResolver.request(uri)?.program;
+        const context = getContext(uri);
+        const program = context.astResolver.request(uri)?.program;
 
         const [dot, identStart] = /(\s*\.\s*)?([a-zA-Z_]?[a-zA-Z0-9_]*)$/
             .exec(lines[position.line].substring(0, position.character))
             ?.slice(1) ?? ['', ''];
 
         if (!dot) {
-            importResolver.getNameEntries(uri).forEach(([name, path]) => {
-                if (name.startsWith(identStart)) {
-                    list.items.push({
-                        label: name,
-                        detail: path,
-                        insertText: name,
-                        kind: path.startsWith('mo:')
-                            ? CompletionItemKind.Module
-                            : CompletionItemKind.Class, // TODO: resolve actors, classes, etc.
-                        // additionalTextEdits: import
-                    });
-                }
-            });
+            context.importResolver
+                .getNameEntries(uri)
+                .forEach(([name, path]) => {
+                    if (name.startsWith(identStart)) {
+                        const status = context.astResolver.request(uri);
+                        const existingImport = status?.program?.imports.find(
+                            (i) =>
+                                i.name === name ||
+                                i.fields.some(([, alias]) => alias === name),
+                        );
+                        if (existingImport || !status?.program) {
+                            // Skip alternatives with already imported name
+                            return;
+                        }
+                        const edits: TextEdit[] = [
+                            TextEdit.insert(
+                                findNewImportPosition(uri, context),
+                                `import ${name} "${path}";\n`,
+                            ),
+                        ];
+                        list.items.push({
+                            label: name,
+                            detail: path,
+                            insertText: name,
+                            kind: path.startsWith('mo:')
+                                ? CompletionItemKind.Module
+                                : CompletionItemKind.Class, // TODO: resolve actors, classes, etc.
+                            additionalTextEdits: edits,
+                        });
+                    }
+                });
 
             if (identStart) {
                 keywords.forEach((keyword) => {
                     if (keyword.startsWith(identStart)) {
                         list.items.push({
                             label: keyword,
-                            // detail: , // TODO: explanation of each keyword
+                            // detail: , // TODO: explanation for each keyword
                             insertText: keyword,
                             kind: CompletionItemKind.Keyword,
                         });
@@ -909,8 +1000,31 @@ connection.onCompletion((event) => {
     return list;
 });
 
-// const ignoredAstNodes = [];
 connection.onHover((event) => {
+    function findDocComment(node: Node): string | undefined {
+        const definition = findDefinition(uri, event.position, true);
+        let docNode: Node | undefined = definition?.cursor || node;
+        let depth = 0; // Max AST depth to display doc comment
+        while (
+            !docNode.doc &&
+            docNode.parent &&
+            // Unresolved import
+            !(
+                docNode.name === 'LetD' &&
+                asNode(docNode.args?.[1])?.name === 'ImportE'
+            ) &&
+            depth < 2
+        ) {
+            docNode = docNode.parent;
+            depth++;
+        }
+        if (docNode.name === 'Prog' && !docNode.doc) {
+            // Get doc comment at top of file
+            return asNode(docNode.args?.[0])?.doc;
+        }
+        return docNode.doc;
+    }
+
     const { position } = event;
     const { uri } = event.textDocument;
     const { astResolver } = getContext(uri);
@@ -919,43 +1033,13 @@ connection.onHover((event) => {
         return;
     }
     // Find AST nodes which include the cursor position
-    const nodes = findNodes(
+    const node = findMostSpecificNodeForPosition(
         status.ast,
-        (node) =>
-            !node.file &&
-            node.start &&
-            node.end &&
-            position.line >= node.start[0] - 1 &&
-            position.line <= node.end[0] - 1 &&
-            // position.line == node.start[0] - 1 &&
-            (position.line !== node.start[0] - 1 ||
-                position.character >= node.start[1]) &&
-            (position.line !== node.end[0] - 1 ||
-                position.character < node.end[1]),
+        position,
+        (node) => !!node.type,
+        true, // Mouse cursor
     );
-
-    // Find the most specific AST node for the cursor position
-    let node: Node | undefined;
-    let nodeLines: number;
-    let nodeChars: number;
-    nodes.forEach((n: Node) => {
-        // if (ignoredAstNodes.includes(n.name)) {
-        //     return;
-        // }
-        const nLines = n.end![0] - n.start![0];
-        const nChars = n.end![1] - n.start![1];
-        if (
-            !node ||
-            (n.type && !node.type) ||
-            nLines < nodeLines ||
-            (nLines == nodeLines && nChars < nodeChars)
-        ) {
-            node = n;
-            nodeLines = nLines;
-            nodeChars = nChars;
-        }
-    });
-    if (!node || !node.start || !node.end) {
+    if (!node) {
         return;
     }
 
@@ -970,7 +1054,22 @@ connection.onHover((event) => {
     const source = (
         isSameLine ? startLine.substring(node.start[1], node.end[1]) : startLine
     ).trim();
-    if (node.type) {
+    const doc = findDocComment(node);
+    if (doc) {
+        const typeInfo = node.type ? formatMotoko(node.type).trim() : '';
+        const lineIndex = typeInfo.indexOf('\n');
+        if (typeInfo) {
+            if (lineIndex === -1) {
+                docs.push(codeSnippet(typeInfo));
+            }
+        } else if (!isSameLine) {
+            docs.push(codeSnippet(source));
+        }
+        docs.push(doc);
+        if (lineIndex !== -1) {
+            docs.push(`*Type definition:*\n${codeSnippet(typeInfo)}`);
+        }
+    } else if (node.type) {
         docs.push(codeSnippet(formatMotoko(node.type)));
     } else if (!isSameLine) {
         docs.push(codeSnippet(source));
@@ -1003,23 +1102,46 @@ connection.onHover((event) => {
             kind: MarkupKind.Markdown,
             value: docs.join('\n\n---\n\n'),
         },
-        range: {
-            start: {
-                line: node.start[0] - 1,
-                character: isSameLine ? node.start[1] : 0,
-            },
-            end: {
-                line: node.end[0] - 1,
-                character: node.end[1],
-            },
-        },
+        range: rangeFromNode(node, true),
     };
 });
 
 connection.onDefinition(
     async (
-        _handler: TextDocumentPositionParams,
+        event: TextDocumentPositionParams,
     ): Promise<Location | Location[]> => {
+        console.log('[Definition]');
+        try {
+            const definition = findDefinition(
+                event.textDocument.uri,
+                event.position,
+            );
+            return definition ? locationFromDefinition(definition) : [];
+        } catch (err) {
+            console.error(`Error while finding definition:`);
+            console.error(err);
+            // throw err;
+            return [];
+        }
+    },
+);
+
+// connection.onDeclaration(
+//     async (
+//         event: TextDocumentPositionParams,
+//     ): Promise<Location | Location[]> => {
+//         console.log('[Declaration]');
+//         return findDefinition(event.textDocument.uri, event.position) || [];
+//     },
+// );
+
+// connection.onWorkspaceSymbol((_event) => {
+//     return [];
+// });
+
+connection.onReferences(
+    async (_event: ReferenceParams): Promise<Location[]> => {
+        console.log('[References]');
         return [];
     },
 );

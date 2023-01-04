@@ -15,10 +15,10 @@ interface DfxConfig {
 type Cached<T> = T | undefined;
 
 export default class DfxResolver {
+    private readonly _findPath: () => string | null;
+
     private _path: Cached<string | null>;
     private _cache: Cached<DfxConfig | null>;
-
-    private _findPath: () => string | null;
 
     constructor(findPath: () => string | null) {
         this._findPath = findPath;

@@ -1,11 +1,19 @@
 import locateJavaHome from '@viperproject/locate-java-home';
 import { IJavaHomeInfo } from '@viperproject/locate-java-home/js/es5/lib/interfaces';
 import { homedir } from 'os';
+import * as fs from 'fs';
+import { Package } from 'motoko/lib/package';
+import * as baseLibrary from 'motoko/packages/latest/base.json';
 import * as path from 'path';
 import {
-    commands,
     ExtensionContext,
     extensions,
+    FormattingOptions,
+    TextDocument,
+    TextEdit,
+    Uri,
+    commands,
+    languages,
     window,
     workspace,
 } from 'vscode';
@@ -68,6 +76,19 @@ export async function activate(context: ExtensionContext) {
                 );
             });
     }
+    // Virtual base library URIs
+    context.subscriptions.push(
+        workspace.registerTextDocumentContentProvider('mo', {
+            provideTextDocumentContent(uri: Uri) {
+                const prefix = 'base/';
+                if (!uri.path.startsWith(prefix)) {
+                    return;
+                }
+                const path = uri.path.substring(prefix.length);
+                return (baseLibrary as Package).files[path]?.content ?? null;
+            },
+        }),
+    );
     await startServer(context);
 }
 
@@ -207,7 +228,7 @@ export async function startServer(context: ExtensionContext) {
     }
     const args = [`--java="${java}"`, `--jar="${serverJar}"`, `--z3="${z3}"`];
 
-    launchClient(context, {
+    restartLanguageServer(context, {
         run: {
             module,
             args,
@@ -252,7 +273,10 @@ async function getJavaHomes(): Promise<IJavaHomeInfo[]> {
     });
 }
 
-function launchClient(context: ExtensionContext, serverOptions: ServerOptions) {
+function restartLanguageServer(
+    context: ExtensionContext,
+    serverOptions: ServerOptions,
+) {
     if (client) {
         console.log('Restarting Motoko language server');
         client.stop().catch((err) => console.error(err.stack || err));

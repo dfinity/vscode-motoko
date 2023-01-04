@@ -1,8 +1,8 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { URI } from 'vscode-uri';
-import * as prettier from 'prettier/standalone';
 import * as motokoPlugin from 'prettier-plugin-motoko';
+import * as prettier from 'prettier/standalone';
+import { URI, Utils } from 'vscode-uri';
 
 /**
  * Resolves the absolute file system path from the given URI.
@@ -60,4 +60,11 @@ export function getRelativeUri(from: string, to: string): string {
         return from.substring(from.lastIndexOf('/') + 1);
     }
     return require('url-relative')(from, to);
+}
+
+export function getAbsoluteUri(base: string, ...paths: string[]): string {
+    // if (/^[a-z]+:/i.test(path)) {
+    //     return path;
+    // }
+    return Utils.joinPath(URI.parse(base), ...paths).toString();
 }
