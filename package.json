@@ -177,7 +177,7 @@
         "compile:server": "esbuild ./src/server/server.ts --bundle --outfile=out/server/server.js --external:vscode --format=cjs --platform=node --minify",
         "compile:motoko": "esbuild ./src/server/motoko.ts --bundle --outfile=out/server/motoko.js --external:vscode --format=cjs --platform=node --minify",
         "compile:post": "mkdirp out/generated/ && ln -fv src/generated/* out/generated/",
-        "prepare": "husky install && cd rust && npm install",
+        "prepare": "husky install",
         "lint": "eslint . --ext ts",
         "lint:fix": "npm run lint -- --fix",
         "format": "prettier --write src",

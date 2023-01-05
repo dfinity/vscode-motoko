@@ -11,8 +11,6 @@ on:
 
 jobs:
   build:
-    if: ${{ false }} # Deactivate this workflow (temporary; requires a Nix installation)
-
     runs-on: ubuntu-latest
 
     strategy:
