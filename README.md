@@ -58,12 +58,14 @@ actor {
 
 The submodule `motoko` usually tracks the `master` branch of the official Motoko repo
 and needs periodical updates here to adjust the pin in order to absorb features and bugfixes.
-Execute the following command from toplevel to obtain updates:
+Execute the following commands from toplevel to obtain updates:
 
 ``` shell
+git branch --show-current
 git submodule update --remote
 git diff
 git commit -am 'track `motoko` ToT'
+git push
 ```
 
 ### Further reading
