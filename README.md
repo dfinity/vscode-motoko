@@ -54,6 +54,18 @@ actor {
 - Run `npm run package` (this will rebuild the compiler bindings)
 - Right-click the generated `/motoko-viper-*.vsix` file and select "Install extension VSIX"
 
+#### Tracking `dfinity/motoko`
+
+The submodule `motoko` usually tracks the `master` branch of the official Motoko repo
+and needs periodical updates here to adjust the pin in order to absorb features and bugfixes.
+Execute the following command from toplevel to obtain updates:
+
+``` shell
+git submodule update --remote
+git diff
+git commit -am 'track `motoko` ToT'
+```
+
 ### Further reading
 
 A more detailed overview of _Motoko-san_ is available [here](https://github.com/dfinity/motoko/tree/master/src/viper).
