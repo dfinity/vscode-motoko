@@ -25,6 +25,9 @@ jobs:
       with:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
+    - uses: cachix/install-nix-action@v18
+    - run: nix-env -iA cachix -f https://cachix.org/api/v1/install
+    - run: cachix use ic-hs-test
     - run: git submodule update --init --recursive
     - run: npm ci
     - run: npm run generate
