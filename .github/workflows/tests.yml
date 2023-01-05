@@ -9,6 +9,10 @@ on:
   pull_request:
     branches: [ "master" ]
 
+concurrency: 
+  group: ${{ github.head_ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -20,15 +24,18 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+      with:
+        submodules: recursive
     - name: Use Node.js ${{ matrix.node-version }}
       uses: actions/setup-node@v3
       with:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
     - uses: cachix/install-nix-action@v18
-    - run: nix-env -iA cachix -f https://cachix.org/api/v1/install
-    - run: cachix use ic-hs-test
-    - run: git submodule update --init --recursive
+    - uses: cachix/cachix-action@v12
+      with:
+        name: ic-hs-test
+        # authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
     - run: npm ci
     - run: npm run generate
     - run: npm run compile
