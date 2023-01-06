@@ -1,9 +1,13 @@
+import locateJavaHome from '@viperproject/locate-java-home';
+import { IJavaHomeInfo } from '@viperproject/locate-java-home/js/es5/lib/interfaces';
+import { homedir } from 'os';
 import * as fs from 'fs';
 import { Package } from 'motoko/lib/package';
 import * as baseLibrary from 'motoko/packages/latest/base.json';
 import * as path from 'path';
 import {
     ExtensionContext,
+    extensions,
     FormattingOptions,
     TextDocument,
     TextEdit,
@@ -19,30 +23,59 @@ import {
     ServerOptions,
     TransportKind,
 } from 'vscode-languageclient/node';
-import * as which from 'which';
 import { watchGlob } from './common/watchConfig';
-import { formatDocument } from './formatter';
 
-const config = workspace.getConfiguration('motoko');
+// const config = workspace.getConfiguration('motoko');
 
 let client: LanguageClient;
 
-export function activate(context: ExtensionContext) {
+export async function activate(context: ExtensionContext) {
     context.subscriptions.push(
-        commands.registerCommand('motoko.startService', () =>
-            startServer(context),
+        commands.registerCommand('motoko-viper.startService', () =>
+            startServer(context).catch(console.error),
         ),
     );
-    context.subscriptions.push(
-        languages.registerDocumentFormattingEditProvider('motoko', {
-            provideDocumentFormattingEdits(
-                document: TextDocument,
-                options: FormattingOptions,
-            ): TextEdit[] {
-                return formatDocument(document, context, options);
-            },
-        }),
+    // context.subscriptions.push(
+    //     languages.registerDocumentFormattingEditProvider('motoko', {
+    //         provideDocumentFormattingEdits(
+    //             document: TextDocument,
+    //             options: FormattingOptions,
+    //         ): TextEdit[] {
+    //             return formatDocument(document, context, options);
+    //         },
+    //     }),
+    // );
+    const incompatible = extensions.getExtension(
+        'dfinity-foundation.vscode-motoko',
     );
+    if (incompatible) {
+        const verifyName = require('../package.json').displayName;
+        const originalName = 'Motoko';
+        window
+            .showErrorMessage(
+                `[${verifyName}](https://marketplace.visualstudio.com/items?itemName=dfinity-foundation.motoko-viper) is incompatible with the standard [${originalName}](https://marketplace.visualstudio.com/items?itemName=dfinity-foundation.vscode-motoko) extension. Please choose which extension to keep installed:`,
+                verifyName,
+                originalName,
+            )
+            .then((choice) => {
+                let uninstallPromise;
+                if (choice === verifyName) {
+                    uninstallPromise = commands.executeCommand(
+                        'workbench.extensions.uninstallExtension',
+                        'dfinity-foundation.vscode-motoko',
+                    );
+                }
+                if (choice === originalName) {
+                    uninstallPromise = commands.executeCommand(
+                        'workbench.extensions.uninstallExtension',
+                        'dfinity-foundation.motoko-viper',
+                    );
+                }
+                uninstallPromise?.then(() =>
+                    commands.executeCommand('workbench.action.reloadWindow'),
+                );
+            });
+    }
     // Virtual base library URIs
     context.subscriptions.push(
         workspace.registerTextDocumentContentProvider('mo', {
@@ -56,65 +89,188 @@ export function activate(context: ExtensionContext) {
             },
         }),
     );
-    startServer(context);
+    await startServer(context);
 }
 
-export function startServer(context: ExtensionContext) {
-    // Legacy dfx language server
-    const dfxConfig = getDfxConfig();
-    if (dfxConfig && getDfxPath()) {
-        launchDfxProject(context, dfxConfig);
-        return;
-    }
+interface PlatformDependentPath {
+    windows?: string | string[];
+    mac?: string | string[];
+    linux?: string | string[];
+}
 
+const isLinux = /^linux/.test(process.platform);
+const isMac = /^darwin/.test(process.platform);
+
+function first(paths: string | string[]): string {
+    if (typeof paths !== 'string') {
+        return paths[0];
+    } else {
+        return paths;
+    }
+}
+
+// originally from https://github.com/viperproject/viper-ide/blob/master/client/src/Settings.ts
+function normalise(
+    tools: string,
+    path: string | PlatformDependentPath,
+): string {
+    if (typeof path !== 'string') {
+        // handle object values
+        if (isMac && path.mac) return normalise(tools, first(path.mac));
+        else if (isLinux && path.linux)
+            return normalise(tools, first(path.linux));
+        else
+            throw new Error(
+                `normalise() on an unsupported platform: ${process.platform}, or path missing`,
+            );
+    } else {
+        if (!path || path.length <= 2) return path;
+        path = path.replace(/\$viperTools\$/g, tools);
+        while (path.includes('$')) {
+            const index_of_dollar = path.indexOf('$');
+            let index_of_closing_slash = path.indexOf('/', index_of_dollar + 1);
+            if (index_of_closing_slash < 0) {
+                index_of_closing_slash = path.length;
+            }
+            const envName = path.substring(
+                index_of_dollar + 1,
+                index_of_closing_slash,
+            );
+            const envValue: string = process.env[envName] || '';
+            if (!envValue) {
+                throw new Error(
+                    `environment variable ${envName} used in path ${path} is not set`,
+                );
+            }
+            if (envValue.includes('$')) {
+                throw new Error(
+                    `environment variable ${envName} must not contain '$': ${envValue}`,
+                );
+            }
+            path = `${path.substring(
+                0,
+                index_of_dollar,
+            )}${envValue}${path.substring(
+                index_of_closing_slash,
+                path.length,
+            )}`;
+        }
+        return path;
+    }
+}
+
+export async function startServer(context: ExtensionContext) {
     // Cross-platform language server
-    const module = context.asAbsolutePath(path.join('out', 'server.js'));
+    const module = context.asAbsolutePath(
+        path.join('out', 'server', 'server.js'),
+    );
+
+    let viperTools = '';
+    let java = '';
+    let serverJar = '';
+    let z3 = '';
+    const config = workspace.getConfiguration('viperSettings');
+    if (config) {
+        viperTools = normalise(viperTools, config.paths.viperToolsPath);
+        const buildVersion = config.buildVersion || 'Stable';
+        const homePath = homedir();
+        // Viper extension v3.0.1
+        if (
+            viperTools ===
+                path.resolve(homePath, 'Library/Application Support/Viper') ||
+            viperTools === path.resolve(homePath, '.config/Viper')
+        ) {
+            // Rewrite default directory
+            viperTools = path.resolve(
+                context.globalStorageUri.fsPath,
+                `../viper-admin.viper/${buildVersion}/ViperTools`,
+            );
+        }
+        // Rewrite default LS path
+        else if (viperTools.endsWith('/Local/ViperTools')) {
+            // Replace 'Local' directory with current build version
+            viperTools = viperTools.replace(
+                /\/Local\/ViperTools$/,
+                `/${buildVersion}/ViperTools`,
+            );
+        }
+        // Codium tweak
+        if (process.execPath.includes('/VSCodium.app/Contents/')) {
+            viperTools = viperTools.replace(
+                /\/Application Support\/Code\//,
+                '/Application Support/VSCodium/',
+            );
+        }
+    }
+    if (config.javaSettings.javaBinary) {
+        java = normalise(viperTools, config.javaSettings.javaBinary);
+    } else {
+        const javaHomes = await getJavaHomes();
+        if (javaHomes.length === 0) {
+            console.error('Java home directory not found');
+        } else if (javaHomes.length > 1) {
+            console.error('Found more than one Java home directory');
+        } else {
+            java = javaHomes[0].executables.java;
+        }
+    }
+    if (config.viperServerSettings.serverJars) {
+        serverJar = normalise(
+            viperTools,
+            config.viperServerSettings.serverJars,
+        );
+        if (!serverJar.endsWith('.jar')) {
+            serverJar = path.join(serverJar, 'viperserver.jar');
+        }
+    }
+    if (config.paths.z3Executable) {
+        z3 = normalise(viperTools, config.paths.z3Executable);
+    }
+    const args = [`--java="${java}"`, `--jar="${serverJar}"`, `--z3="${z3}"`];
+
     restartLanguageServer(context, {
-        run: { module, transport: TransportKind.ipc },
+        run: {
+            module,
+            args,
+            transport: TransportKind.ipc,
+        },
         debug: {
             module,
+            args,
             options: { execArgv: ['--nolazy', '--inspect=6004'] },
             transport: TransportKind.ipc,
         },
     });
 }
 
-function launchDfxProject(context: ExtensionContext, dfxConfig: DfxConfig) {
-    const start = (canister: string) => {
-        const dfxPath = getDfxPath();
-        if (!fs.existsSync(dfxPath)) {
-            window.showErrorMessage(
-                `Failed to locate dfx at ${dfxPath}. Check that dfx is installed or try changing motoko.dfx in settings`,
-            );
-            throw Error('Failed to locate dfx');
-        }
-        const serverCommand = {
-            command: getDfxPath(),
-            args: ['_language-service', canister],
-        };
-        restartLanguageServer(context, {
-            run: serverCommand,
-            debug: serverCommand,
-        });
-    };
-
-    const canister = config.get<string>('canister');
-    const canisters = Object.keys(dfxConfig.canisters);
-
-    if (canister) {
-        start(canister);
-    } else if (canisters.length === 1) {
-        start(canisters[0]);
-    } else {
-        window
-            .showQuickPick(canisters, {
-                canPickMany: false,
-                placeHolder: 'What canister do you want to work on?',
-            })
-            .then((c) => {
-                if (c) start(c);
+// https://github.com/viperproject/viper-ide/blob/147ba0cd4b1fbbb15437b6581e66c2105fa537fa/client/src/Settings.ts#L890-L915
+async function getJavaHomes(): Promise<IJavaHomeInfo[]> {
+    return new Promise((resolve, reject) => {
+        try {
+            const minJavaVersion = 11;
+            const options = {
+                version: `>=${minJavaVersion}`,
+                mustBe64Bit: true,
+            };
+            locateJavaHome(options, (err, javaHomes) => {
+                if (err) {
+                    reject(err.message);
+                } else {
+                    if (!Array.isArray(javaHomes) || javaHomes.length === 0) {
+                        const msg =
+                            `Could not find a 64-bit Java installation with at least version ${minJavaVersion}. ` +
+                            'Please install one and/or manually specify it in the Viper-IDE settings.';
+                        reject(msg);
+                    } else {
+                        resolve(javaHomes);
+                    }
+                }
             });
-    }
+        } catch (err) {
+            // @ts-ignore
+            reject(err?.message);
+        }
+    });
 }
 
 function restartLanguageServer(
@@ -150,46 +306,5 @@ function restartLanguageServer(
 export async function deactivate() {
     if (client) {
         await client.stop();
-    }
-}
-
-interface DfxCanisters {
-    [key: string]: { main: string };
-}
-
-type DfxConfig = {
-    canisters: DfxCanisters;
-};
-
-function getDfxConfig(): DfxConfig | undefined {
-    if (!config.get('legacyLanguageServer')) {
-        return;
-    }
-    const wsf = workspace.workspaceFolders;
-    if (!wsf) {
-        return;
-    }
-    try {
-        const dfxConfig = JSON.parse(
-            fs
-                .readFileSync(path.join(wsf[0].uri.fsPath, 'dfx.json'))
-                .toString('utf8'),
-        );
-        // Require TS language server for newer versions of `dfx`
-        if (!dfxConfig?.dfx || dfxConfig.dfx >= '0.11.1') {
-            return;
-        }
-        return dfxConfig;
-    } catch {
-        return; // TODO: warning?
-    }
-}
-
-function getDfxPath(): string {
-    const dfx = config.get<string>('dfx') || 'dfx';
-    try {
-        return which.sync(dfx);
-    } catch {
-        return dfx;
     }
 }

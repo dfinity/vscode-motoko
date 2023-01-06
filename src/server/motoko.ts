@@ -1,5 +1,7 @@
-// Replaced by `esbuild`
+import getMotoko from 'motoko/lib';
 
-import motoko from 'motoko';
+process.env.MOC_UNLOCK_VERIFICATION = "1";
 
-export default motoko;
+const mo = getMotoko(require('../generated/moc.js').Motoko as any);
+
+export default mo;

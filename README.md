@@ -1,111 +1,73 @@
-# Motoko - VS Code Extension
+> **Important note:** This is an experimental fork of the official [Motoko VS Code extension](https://marketplace.visualstudio.com/items?itemName=dfinity-foundation.vscode-motoko). Please disable the official extension if you run into any unexpected behavior. 
 
-> #### Motoko language support for [Visual Studio Code](https://code.visualstudio.com/).
+# _Motoko-san_
 
-[![Visual Studio Marketplace](https://img.shields.io/visual-studio-marketplace/v/dfinity-foundation.vscode-motoko?color=brightgreen&logo=visual-studio-code)](https://marketplace.visualstudio.com/items?itemName=dfinity-foundation.vscode-motoko)
+> #### Experimental formal verification support for [Motoko](https://internetcomputer.org/docs/current/developer-docs/build/cdks/motoko-dfinity/motoko/).
+
+[![Visual Studio Marketplace](https://img.shields.io/visual-studio-marketplace/v/dfinity-foundation.motoko-viper?color=brightgreen&logo=visual-studio-code)](https://marketplace.visualstudio.com/items?itemName=dfinity-foundation.motoko-viper)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/dfinity/prettier-plugin-motoko/issues)
 
-## Overview
+### Background
 
-[Motoko](https://github.com/dfinity/motoko) is a high-level smart contract language for the [Internet Computer](https://internetcomputer.org/).
+[Motoko](https://internetcomputer.org/docs/current/developer-docs/build/cdks/motoko-dfinity/motoko/) is a high-level smart contract language for the [Internet Computer](https://internetcomputer.org/). 
 
-This extension provides syntax highlighting, type checking, and code formatting for [Motoko canister development](https://internetcomputer.org/docs/current/developer-docs/build/cdks/motoko-dfinity/motoko/). 
+This extension makes it possible to write code specifications (such as actor-level invariants) for Motoko programs. The assertions are automatically checked, at compile time, by Viper [Viper](https://www.pm.inf.ethz.ch/research/viper.html), a formal verifier developed at ETH Zurich.
 
-## Features
+### Usage
 
-- Syntax highlighting
-- Code formatter
-- Error checking
-- Automatic imports
-- Snippets ([contributions welcome](https://github.com/dfinity/node-motoko/blob/main/contrib/snippets.json))
-- Go-to-definition
-- Organize imports
-- Documentation tooltips
+To enable formal verification, insert `// @verify` at the top of your Motoko file.
 
-## Installation
+### Example
 
-Get this extension through the [VS Marketplace](https://marketplace.visualstudio.com/items?itemName=dfinity-foundation.vscode-motoko), or alternatively the [Extensions panel](https://code.visualstudio.com/docs/editor/extension-marketplace) in your VS Code project.
+```motoko
+// @verify
 
-## Integrations
+actor {
 
-- [`dfx`](https://internetcomputer.org/docs/current/developer-docs/build/install-upgrade-remove/) (autocompletion, error checking, go-to-definition)
-- [`prettier-plugin-motoko`](https://npmjs.com/package/prettier-plugin-motoko) (code formatter)
+  var claimed = false;
 
-## Extension Commands
+  var count = 0 : Int;
 
-- `Motoko: Restart language server`: Starts (or restarts) the language server
+  assert:invariant count == 0 or count == 1;
+  assert:invariant not claimed implies count == 0;
 
-## Extension Settings
+  public shared func claim() : async () {
+    if (not claimed) {
+      claimed := true;
 
-- `motoko.dfx`: The location of the `dfx` binary
-- `motoko.canister`: The default canister name to use in multi-canister projects
-- `motoko.formatter`: The formatter used by the extension
-- `motoko.legacyDfxSupport`: Uses legacy `dfx`-dependent features when a relevant `dfx.json` file is available
+      await async {
+        assert:1:async (claimed and count == 0);
+        count += 1;
+      };
+    };
+  };
 
-## Advanced Configuration
-
-If you want VS Code to automatically format Motoko files on save, consider adding the following to your `settings.json` configuration:
-
-```json
-{
-  "[motoko]": {
-    "editor.defaultFormatter": "dfinity-foundation.vscode-motoko",
-    "editor.formatOnSave": true,
-    "editor.codeActionsOnSave": {
-        "source.organizeImports": true
-    }
-  }
 }
 ```
 
-## Recent Changes
+### Building from Source
 
-Projects using `dfx >= 0.11.1` use a new, experimental language server.
+- Clone [vscode-motoko](https://github.com/dfinity/vscode-motoko/tree/viper) with
+  following command: `git clone https://github.com/dfinity/vscode-motoko -b viper --recurse-submodules`
+- In your terminal, run `cd vscode-motoko`
+- Install the `npm` modules needed as dependencies: `npm install`
+- Run `npm run package` (this will rebuild the compiler bindings)
+- Right-click the generated `/motoko-viper-*.vsix` file and select "Install extension VSIX"
 
-To continue using the original language server, you can modify your `dfx.json` file to use version `0.11.0` or earlier:
+#### Tracking `dfinity/motoko`
 
-```json
-{
-  "dfx": "0.11.0"
-}
+The submodule `motoko` usually tracks the `master` branch of the official Motoko repo
+and needs periodical updates here to adjust the pin in order to absorb features and bugfixes.
+Execute the following commands from toplevel to obtain updates:
+
+``` shell
+git branch --show-current
+git submodule update --remote
+git diff
+git commit -am 'track `motoko` ToT'
+git push
 ```
 
-If you encounter any bugs, please [open a GitHub issue](https://github.com/dfinity/vscode-motoko/issues) with steps to reproduce so that we can fix the problem for everyone. 
+### Further reading
 
-## Contributing
-
-### Set up your local development environment:
-
-Ensure that [Node.js >= 14.x](https://nodejs.org/en/) and [Cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html) are installed on your system.
-
-```bash
-git clone https://github.com/dfinity/vscode-motoko
-cd vscode-motoko
-npm install
-```
-
-### Run unit tests:
-
-```bash
-npm test
-```
-
-### Build the extension:
-
-```bash
-npm run package
-```
-
-This generates a file named `vscode-motoko-*.*.*.vsix` in the project root.
-
-### Install in VS Code:
-
-```bash
-code --install-extension vscode-motoko-*.*.*.vsix
-```
-
-Alternatively, right-click the `.vsix` file and then select the "Install Extension VSIX" option.
-
----
-
-Community [PRs](https://github.com/dfinity/vscode-motoko/pulls) are welcome! Be sure to check the list of [open issues](https://github.com/dfinity/vscode-motoko/issues) in case anything catches your eye.
+A more detailed overview of _Motoko-san_ is available [here](https://github.com/dfinity/motoko/tree/master/src/viper).
