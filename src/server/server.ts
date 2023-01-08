@@ -101,7 +101,8 @@ async function getPackageSources(
 
     // Prioritize MOPS over Vessel
     if (existsSync(join(directory, 'mops.toml'))) {
-        const command = 'mops sources';
+        // const command = 'mops sources';
+        const command = 'npx --no ic-mops sources';
         try {
             return sourcesFromCommand(command);
         } catch (err: any) {
@@ -125,15 +126,21 @@ async function getPackageSources(
             // }
 
             throw new Error(
-                `Error while running \`${command}\`: ${err?.message || err}`,
+                `Error while finding MOPS packages.\nMake sure MOPS is installed locally or globally (https://mops.one/docs/install).\n${
+                    err?.message || err
+                }`,
             );
         }
     } else if (existsSync(join(directory, 'vessel.dhall'))) {
         const command = 'vessel sources';
         try {
             return sourcesFromCommand(command);
-        } catch (err) {
-            console.error(`Error while running \`${command}\`:`, err);
+        } catch (err: any) {
+            console.error(
+                `Error while running \`${command}\`.\nMake sure Vessel is installed (https://github.com/dfinity/vessel/#getting-started).\n${
+                    err?.message || err
+                }`,
+            );
             return vesselSources(directory);
         }
     } else {
