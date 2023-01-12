@@ -9,33 +9,34 @@
 
 [Motoko](https://github.com/dfinity/motoko) is a high-level smart contract language for the [Internet Computer](https://internetcomputer.org/).
 
-This extension provides syntax highlighting, type checking, and code formatting for [Motoko canister development](https://internetcomputer.org/docs/current/developer-docs/build/cdks/motoko-dfinity/motoko/). 
+This IDE extension provides type checking, formatting, snippets, and more for [Motoko canister development](https://internetcomputer.org/docs/current/developer-docs/build/cdks/motoko-dfinity/motoko/).
+
+## Installation
+
+Get this extension through the [VS Marketplace](https://marketplace.visualstudio.com/items?itemName=dfinity-foundation.vscode-motoko), or alternatively the [Extensions panel](https://code.visualstudio.com/docs/editor/extension-marketplace) in your VS Code project.
 
 ## Features
 
 - Syntax highlighting
 - Code formatter
-- Error checking
+- Type checking
 - Automatic imports
 - Snippets ([contributions welcome](https://github.com/dfinity/node-motoko/blob/main/contrib/snippets.json))
 - Go-to-definition
 - Organize imports
 - Documentation tooltips
 
-## Installation
-
-Get this extension through the [VS Marketplace](https://marketplace.visualstudio.com/items?itemName=dfinity-foundation.vscode-motoko), or alternatively the [Extensions panel](https://code.visualstudio.com/docs/editor/extension-marketplace) in your VS Code project.
-
 ## Integrations
 
-- [`dfx`](https://internetcomputer.org/docs/current/developer-docs/build/install-upgrade-remove/) (autocompletion, error checking, go-to-definition)
-- [`prettier-plugin-motoko`](https://npmjs.com/package/prettier-plugin-motoko) (code formatter)
+- Validation and autocompletion for [`dfx`](https://internetcomputer.org/docs/current/developer-docs/build/install-upgrade-remove/) config files
+- Code formatter using [`prettier-plugin-motoko`](https://npmjs.com/package/prettier-plugin-motoko)
+- Support for the [Vessel](https://github.com/dfinity/vessel/) and [MOPS](https://mops.one/) package managers
 
-## Extension Commands
+## Commands
 
 - `Motoko: Restart language server`: Starts (or restarts) the language server
 
-## Extension Settings
+## Settings
 
 - `motoko.dfx`: The location of the `dfx` binary
 - `motoko.canister`: The default canister name to use in multi-canister projects
