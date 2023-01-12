@@ -39,6 +39,7 @@ import {
     resetContexts,
 } from './context';
 import DfxResolver from './dfx';
+import { organizeImports } from './imports';
 import { getAstInformation } from './information';
 import {
     findDefinition,
@@ -46,7 +47,6 @@ import {
     locationFromDefinition,
     rangeFromNode,
 } from './navigation';
-import { vesselSources } from './rust';
 import { Program, asNode, findNodes } from './syntax';
 import {
     formatMotoko,
@@ -54,7 +54,6 @@ import {
     resolveFilePath,
     resolveVirtualPath,
 } from './utils';
-import { organizeImports } from './imports';
 
 interface Settings {
     motoko: MotokoSettings;
@@ -136,12 +135,12 @@ async function getPackageSources(
         try {
             return sourcesFromCommand(command);
         } catch (err: any) {
-            console.error(
+            throw new Error(
                 `Error while running \`${command}\`.\nMake sure Vessel is installed (https://github.com/dfinity/vessel/#getting-started).\n${
                     err?.message || err
                 }`,
             );
-            return vesselSources(directory);
+            // return vesselSources(directory);
         }
     } else {
         return [];
