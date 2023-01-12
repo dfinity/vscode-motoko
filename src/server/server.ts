@@ -147,12 +147,14 @@ async function getPackageSources(
     }
 }
 
-let packageConfigChangeTimeout: ReturnType<typeof setTimeout>;
 let loadingPackages = false;
+let packageConfigError = false;
+let packageConfigChangeTimeout: ReturnType<typeof setTimeout>;
 function notifyPackageConfigChange() {
     clearTimeout(packageConfigChangeTimeout);
     loadingPackages = true;
     setTimeout(async () => {
+        packageConfigError = false;
         try {
             resetContexts();
 
@@ -213,12 +215,13 @@ function notifyPackageConfigChange() {
                                 },
                             );
                         } catch (err) {
-                            // context.error = `unable to load project dependencies: ${err}`;
+                            packageConfigError = true;
                             context.error = String(err);
                             console.warn(err);
                             return;
                         }
                     } catch (err) {
+                        packageConfigError = true;
                         console.error(
                             `Error while configuring Vessel directory (${dir}): ${err}`,
                         );
@@ -238,6 +241,7 @@ function notifyPackageConfigChange() {
             notifyWorkspace(); // Update virtual file system
             notifyDfxChange(); // Reload dfx.json
         } catch (err) {
+            packageConfigError = true;
             loadingPackages = false;
             console.error(`Error while loading packages: ${err}`);
         }
@@ -1149,6 +1153,9 @@ connection.onReferences(
 let validatingTimeout: ReturnType<typeof setTimeout>;
 let validatingUri: string | undefined;
 documents.onDidChangeContent((event) => {
+    if (packageConfigError) {
+        notifyPackageConfigChange();
+    }
     const document = event.document;
     const { uri } = document;
     if (uri === validatingUri) {
