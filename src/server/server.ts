@@ -1,4 +1,4 @@
-import { execSync } from 'child_process';
+import { exec } from 'child_process';
 import * as glob from 'fast-glob';
 import { existsSync, readFileSync } from 'fs';
 import { Node } from 'motoko/lib/ast';
@@ -39,6 +39,7 @@ import {
     resetContexts,
 } from './context';
 import DfxResolver from './dfx';
+import { organizeImports } from './imports';
 import { getAstInformation } from './information';
 import {
     findDefinition,
@@ -46,7 +47,6 @@ import {
     locationFromDefinition,
     rangeFromNode,
 } from './navigation';
-import { vesselSources } from './rust';
 import { Program, asNode, findNodes } from './syntax';
 import {
     formatMotoko,
@@ -54,7 +54,6 @@ import {
     resolveFilePath,
     resolveVirtualPath,
 } from './utils';
-import { organizeImports } from './imports';
 
 interface Settings {
     motoko: MotokoSettings;
@@ -74,11 +73,14 @@ const ignoreGlobs = [
 async function getPackageSources(
     directory: string,
 ): Promise<[string, string][]> {
-    function sourcesFromCommand(command: string) {
+    async function sourcesFromCommand(command: string) {
         console.log(`Running \`${command}\` in directory: ${directory}`);
-        const result = execSync(command, {
-            cwd: directory,
-        }).toString('utf8');
+        const result = await new Promise<string>((resolve, reject) =>
+            exec(command, { cwd: directory }, (err, stdout) =>
+                // @ts-ignore
+                err ? reject(err) : resolve(stdout.toString('utf8')),
+            ),
+        );
         const args = result.split(/\s/); // TODO: account for quoted strings
         console.log('Received:', args);
         if (!args) {
@@ -136,24 +138,26 @@ async function getPackageSources(
         try {
             return sourcesFromCommand(command);
         } catch (err: any) {
-            console.error(
+            throw new Error(
                 `Error while running \`${command}\`.\nMake sure Vessel is installed (https://github.com/dfinity/vessel/#getting-started).\n${
                     err?.message || err
                 }`,
             );
-            return vesselSources(directory);
+            // return vesselSources(directory);
         }
     } else {
         return [];
     }
 }
 
-let packageConfigChangeTimeout: ReturnType<typeof setTimeout>;
 let loadingPackages = false;
+let packageConfigError = false;
+let packageConfigChangeTimeout: ReturnType<typeof setTimeout>;
 function notifyPackageConfigChange() {
     clearTimeout(packageConfigChangeTimeout);
     loadingPackages = true;
     setTimeout(async () => {
+        packageConfigError = false;
         try {
             resetContexts();
 
@@ -214,12 +218,13 @@ function notifyPackageConfigChange() {
                                 },
                             );
                         } catch (err) {
-                            // context.error = `unable to load project dependencies: ${err}`;
+                            packageConfigError = true;
                             context.error = String(err);
                             console.warn(err);
                             return;
                         }
                     } catch (err) {
+                        packageConfigError = true;
                         console.error(
                             `Error while configuring Vessel directory (${dir}): ${err}`,
                         );
@@ -239,6 +244,7 @@ function notifyPackageConfigChange() {
             notifyWorkspace(); // Update virtual file system
             notifyDfxChange(); // Reload dfx.json
         } catch (err) {
+            packageConfigError = true;
             loadingPackages = false;
             console.error(`Error while loading packages: ${err}`);
         }
@@ -1150,6 +1156,9 @@ connection.onReferences(
 let validatingTimeout: ReturnType<typeof setTimeout>;
 let validatingUri: string | undefined;
 documents.onDidChangeContent((event) => {
+    if (packageConfigError) {
+        notifyPackageConfigChange();
+    }
     const document = event.document;
     const { uri } = document;
     if (uri === validatingUri) {
