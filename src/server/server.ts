@@ -1,4 +1,4 @@
-import { execSync } from 'child_process';
+import { exec } from 'child_process';
 import * as glob from 'fast-glob';
 import { existsSync, readFileSync } from 'fs';
 import { Node } from 'motoko/lib/ast';
@@ -73,11 +73,14 @@ const ignoreGlobs = [
 async function getPackageSources(
     directory: string,
 ): Promise<[string, string][]> {
-    function sourcesFromCommand(command: string) {
+    async function sourcesFromCommand(command: string) {
         console.log(`Running \`${command}\` in directory: ${directory}`);
-        const result = execSync(command, {
-            cwd: directory,
-        }).toString('utf8');
+        const result = await new Promise<string>((resolve, reject) =>
+            exec(command, { cwd: directory }, (err, stdout) =>
+                // @ts-ignore
+                err ? reject(err) : resolve(stdout.toString('utf8')),
+            ),
+        );
         const args = result.split(/\s/); // TODO: account for quoted strings
         console.log('Received:', args);
         if (!args) {
