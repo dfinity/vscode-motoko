@@ -34,6 +34,11 @@ export function activate(context: ExtensionContext) {
         ),
     );
     context.subscriptions.push(
+        commands.registerCommand('motoko.deployPlayground', () =>
+            deployPlayground(context),
+        ),
+    );
+    context.subscriptions.push(
         languages.registerDocumentFormattingEditProvider('motoko', {
             provideDocumentFormattingEdits(
                 document: TextDocument,
