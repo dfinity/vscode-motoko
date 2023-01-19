@@ -1,0 +1,22 @@
+tasks:
+  - before: |
+      export PATH="$HOME/bin:$PATH"
+      echo 'export PATH="$HOME/bin:$PATH"' >> ~/.bashrc
+      sudo apt-get install -q -y libunwind-dev
+      sh -ci "$(curl -fsSL https://internetcomputer.org/install.sh)"
+      dfx start --background --clean
+      dfx deploy
+
+vscode:
+  extensions:
+    - dfinity-foundation.vscode-motoko
+
+ports:
+  - name: Replica
+    port: 4943
+    visibility: public
+    onOpen: ignore
+  - name: Dev Server
+    port: 3000
+    visibility: public
+    onOpen: open-browser

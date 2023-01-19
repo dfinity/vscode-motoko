@@ -1,0 +1,8 @@
+{
+    "canisters": {
+        "my_canister": {
+            "type": "motoko",
+            "main": "./MyCanister.mo"
+        }
+    }
+}
