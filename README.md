@@ -19,8 +19,6 @@ Get this extension through the [VS Marketplace](https://marketplace.visualstudio
 
 VSCodium users can download the extension through [Open VSX](https://open-vsx.org/extension/dfinity-foundation/vscode-motoko) or the [GitHub releases](https://github.com/dfinity/vscode-motoko/releases) page.
 
-[![Marketplace Tab](./guide/assets/setup.png)](https://marketplace.visualstudio.com/items?itemName=dfinity-foundation.vscode-motoko)
-
 ## Keyboard Shortcuts
 
 Below are the default key bindings for commonly used features supported in the extension:
@@ -39,7 +37,7 @@ Below are the default key bindings for commonly used features supported in the e
 - This extension also provides schema validation and autocompletion for `dfx.json` config files.
 - View type information and documentation by hovering over function names, imports, and other expressions.
 
-[![Tooltips](./guide/assets/tooltips.png)](https://marketplace.visualstudio.com/items?itemName=dfinity-foundation.vscode-motoko)
+[![Tooltips](https://github.com/dfinity/vscode-motoko/raw/master/guide/assets/tooltips.png)](https://marketplace.visualstudio.com/items?itemName=dfinity-foundation.vscode-motoko)
 
 ## Commands
 
