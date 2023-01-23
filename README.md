@@ -15,26 +15,31 @@ This IDE extension provides type checking, formatting, snippets, and more for [M
 
 ## Installation
 
+[![Marketplace Tab](https://github.com/dfinity/vscode-motoko/raw/master/guide/assets/setup.png)](https://marketplace.visualstudio.com/items?itemName=dfinity-foundation.vscode-motoko)
+
 Get this extension through the [VS Marketplace](https://marketplace.visualstudio.com/items?itemName=dfinity-foundation.vscode-motoko), or alternatively the [Extensions panel](https://code.visualstudio.com/docs/editor/extension-marketplace) in your VS Code project.
 
 VSCodium users can download the extension through [Open VSX](https://open-vsx.org/extension/dfinity-foundation/vscode-motoko) or the [GitHub releases](https://github.com/dfinity/vscode-motoko/releases) page.
 
-## Features
+## Keyboard Shortcuts
 
-- Syntax highlighting
-- Code formatter
-- Type checking
-- Automatic imports
-- Snippets ([contributions welcome](https://github.com/dfinity/node-motoko/blob/main/contrib/snippets.json))
-- Go-to-definition
-- Organize imports
-- Documentation tooltips
+Below are the default key bindings for commonly used features supported in the extension:
 
-## Integrations
+- **Code formatter** (`Shift` + `Alt` + `F`): format a Motoko file using [prettier-plugin-motoko](https://github.com/dfinity/prettier-plugin-motoko).
+- **Organize imports** (`Shift` + `Alt` + `O`): group and sort imports at the top of your Motoko file.
+- **Import code action** (`Ctrl/Cmd` + `.` while hovering over an unresolved variable): show import quick-fix options. 
+- **Go to definition** (`F12`): jump to the definition of a local or imported identifier.
+- **IntelliSense** (`Ctrl` + `Space`): view all available autocompletions and code snippets. 
 
-- Validation and autocompletion for [`dfx`](https://internetcomputer.org/docs/current/developer-docs/build/install-upgrade-remove/) config files
-- Code formatter using [`prettier-plugin-motoko`](https://npmjs.com/package/prettier-plugin-motoko)
-- Support for the [Vessel](https://github.com/dfinity/vessel/) and [MOPS](https://mops.one/) package managers
+## Other Features
+
+- [Vessel](https://github.com/dfinity/vessel) and [MOPS](https://mops.one/) (the two most popular Motoko package managers) are supported out-of-the-box in this extension. 
+- Quickly convert between Motoko types using code snippets such as `array-2-buffer` or `principal-2-text`.
+- In case you're hoping to learn Motoko without installing `dfx`, the Motoko VS Code extension works standalone on all major operating systems (including Windows). 
+- This extension also provides schema validation and autocompletion for `dfx.json` config files.
+- View type information and documentation by hovering over function names, imports, and other expressions.
+
+[![Tooltips](https://github.com/dfinity/vscode-motoko/raw/master/guide/assets/tooltips.png)](https://marketplace.visualstudio.com/items?itemName=dfinity-foundation.vscode-motoko)
 
 ## Commands
 
