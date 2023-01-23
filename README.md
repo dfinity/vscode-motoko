@@ -25,7 +25,7 @@ Below are the default key bindings for commonly used features supported in the e
 
 - **Code formatter** (`Shift` + `Alt` + `F`): format a Motoko file using [prettier-plugin-motoko](https://github.com/dfinity/prettier-plugin-motoko).
 - **Organize imports** (`Shift` + `Alt` + `O`): group and sort imports at the top of your Motoko file.
-- **Import code action** (`Ctrl/Cmd` + `.` while hovering over an unresolved variable): show import quick-fix options. 
+- **Import code action** (`Ctrl/Cmd` + `.` while hovering over an unresolved variable): show quick-fix options. 
 - **Go to definition** (`F12`): jump to the definition of a local or imported identifier.
 - **IntelliSense** (`Ctrl` + `Space`): view all available autocompletions and code snippets. 
 
