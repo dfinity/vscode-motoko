@@ -29,6 +29,8 @@ Below are the default key bindings for commonly used features supported in the e
 - **Go to definition** (`F12`): jump to the definition of a local or imported identifier.
 - **IntelliSense** (`Ctrl` + `Space`): view all available autocompletions and code snippets. 
 
+[![Snippets](https://github.com/dfinity/vscode-motoko/raw/master/guide/assets/snippets.png)](https://marketplace.visualstudio.com/items?itemName=dfinity-foundation.vscode-motoko)
+
 ## Other Features
 
 - [Vessel](https://github.com/dfinity/vessel) and [MOPS](https://mops.one/) (the two most popular Motoko package managers) are supported out-of-the-box in this extension. 
