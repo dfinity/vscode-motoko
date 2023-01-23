@@ -15,7 +15,7 @@ This IDE extension provides type checking, formatting, snippets, and more for [M
 
 ## Installation
 
-[![Marketplace Tab](https://github.com/dfinity/vscode-motoko/raw/master/guide/assets/setup.png)](https://marketplace.visualstudio.com/items?itemName=dfinity-foundation.vscode-motoko)
+[![Marketplace Tab](./guide/assets/setup.png)](https://marketplace.visualstudio.com/items?itemName=dfinity-foundation.vscode-motoko)
 
 Get this extension through the [VS Marketplace](https://marketplace.visualstudio.com/items?itemName=dfinity-foundation.vscode-motoko), or alternatively the [Extensions panel](https://code.visualstudio.com/docs/editor/extension-marketplace) in your VS Code project.
 
@@ -39,7 +39,7 @@ Below are the default key bindings for commonly used features supported in the e
 - This extension also provides schema validation and autocompletion for `dfx.json` config files.
 - View type information and documentation by hovering over function names, imports, and other expressions.
 
-[![Tooltips](https://github.com/dfinity/vscode-motoko/raw/master/guide/assets/tooltips.png)](https://marketplace.visualstudio.com/items?itemName=dfinity-foundation.vscode-motoko)
+[![Tooltips](./guide/assets/tooltips.png)](https://marketplace.visualstudio.com/items?itemName=dfinity-foundation.vscode-motoko)
 
 ## Commands
 
