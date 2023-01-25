@@ -16,7 +16,7 @@ npm install -g mo-ide
 
 This will add the `mo-ide` command to your path, which you can then use in your supported IDE of choice.
 
-If you are looking for a standalone distribution, please [reach out](https://github.com/dfinity/vscode-motoko/issues/new) and we will make this a priority.
+For environments without Node.js, you can also download a portable executable from the [GitHub releases](https://github.com/dfinity/vscode-motoko/releases) page.
 
 ## Getting Started
 
