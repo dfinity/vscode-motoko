@@ -175,7 +175,7 @@
         "compile:rust": "# cd rust && npm run build-release && shx cp ./index.node ../out/vscode_motoko.node",
         "compile:extension": "esbuild ./src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node --minify",
         "compile:browser": "esbuild ./src/browser.ts --bundle --outfile=out/browser.js --external:vscode --format=cjs --platform=node --minify",
-        "compile:server": "esbuild ./src/server/server.ts --bundle --outfile=out/server.js --external:vscode --format=cjs --platform=node --minify",
+        "compile:server": "esbuild ./src/server/server.ts --bundle --outfile=out/server.js --format=cjs --platform=node --minify",
         "compile:motoko": "esbuild motoko --bundle --outfile=out/motoko.js --format=cjs --platform=node --minify",
         "test": "jest",
         "package": "vsce package && npm test",

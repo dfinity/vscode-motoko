@@ -1,0 +1,41 @@
+{
+    "name": "mo-ide",
+    "version": "0.0.1",
+    "author": "DFINITY Foundation",
+    "description": "The official Language Server Protocol (LSP) implementation for Motoko.",
+    "main": "dist/mo-ide.js",
+    "bin": {
+        "mo-ide": "dist/mo-ide.js"
+    },
+    "scripts": {
+        "compile": "rm -rf ./dist && run-s compile:vscode compile:server",
+        "compile:vscode": "cd ../.. && npm run compile",
+        "compile:server": "mkdir -p ./dist && cp src/mo-ide.js ./dist && cp ../../out/server.js ./dist && cp ../../out/motoko.js ./dist/motoko.js && cp ../../out/wasm_bg.wasm ./dist",
+        "package": "rm -rf ./pkg && run-s compile package:pkg package:zip",
+        "package:pkg": "pkg .",
+        "package:zip": "run-s package:zip:linux package:zip:macos package:zip:win",
+        "package:zip:linux": "cd pkg && mkdir linux && cp mo-ide-linux linux/mo-ide && cd linux && tar -czvf ../mo-ide-linux.tar.gz mo-ide",
+        "package:zip:macos": "cd pkg && mkdir macos && cp mo-ide-macos macos/mo-ide && cd macos && tar -czvf ../mo-ide-macos.tar.gz mo-ide",
+        "package:zip:win": "cd pkg && mkdir win && cp mo-ide-win.exe win/mo-ide.exe && cd win && zip ../mo-ide-windows.zip mo-ide.exe",
+        "prepublishOnly": "npm run compile"
+    },
+    "devDependencies": {
+        "esbuild": "^0.17.4",
+        "npm-run-all": "^4.1.5",
+        "pkg": "^5.8.0"
+    },
+    "files":[
+        "dist/**/*"
+    ],
+    "pkg": {
+        "inputPath": "./dist/index.js",
+        "outputPath": "./pkg",
+        "compress": "GZip",
+        "scripts": [],
+        "targets": [
+            "node16-linux",
+            "node16-macos",
+            "node16-win"
+        ]
+    }
+}
