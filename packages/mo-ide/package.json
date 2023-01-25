@@ -28,10 +28,15 @@
         "dist/**/*"
     ],
     "pkg": {
-        "inputPath": "./dist/index.js",
+        "inputPath": "./dist/mo-ide.js",
         "outputPath": "./pkg",
         "compress": "GZip",
-        "scripts": [],
+        "scripts": [
+            "dist/motoko.js"
+        ],
+        "assets": [
+            "dist/wasm_bg.wasm"
+        ],
         "targets": [
             "node16-linux",
             "node16-macos",
