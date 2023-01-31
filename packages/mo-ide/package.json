@@ -27,7 +27,6 @@
         "dist/**/*"
     ],
     "pkg": {
-        "inputPath": "./dist/mo-ide.js",
         "outputPath": "./pkg",
         "compress": "GZip",
         "scripts": [
