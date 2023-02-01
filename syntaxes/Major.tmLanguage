@@ -773,7 +773,7 @@
 				</dict>
 				<dict>
 					<key>include</key>
-					<string>#special-literal</string>
+					<string>#char-literal</string>
 				</dict>
 			</array>
 		</dict>
@@ -1020,13 +1020,6 @@
 			<key>name</key>
 			<string>comment.line.shebang.motoko</string>
 		</dict>
-		<key>special-literal</key>
-		<dict>
-			<key>match</key>
-			<string>\b__(FILE|LINE|COLUMN|FUNCTION)__\b</string>
-			<key>name</key>
-			<string>keyword.other.literal.motoko</string>
-		</dict>
 		<key>storage-type</key>
 		<dict>
 			<key>match</key>
@@ -1067,37 +1060,6 @@
 					<string>constant.character.escape.motoko</string>
 				</dict>
 				<dict>
-					<key>begin</key>
-					<string>(\\\()</string>
-					<key>beginCaptures</key>
-					<dict>
-						<key>1</key>
-						<dict>
-							<key>name</key>
-							<string>support.punctuation.expression.begin.motoko</string>
-						</dict>
-					</dict>
-					<key>contentName</key>
-					<string>meta.expression.motoko</string>
-					<key>end</key>
-					<string>(\))</string>
-					<key>endCaptures</key>
-					<dict>
-						<key>1</key>
-						<dict>
-							<key>name</key>
-							<string>support.punctuation.expression.end.motoko</string>
-						</dict>
-					</dict>
-					<key>patterns</key>
-					<array>
-						<dict>
-							<key>include</key>
-							<string>source.motoko</string>
-						</dict>
-					</array>
-				</dict>
-				<dict>
 					<key>match</key>
 					<string>(\"|\\)</string>
 					<key>name</key>
@@ -1108,6 +1070,52 @@
 					<string>(.)</string>
 					<key>name</key>
 					<string>string.quoted.double.motoko</string>
+				</dict>
+			</array>
+		</dict>
+		<key>char-literal</key>
+		<dict>
+			<key>begin</key>
+			<string>'</string>
+			<key>beginCaptures</key>
+			<dict>
+				<key>0</key>
+				<dict>
+					<key>name</key>
+					<string>string.quoted.double.motoko</string>
+				</dict>
+			</dict>
+			<key>end</key>
+			<string>'</string>
+			<key>endCaptures</key>
+			<dict>
+				<key>0</key>
+				<dict>
+					<key>name</key>
+					<string>string.quoted.single.motoko</string>
+				</dict>
+			</dict>
+			<key>name</key>
+			<string>meta.literal.char.motoko</string>
+			<key>patterns</key>
+			<array>
+				<dict>
+					<key>match</key>
+					<string>\\([0tnr\"\'\\]|x\h{2}|u\h{4}|U\h{8})</string>
+					<key>name</key>
+					<string>constant.character.escape.motoko</string>
+				</dict>
+				<dict>
+					<key>match</key>
+					<string>(\'|\\)</string>
+					<key>name</key>
+					<string>invalid.illegal.motoko</string>
+				</dict>
+				<dict>
+					<key>match</key>
+					<string>(.)</string>
+					<key>name</key>
+					<string>string.quoted.single.motoko</string>
 				</dict>
 			</array>
 		</dict>
