@@ -5,11 +5,15 @@ import * as path from 'path';
 import {
     ExtensionContext,
     FormattingOptions,
+    TestItem,
+    TestMessage,
+    TestRunProfileKind,
     TextDocument,
     TextEdit,
     Uri,
     commands,
     languages,
+    tests,
     window,
     workspace,
 } from 'vscode';
@@ -57,6 +61,100 @@ export function activate(context: ExtensionContext) {
         }),
     );
     startServer(context);
+    setupTests();
+}
+
+export async function deactivate() {
+    if (client) {
+        await client.stop();
+    }
+}
+
+function setupTests() {
+    const controller = tests.createTestController(
+        'motokoTests',
+        'Motoko Tests',
+    );
+    const watcher = workspace.createFileSystemWatcher('**/*.test.mo');
+    watcher.onDidCreate((uri: Uri) => {
+        const uriString = uri.toString();
+        const name = /([^\\/]+)\.test\.mo$/.exec(uriString)?.[1] || 'Motoko';
+        const item = controller.createTestItem(uriString, name, uri);
+        controller.items.add(item);
+        testItemTypeMap.set(item, ItemType.File);
+    });
+    // watcher.onDidChange(addTestItem);
+    watcher.onDidDelete((uri: Uri) => {
+        controller.items.delete(uri.toString());
+    });
+
+    enum ItemType {
+        File,
+        TestCase,
+    }
+    const testItemTypeMap = new WeakMap<TestItem, ItemType>();
+    const getType = (item: TestItem) => testItemTypeMap.get(item)!;
+    const assertTestFilePasses = async (item: TestItem) => {
+        console.log('Running test:', item);
+
+        // TODO
+    };
+    controller.createRunProfile(
+        'Run',
+        TestRunProfileKind.Run,
+        async (request, token) => {
+            const run = controller.createTestRun(request);
+            const queue: TestItem[] = [];
+            if (request.include) {
+                request.include.forEach((test) => queue.push(test));
+            } else {
+                controller.items.forEach((test) => queue.push(test));
+            }
+
+            while (queue.length > 0 && !token.isCancellationRequested) {
+                const item = queue.pop()!;
+                if (request.exclude?.includes(item)) {
+                    continue;
+                }
+                switch (getType(item)) {
+                    case ItemType.File:
+                        const start = Date.now();
+                        try {
+                            await assertTestFilePasses(item);
+                            run.passed(item, Date.now() - start);
+                        } catch (e) {
+                            run.failed(
+                                item,
+                                new TestMessage((e as any)?.message || e),
+                                Date.now() - start,
+                            );
+                        }
+                        break;
+                        // if (test.children.size === 0) {
+                        //     await parseTestsInFileContents(test);
+                        // }
+                        break;
+                    // case ItemType.TestCase:
+                    //     const start = Date.now();
+                    //     try {
+                    //         await assertTestPasses(test);
+                    //         run.passed(test, Date.now() - start);
+                    //     } catch (e) {
+                    //         run.failed(
+                    //             test,
+                    //             new TestMessage((e as any)?.message || e),
+                    //             Date.now() - start,
+                    //         );
+                    //     }
+                    //     break;
+                }
+
+                item.children.forEach((test) => queue.push(test));
+            }
+
+            run.end();
+        },
+    );
 }
 
 export function startServer(context: ExtensionContext) {
@@ -145,12 +243,6 @@ function restartLanguageServer(
     );
     client.start().catch((err) => console.error(err.stack || err));
     context.subscriptions.push(client);
-}
-
-export async function deactivate() {
-    if (client) {
-        await client.stop();
-    }
 }
 
 interface DfxCanisters {
