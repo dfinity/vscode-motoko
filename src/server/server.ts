@@ -101,6 +101,24 @@ async function getPackageSources(
         return sources;
     }
 
+    // Prioritize `defaults.build.packtool`
+    const dfxPath = join(directory, 'dfx.json');
+    if (existsSync(dfxPath)) {
+        try {
+            const dfxConfig = JSON.parse(readFileSync(dfxPath, 'utf8'));
+            const command = dfxConfig?.defaults?.build?.packtool;
+            if (command) {
+                return sourcesFromCommand(command);
+            }
+        } catch (err: any) {
+            throw new Error(
+                `Error while running \`defaults.build.packtool\` in \`dfx.json\` config file:\n${
+                    err?.message || err
+                }`,
+            );
+        }
+    }
+
     // Prioritize MOPS over Vessel
     if (existsSync(join(directory, 'mops.toml'))) {
         // const command = 'mops sources';
@@ -474,6 +492,9 @@ connection.onDidChangeWatchedFiles((event) => {
                 change.uri.endsWith('/dfx.json')
             ) {
                 notifyDfxChange();
+                if (change.uri.endsWith('/dfx.json')) {
+                    notifyPackageConfigChange(); // `defaults.build.packtool`
+                }
             } else if (
                 change.uri.endsWith('.dhall') ||
                 change.uri.endsWith('/mops.toml')
