@@ -26,6 +26,7 @@ import {
 import * as which from 'which';
 import { watchGlob } from './common/watchConfig';
 import { formatDocument } from './formatter';
+import * as glob from 'fast-glob';
 
 const config = workspace.getConfiguration('motoko');
 
@@ -75,15 +76,24 @@ function setupTests(context: ExtensionContext) {
         'motokoTests',
         'Motoko Tests',
     );
-    const watcher = workspace.createFileSystemWatcher('**/*.test.mo');
+    const pattern = '**/*.test.mo';
+    const watcher = workspace.createFileSystemWatcher(pattern);
     const addFile = (uri: Uri) => {
         const uriString = uri.toString();
-        console.log('ADD:', uriString); ////
+        if (/\/(\.vessel|\.mops|node_modules)\//.test(uriString)) {
+            return;
+        }
         const name = /([^\\/]+)\.test\.mo$/.exec(uriString)?.[1] || 'Motoko';
         const item = controller.createTestItem(uriString, name, uri);
         controller.items.add(item);
         testItemTypeMap.set(item, ItemType.File);
     };
+    workspace.workspaceFolders?.forEach((workspaceFolder) => {
+        const directory = workspaceFolder.uri.fsPath;
+        glob.sync(pattern, { cwd: directory }).forEach((file) =>
+            addFile(Uri.file(path.join(directory, file))),
+        );
+    });
     watcher.onDidCreate(addFile, context.subscriptions);
     watcher.onDidChange(addFile, context.subscriptions);
     watcher.onDidDelete((uri) => {
