@@ -76,29 +76,6 @@ function setupTests(context: ExtensionContext) {
         'motokoTests',
         'Motoko Tests',
     );
-    const pattern = '**/*.test.mo';
-    const watcher = workspace.createFileSystemWatcher(pattern);
-    const addFile = (uri: Uri) => {
-        const uriString = uri.toString();
-        if (/\/(\.vessel|\.mops|node_modules)\//.test(uriString)) {
-            return;
-        }
-        const name = /([^\\/]+)\.test\.mo$/.exec(uriString)?.[1] || 'Motoko';
-        const item = controller.createTestItem(uriString, name, uri);
-        controller.items.add(item);
-        testItemTypeMap.set(item, ItemType.File);
-    };
-    workspace.workspaceFolders?.forEach((workspaceFolder) => {
-        const directory = workspaceFolder.uri.fsPath;
-        glob.sync(pattern, { cwd: directory }).forEach((file) =>
-            addFile(Uri.file(path.join(directory, file))),
-        );
-    });
-    watcher.onDidCreate(addFile, context.subscriptions);
-    watcher.onDidChange(addFile, context.subscriptions);
-    watcher.onDidDelete((uri) => {
-        controller.items.delete(uri.toString());
-    }, context.subscriptions);
 
     enum ItemType {
         File,
@@ -124,6 +101,7 @@ function setupTests(context: ExtensionContext) {
 
         // TODO
     };
+
     const runProfile = controller.createRunProfile(
         'Run',
         TestRunProfileKind.Run,
@@ -179,6 +157,36 @@ function setupTests(context: ExtensionContext) {
             run.end();
         },
     );
+
+    const pattern = '**/*.test.mo';
+    const watcher = workspace.createFileSystemWatcher(pattern);
+    const addFile = (uri: Uri) => {
+        try {
+            const uriString = uri.toString();
+            if (/\/(\.vessel|\.mops|node_modules)\//.test(uriString)) {
+                return;
+            }
+            const name =
+                /([^\\/]+)\.test\.mo$/.exec(uriString)?.[1] || 'Motoko';
+            const item = controller.createTestItem(uriString, name, uri);
+            controller.items.add(item);
+            testItemTypeMap.set(item, ItemType.File);
+        } catch (err) {
+            console.error(`Error while adding test file: ${uri}\n${err}`);
+        }
+    };
+    workspace.workspaceFolders?.forEach((workspaceFolder) => {
+        const directory = workspaceFolder.uri.fsPath;
+        glob.sync(pattern, { cwd: directory }).forEach((file) => {
+            addFile(Uri.file(path.resolve(directory, file)));
+        });
+    });
+    watcher.onDidCreate(addFile, context.subscriptions);
+    watcher.onDidChange(addFile, context.subscriptions);
+    watcher.onDidDelete((uri) => {
+        controller.items.delete(uri.toString());
+    }, context.subscriptions);
+
     context.subscriptions.push(controller, watcher, runProfile);
 }
 
