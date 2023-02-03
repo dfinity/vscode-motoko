@@ -1156,8 +1156,8 @@ connection.onReferences(
 // Run a file which is recognized as a unit test
 connection.onRequest(
     'vscode-motoko:run-test-file',
-    (event: { path: string }) => {
-        console.log('TEST', event.path); //
+    (event: { uri: string }) => {
+        console.log('TEST', event.uri); //
 
         return {
             passed: true,

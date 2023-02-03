@@ -26,7 +26,6 @@ import {
 import * as which from 'which';
 import { watchGlob } from './common/watchConfig';
 import { formatDocument } from './formatter';
-import { resolveVirtualPath } from './server/utils';
 
 const config = workspace.getConfiguration('motoko');
 
@@ -77,17 +76,19 @@ function setupTests(context: ExtensionContext) {
         'Motoko Tests',
     );
     const watcher = workspace.createFileSystemWatcher('**/*.test.mo');
-    watcher.onDidCreate((uri: Uri) => {
+    const addFile = (uri: Uri) => {
         const uriString = uri.toString();
+        console.log('ADD:', uriString); ////
         const name = /([^\\/]+)\.test\.mo$/.exec(uriString)?.[1] || 'Motoko';
         const item = controller.createTestItem(uriString, name, uri);
         controller.items.add(item);
         testItemTypeMap.set(item, ItemType.File);
-    });
-    // watcher.onDidChange(addTestItem);
-    watcher.onDidDelete((uri: Uri) => {
+    };
+    watcher.onDidCreate(addFile, context.subscriptions);
+    watcher.onDidChange(addFile, context.subscriptions);
+    watcher.onDidDelete((uri) => {
         controller.items.delete(uri.toString());
-    });
+    }, context.subscriptions);
 
     enum ItemType {
         File,
@@ -106,14 +107,14 @@ function setupTests(context: ExtensionContext) {
             throw new Error('Unknown file system path');
         }
         const result = await client.sendRequest('vscode-motoko:run-test-file', {
-            path: item.uri.path,
+            uri: item.uri.toString(),
         });
 
         console.log(result);
 
         // TODO
     };
-    controller.createRunProfile(
+    const runProfile = controller.createRunProfile(
         'Run',
         TestRunProfileKind.Run,
         async (request, token) => {
@@ -143,7 +144,6 @@ function setupTests(context: ExtensionContext) {
                                 Date.now() - start,
                             );
                         }
-                        break;
                         // if (test.children.size === 0) {
                         //     await parseTestsInFileContents(test);
                         // }
@@ -169,6 +169,7 @@ function setupTests(context: ExtensionContext) {
             run.end();
         },
     );
+    context.subscriptions.push(controller, watcher, runProfile);
 }
 
 export function startServer(context: ExtensionContext) {
