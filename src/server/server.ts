@@ -1153,6 +1153,18 @@ connection.onReferences(
     },
 );
 
+// Run a file which is recognized as a unit test
+connection.onRequest(
+    'vscode-motoko:run-test-file',
+    (event: { path: string }) => {
+        console.log('TEST', event.path); //
+
+        return {
+            passed: true,
+        };
+    },
+);
+
 let validatingTimeout: ReturnType<typeof setTimeout>;
 let validatingUri: string | undefined;
 documents.onDidChangeContent((event) => {
