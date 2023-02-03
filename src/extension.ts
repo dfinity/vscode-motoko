@@ -26,6 +26,7 @@ import {
 import * as which from 'which';
 import { watchGlob } from './common/watchConfig';
 import { formatDocument } from './formatter';
+import { resolveVirtualPath } from './server/utils';
 
 const config = workspace.getConfiguration('motoko');
 
@@ -61,7 +62,7 @@ export function activate(context: ExtensionContext) {
         }),
     );
     startServer(context);
-    setupTests();
+    setupTests(context);
 }
 
 export async function deactivate() {
@@ -70,7 +71,7 @@ export async function deactivate() {
     }
 }
 
-function setupTests() {
+function setupTests(context: ExtensionContext) {
     const controller = tests.createTestController(
         'motokoTests',
         'Motoko Tests',
@@ -96,6 +97,19 @@ function setupTests() {
     const getType = (item: TestItem) => testItemTypeMap.get(item)!;
     const assertTestFilePasses = async (item: TestItem) => {
         console.log('Running test:', item);
+
+        if (!client) {
+            startServer(context);
+        }
+
+        if (!item.uri) {
+            throw new Error('Unknown file system path');
+        }
+        const result = await client.sendRequest('vscode-motoko:run-test-file', {
+            path: item.uri.path,
+        });
+
+        console.log(result);
 
         // TODO
     };
