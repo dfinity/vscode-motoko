@@ -1178,11 +1178,24 @@ connection.onReferences(
 connection.onRequest(
     'vscode-motoko:run-test-file',
     (event: { uri: string }) => {
-        console.log('TEST', event.uri); //
+        console.log('Running test:', event.uri);
 
-        return {
-            passed: true,
-        };
+        const { uri } = event;
+        try {
+            const virtualPath = resolveVirtualPath(uri);
+
+            const output = getContext(uri).motoko.run(virtualPath);
+
+            return {
+                passed: !output.stderr,
+                output,
+            };
+        } catch (err) {
+            console.error(err);
+            return {
+                passed: false,
+            };
+        }
     },
 );
 
