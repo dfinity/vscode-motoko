@@ -27,9 +27,9 @@ import {
     TransportKind,
 } from 'vscode-languageclient/node';
 import * as which from 'which';
+import { TEST_FILE_REQUEST, TestParams, TestResult } from './common/testConfig';
 import { watchGlob } from './common/watchConfig';
 import { formatDocument } from './formatter';
-import { TEST_FILE_REQUEST, TestResult, TestParams } from './common/testConfig';
 
 const config = workspace.getConfiguration('motoko');
 
