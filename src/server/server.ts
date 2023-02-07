@@ -1183,7 +1183,7 @@ connection.onRequest(
     }): Promise<{ passed: boolean; stdout: string; stderr: string }> => {
         while (loadingPackages) {
             // Load all packages before running tests
-            await new Promise((resolve) => setTimeout(resolve, 1000));
+            await new Promise((resolve) => setTimeout(resolve, 500));
         }
 
         try {
