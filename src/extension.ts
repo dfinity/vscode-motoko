@@ -132,6 +132,7 @@ function setupTests(context: ExtensionContext) {
                     case ItemType.File:
                         const start = Date.now();
                         try {
+                            run.started(item);
                             await assertTestFilePasses(item);
                             run.passed(item, Date.now() - start);
                         } catch (e) {
@@ -217,6 +218,7 @@ function setupTests(context: ExtensionContext) {
     const pattern = '**/*.test.mo';
     const watcher = workspace.createFileSystemWatcher(pattern);
     const addFile = (uri: Uri) => {
+        console.log('URI:::', uri); ///////////
         try {
             const uriString = uri.toString();
             if (/\/(\.vessel|\.mops|node_modules)\//.test(uriString)) {
@@ -256,11 +258,12 @@ export function startServer(context: ExtensionContext) {
 
     // Cross-platform language server
     const module = context.asAbsolutePath(path.join('out', 'server.js'));
+    const execArgv = ['--stack-size=1361']; // TODO: reduce after improving moc.js WASI compilation
     restartLanguageServer(context, {
-        run: { module, transport: TransportKind.ipc },
+        run: { module, transport: TransportKind.ipc, options: { execArgv } },
         debug: {
             module,
-            options: { execArgv: ['--nolazy', '--inspect=6004'] },
+            options: { execArgv: ['--nolazy', '--inspect=6004', ...execArgv] },
             transport: TransportKind.ipc,
         },
     });

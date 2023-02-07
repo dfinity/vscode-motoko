@@ -1194,19 +1194,20 @@ connection.onRequest(
 
             const motoko = getContext(uri).motoko;
 
-            // TODO: optimize
+            // TODO: optimize @testmode check
             const source = getFileText(uri);
 
             if (/\/\/[^\S\n]*@testmode[^\S\n]*interpreter/.test(source)) {
+                // Run tests via moc.js interpreter
                 motoko.setRunStepLimit(100_000_000);
                 const output = motoko.run(virtualPath);
-
                 return {
                     passed: !output.stderr.includes('error'), // TODO
                     stdout: output.stdout,
                     stderr: output.stderr,
                 };
             } else {
+                // Run tests via WASI module
                 const wasiResult = motoko.wasm(virtualPath, 'wasi');
                 await initWASI();
                 const wasi = new WASI({});
@@ -1227,7 +1228,7 @@ connection.onRequest(
                     console.log('Exit code:', exitCode);
                 }
                 return {
-                    passed: exitCode !== 0,
+                    passed: exitCode === 0,
                     stdout,
                     stderr,
                 };
