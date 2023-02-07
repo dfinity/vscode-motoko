@@ -1213,11 +1213,10 @@ connection.onRequest(
                 console.log('Exit code:', exitCode);
             }
 
-            console.log(output.stderr); ////
-
             return {
                 // passed: output.result === 0, // TODO
-                passed: !output.stderr.includes('error'), // TODO
+                // passed: !output.stderr.includes('error'), // TODO
+                passed: exitCode === 0,
                 output,
             };
         } catch (err) {
