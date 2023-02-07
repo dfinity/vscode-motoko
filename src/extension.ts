@@ -217,7 +217,6 @@ function setupTests(context: ExtensionContext) {
     const pattern = '**/*.test.mo';
     const watcher = workspace.createFileSystemWatcher(pattern);
     const addFile = (uri: Uri) => {
-        console.log('URI:::', uri); ///////////
         try {
             const uriString = uri.toString();
             if (/\/(\.vessel|\.mops|node_modules)\//.test(uriString)) {
