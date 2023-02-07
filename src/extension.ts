@@ -5,6 +5,8 @@ import * as path from 'path';
 import {
     ExtensionContext,
     FormattingOptions,
+    Position,
+    Range,
     TestItem,
     TestMessage,
     TestRunProfileKind,
@@ -93,13 +95,22 @@ function setupTests(context: ExtensionContext) {
         if (!item.uri) {
             throw new Error('Unknown file system path');
         }
-        const result = await client.sendRequest('vscode-motoko:run-test-file', {
-            uri: item.uri.toString(),
-        });
+        const result: any = await client.sendRequest(
+            'vscode-motoko:run-test-file',
+            {
+                uri: item.uri.toString(),
+            },
+        );
 
         console.log(result);
 
         // TODO
+
+        if (!result.passed) {
+            throw new Error(
+                result.output?.stderr || 'An unexpected error occurred',
+            );
+        }
     };
 
     const runProfile = controller.createRunProfile(
@@ -126,11 +137,44 @@ function setupTests(context: ExtensionContext) {
                             await assertTestFilePasses(item);
                             run.passed(item, Date.now() - start);
                         } catch (e) {
+                            const message =
+                                ((e as any)?.message as string) || String(e);
                             run.failed(
                                 item,
-                                new TestMessage((e as any)?.message || e),
+                                new TestMessage(message),
                                 Date.now() - start,
                             );
+                            message.split(/(?<!, ?)\n/).forEach((line) => {
+                                // const match =
+                                //     /([^:]*):(\d+)\.(\d+)-(\d+)\.(\d+):/.exec(
+                                //         line,
+                                //     );
+                                const location = /* match
+                                    ? {
+                                          uri: Uri.file(match[0]), // TODO: Windows file paths
+                                          //   uri: item.uri,
+                                          range: new Range(
+                                              new Position(
+                                                  +match[1],
+                                                  +match[2],
+                                              ),
+                                              new Position(
+                                                  +match[3],
+                                                  +match[4],
+                                              ),
+                                          ),
+                                      }
+                                    : */ item.uri
+                                    ? {
+                                          uri: item.uri,
+                                          range: new Range(
+                                              new Position(0, 0),
+                                              new Position(0, 100),
+                                          ),
+                                      }
+                                    : undefined;
+                                run.appendOutput(line, location, item);
+                            });
                         }
                         // if (test.children.size === 0) {
                         //     await parseTestsInFileContents(test);

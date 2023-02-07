@@ -1,3 +1,4 @@
+import { WASI, init as initWASI } from '@wasmer/wasi';
 import { exec } from 'child_process';
 import * as glob from 'fast-glob';
 import { existsSync, readFileSync } from 'fs';
@@ -1177,17 +1178,46 @@ connection.onReferences(
 // Run a file which is recognized as a unit test
 connection.onRequest(
     'vscode-motoko:run-test-file',
-    (event: { uri: string }) => {
-        console.log('Running test:', event.uri);
+    async (event: { uri: string }) => {
+        while (loadingPackages) {
+            // Load all packages before running tests
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+        }
 
-        const { uri } = event;
         try {
+            const { uri } = event;
+            console.log('Running test:', uri);
+
             const virtualPath = resolveVirtualPath(uri);
 
-            const output = getContext(uri).motoko.run(virtualPath);
+            const motoko = getContext(uri).motoko;
+            // motoko.setRunStepLimit(1_000_000);
+            // const output = motoko.run(virtualPath);
+
+            const wasiResult = motoko.wasm(virtualPath, 'wasi');
+            await initWASI();
+            const wasi = new WASI({});
+            // @ts-ignore
+            const WebAssembly = global.WebAssembly;
+            const module = await (
+                WebAssembly.compileStreaming || WebAssembly.compile
+            )(wasiResult.wasm);
+            await wasi.instantiate(module, {});
+            const exitCode = wasi.start();
+            const stdout = wasi.getStdoutString();
+            const stderr = wasi.getStderrString();
+            const output = { exitCode, stdout, stderr };
+            if (exitCode !== 0) {
+                console.log(stdout);
+                console.error(stderr);
+                console.log('Exit code:', exitCode);
+            }
+
+            console.log(output.stderr); ////
 
             return {
-                passed: !output.stderr,
+                // passed: output.result === 0, // TODO
+                passed: !output.stderr.includes('error'), // TODO
                 output,
             };
         } catch (err) {
