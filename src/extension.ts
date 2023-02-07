@@ -1,3 +1,4 @@
+import * as glob from 'fast-glob';
 import * as fs from 'fs';
 import { Package } from 'motoko/lib/package';
 import * as baseLibrary from 'motoko/packages/latest/base.json';
@@ -8,7 +9,6 @@ import {
     Position,
     Range,
     TestItem,
-    TestMessage,
     TestRunProfileKind,
     TextDocument,
     TextEdit,
@@ -28,7 +28,6 @@ import {
 import * as which from 'which';
 import { watchGlob } from './common/watchConfig';
 import { formatDocument } from './formatter';
-import * as glob from 'fast-glob';
 
 const config = workspace.getConfiguration('motoko');
 
@@ -141,40 +140,55 @@ function setupTests(context: ExtensionContext) {
                                 ((e as any)?.message as string) || String(e);
                             run.failed(
                                 item,
-                                new TestMessage(message),
+                                // new TestMessage(message),
+                                [],
                                 Date.now() - start,
                             );
-                            message.split(/(?<!, ?)\n/).forEach((line) => {
-                                // const match =
-                                //     /([^:]*):(\d+)\.(\d+)-(\d+)\.(\d+):/.exec(
-                                //         line,
-                                //     );
-                                const location = /* match
-                                    ? {
-                                          uri: Uri.file(match[0]), // TODO: Windows file paths
-                                          //   uri: item.uri,
-                                          range: new Range(
-                                              new Position(
-                                                  +match[1],
-                                                  +match[2],
-                                              ),
-                                              new Position(
-                                                  +match[3],
-                                                  +match[4],
-                                              ),
-                                          ),
-                                      }
-                                    : */ item.uri
-                                    ? {
-                                          uri: item.uri,
-                                          range: new Range(
-                                              new Position(0, 0),
-                                              new Position(0, 100),
-                                          ),
-                                      }
-                                    : undefined;
-                                run.appendOutput(line, location, item);
-                            });
+                            const location = item.uri
+                                ? {
+                                      uri: item.uri,
+                                      range: new Range(
+                                          new Position(0, 0),
+                                          new Position(0, 100),
+                                      ),
+                                  }
+                                : undefined;
+                            run.appendOutput(message, location, item);
+                            // message.split(/(?<!, ?)\n/).forEach((line) => {
+                            //     line = line.trim();
+                            //     if (!line) {
+                            //         return;
+                            //     }
+                            //     // const match =
+                            //     //     /([^:]*):(\d+)\.(\d+)-(\d+)\.(\d+):/.exec(
+                            //     //         line,
+                            //     //     );
+                            //     const location = /* match
+                            //         ? {
+                            //               uri: Uri.file(match[0]), // TODO: Windows file paths
+                            //               //   uri: item.uri,
+                            //               range: new Range(
+                            //                   new Position(
+                            //                       +match[1],
+                            //                       +match[2],
+                            //                   ),
+                            //                   new Position(
+                            //                       +match[3],
+                            //                       +match[4],
+                            //                   ),
+                            //               ),
+                            //           }
+                            //         : */ item.uri
+                            //         ? {
+                            //               uri: item.uri,
+                            //               range: new Range(
+                            //                   new Position(0, 0),
+                            //                   new Position(0, 100),
+                            //               ),
+                            //           }
+                            //         : undefined;
+                            //     run.appendOutput(line, location, item);
+                            // });
                         }
                         // if (test.children.size === 0) {
                         //     await parseTestsInFileContents(test);
