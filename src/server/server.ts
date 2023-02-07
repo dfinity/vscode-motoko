@@ -1197,7 +1197,16 @@ connection.onRequest(
             // TODO: optimize
             const source = getFileText(uri);
 
-            if (/\/\/[^\S\n]*@testmode[^\S\n]*wasi/.test(source)) {
+            if (/\/\/[^\S\n]*@testmode[^\S\n]*interpreter/.test(source)) {
+                motoko.setRunStepLimit(100_000_000);
+                const output = motoko.run(virtualPath);
+
+                return {
+                    passed: !output.stderr.includes('error'), // TODO
+                    stdout: output.stdout,
+                    stderr: output.stderr,
+                };
+            } else {
                 const wasiResult = motoko.wasm(virtualPath, 'wasi');
                 await initWASI();
                 const wasi = new WASI({});
@@ -1221,15 +1230,6 @@ connection.onRequest(
                     passed: exitCode !== 0,
                     stdout,
                     stderr,
-                };
-            } else {
-                motoko.setRunStepLimit(100_000_000);
-                const output = motoko.run(virtualPath);
-
-                return {
-                    passed: !output.stderr.includes('error'), // TODO
-                    stdout: output.stdout,
-                    stderr: output.stderr,
                 };
             }
         } catch (err) {
