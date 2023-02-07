@@ -50,6 +50,11 @@ import {
 } from './navigation';
 import { Program, asNode, findNodes } from './syntax';
 import {
+    TEST_FILE_REQUEST,
+    TestParams,
+    TestResult,
+} from '../common/testConfig';
+import {
     formatMotoko,
     getFileText,
     resolveFilePath,
@@ -1177,10 +1182,8 @@ connection.onReferences(
 
 // Run a file which is recognized as a unit test
 connection.onRequest(
-    'vscode-motoko:run-test-file',
-    async (event: {
-        uri: string;
-    }): Promise<{ passed: boolean; stdout: string; stderr: string }> => {
+    TEST_FILE_REQUEST,
+    async (event: TestParams): Promise<TestResult> => {
         while (loadingPackages) {
             // Load all packages before running tests
             await new Promise((resolve) => setTimeout(resolve, 500));

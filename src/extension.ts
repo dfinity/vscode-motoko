@@ -29,6 +29,7 @@ import {
 import * as which from 'which';
 import { watchGlob } from './common/watchConfig';
 import { formatDocument } from './formatter';
+import { TEST_FILE_REQUEST, TestResult, TestParams } from './common/testConfig';
 
 const config = workspace.getConfiguration('motoko');
 
@@ -85,7 +86,8 @@ function setupTests(context: ExtensionContext) {
     }
     const testItemTypeMap = new WeakMap<TestItem, ItemType>();
     const getType = (item: TestItem) => testItemTypeMap.get(item)!;
-    const assertTestFilePasses = async (item: TestItem) => {
+
+    const runTest = async (item: TestItem) => {
         console.log('Running test:', item);
 
         if (!client) {
@@ -95,12 +97,9 @@ function setupTests(context: ExtensionContext) {
         if (!item.uri) {
             throw new Error('Unknown file system path');
         }
-        const result: any = await client.sendRequest(
-            'vscode-motoko:run-test-file',
-            {
-                uri: item.uri.toString(),
-            },
-        );
+        const result: TestResult = await client.sendRequest(TEST_FILE_REQUEST, {
+            uri: item.uri.toString(),
+        } as TestParams);
 
         console.log(result);
 
@@ -133,7 +132,7 @@ function setupTests(context: ExtensionContext) {
                         const start = Date.now();
                         try {
                             run.started(item);
-                            await assertTestFilePasses(item);
+                            await runTest(item);
                             run.passed(item, Date.now() - start);
                         } catch (e) {
                             const message =
