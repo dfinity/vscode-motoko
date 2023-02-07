@@ -1178,7 +1178,9 @@ connection.onReferences(
 // Run a file which is recognized as a unit test
 connection.onRequest(
     'vscode-motoko:run-test-file',
-    async (event: { uri: string }) => {
+    async (event: {
+        uri: string;
+    }): Promise<{ passed: boolean; stdout: string; stderr: string }> => {
         while (loadingPackages) {
             // Load all packages before running tests
             await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -1191,38 +1193,51 @@ connection.onRequest(
             const virtualPath = resolveVirtualPath(uri);
 
             const motoko = getContext(uri).motoko;
-            // motoko.setRunStepLimit(1_000_000);
-            // const output = motoko.run(virtualPath);
 
-            const wasiResult = motoko.wasm(virtualPath, 'wasi');
-            await initWASI();
-            const wasi = new WASI({});
-            // @ts-ignore
-            const WebAssembly = global.WebAssembly;
-            const module = await (
-                WebAssembly.compileStreaming || WebAssembly.compile
-            )(wasiResult.wasm);
-            await wasi.instantiate(module, {});
-            const exitCode = wasi.start();
-            const stdout = wasi.getStdoutString();
-            const stderr = wasi.getStderrString();
-            const output = { exitCode, stdout, stderr };
-            if (exitCode !== 0) {
-                console.log(stdout);
-                console.error(stderr);
-                console.log('Exit code:', exitCode);
+            // TODO: optimize
+            const source = getFileText(uri);
+
+            if (/\/\/[^\S\n]*@testmode[^\S\n]*wasi/.test(source)) {
+                const wasiResult = motoko.wasm(virtualPath, 'wasi');
+                await initWASI();
+                const wasi = new WASI({});
+                // @ts-ignore
+                const WebAssembly = global.WebAssembly;
+                const module = await (
+                    WebAssembly.compileStreaming || WebAssembly.compile
+                )(wasiResult.wasm);
+                await wasi.instantiate(module, {});
+                const exitCode = wasi.start();
+                const stdout = wasi.getStdoutString();
+                const stderr = wasi.getStderrString();
+                // console.log('STDERR:', stderr); ///////
+                // const output = { exitCode, stdout, stderr };
+                if (exitCode !== 0) {
+                    console.log(stdout);
+                    console.error(stderr);
+                    console.log('Exit code:', exitCode);
+                }
+                return {
+                    passed: exitCode !== 0,
+                    stdout,
+                    stderr,
+                };
+            } else {
+                motoko.setRunStepLimit(100_000_000);
+                const output = motoko.run(virtualPath);
+
+                return {
+                    passed: !output.stderr.includes('error'), // TODO
+                    stdout: output.stdout,
+                    stderr: output.stderr,
+                };
             }
-
-            return {
-                // passed: output.result === 0, // TODO
-                // passed: !output.stderr.includes('error'), // TODO
-                passed: exitCode === 0,
-                output,
-            };
         } catch (err) {
             console.error(err);
             return {
                 passed: false,
+                stdout: '',
+                stderr: (err as any)?.message || String(err),
             };
         }
     },

@@ -9,6 +9,7 @@ import {
     Position,
     Range,
     TestItem,
+    TestMessage,
     TestRunProfileKind,
     TextDocument,
     TextEdit,
@@ -106,9 +107,7 @@ function setupTests(context: ExtensionContext) {
         // TODO
 
         if (!result.passed) {
-            throw new Error(
-                result.output?.stderr || 'An unexpected error occurred',
-            );
+            throw new Error(result.stderr || 'An unexpected error occurred');
         }
     };
 
@@ -140,8 +139,7 @@ function setupTests(context: ExtensionContext) {
                                 ((e as any)?.message as string) || String(e);
                             run.failed(
                                 item,
-                                // new TestMessage(message),
-                                [],
+                                new TestMessage(message), // TODO: `TextMessage.diff()`
                                 Date.now() - start,
                             );
                             const location = item.uri
