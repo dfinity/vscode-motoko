@@ -123,7 +123,7 @@ function setupTests(context: ExtensionContext) {
             }
 
             while (queue.length > 0 && !token.isCancellationRequested) {
-                const item = queue.pop()!;
+                const item = queue.shift()!;
                 if (request.exclude?.includes(item)) {
                     continue;
                 }
