@@ -159,64 +159,16 @@ function setupTests(context: ExtensionContext) {
                                   }
                                 : undefined;
                             run.appendOutput(message, location, item);
-                            // message.split(/(?<!, ?)\n/).forEach((line) => {
-                            //     line = line.trim();
-                            //     if (!line) {
-                            //         return;
-                            //     }
-                            //     // const match =
-                            //     //     /([^:]*):(\d+)\.(\d+)-(\d+)\.(\d+):/.exec(
-                            //     //         line,
-                            //     //     );
-                            //     const location = /* match
-                            //         ? {
-                            //               uri: Uri.file(match[0]), // TODO: Windows file paths
-                            //               //   uri: item.uri,
-                            //               range: new Range(
-                            //                   new Position(
-                            //                       +match[1],
-                            //                       +match[2],
-                            //                   ),
-                            //                   new Position(
-                            //                       +match[3],
-                            //                       +match[4],
-                            //                   ),
-                            //               ),
-                            //           }
-                            //         : */ item.uri
-                            //         ? {
-                            //               uri: item.uri,
-                            //               range: new Range(
-                            //                   new Position(0, 0),
-                            //                   new Position(0, 100),
-                            //               ),
-                            //           }
-                            //         : undefined;
-                            //     run.appendOutput(line, location, item);
-                            // });
                         }
                         // if (test.children.size === 0) {
                         //     await parseTestsInFileContents(test);
                         // }
                         break;
                     // case ItemType.TestCase:
-                    //     const start = Date.now();
-                    //     try {
-                    //         await assertTestPasses(test);
-                    //         run.passed(test, Date.now() - start);
-                    //     } catch (e) {
-                    //         run.failed(
-                    //             test,
-                    //             new TestMessage((e as any)?.message || e),
-                    //             Date.now() - start,
-                    //         );
-                    //     }
                     //     break;
                 }
-
                 item.children.forEach((test) => queue.push(test));
             }
-
             run.end();
         },
     );
