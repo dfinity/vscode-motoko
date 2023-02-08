@@ -141,25 +141,6 @@ async function getPackageSources(
         try {
             sources = await sourcesFromCommand(command);
         } catch (err: any) {
-            // try {
-            //     const sources = await mopsSources(directory);
-            //     if (!sources) {
-            //         throw new Error('Unexpected output');
-            //     }
-            //     return Object.entries(sources);
-            // } catch (fallbackError) {
-            //     console.error(
-            //         `Error in fallback MOPS implementation:`,
-            //         fallbackError,
-            //     );
-            //     // Provide a verbose error message for MOPS command
-            //     throw new Error(
-            //         `Error while running \`${command}\`: ${
-            //             err?.message || err
-            //         }`,
-            //     );
-            // }
-
             throw new Error(
                 `Error while finding MOPS packages.\nMake sure MOPS is installed locally or globally (https://mops.one/docs/install).\n${
                     err?.message || err
@@ -352,29 +333,6 @@ function notifyDfxChange() {
                             `Error while resolving canister aliases: ${err}`,
                         );
                     }
-
-                    for (const [_name, _canister] of Object.entries(
-                        dfxConfig.canisters,
-                    )) {
-                        // try {
-                        //     if (
-                        //         (!canister.type || canister.type === 'motoko') &&
-                        //         canister.main
-                        //     ) {
-                        //         const uri = URI.file(
-                        //             dirname(join(projectDir, canister.main)),
-                        //         ).toString();
-                        //         mo.usePackage(
-                        //             `canister:${name}`,
-                        //             resolveVirtualPath(uri),
-                        //         );
-                        //     }
-                        // } catch (err) {
-                        //     console.error(
-                        //         `Error while adding sibling Motoko canister '${name}' as a package: ${err}`,
-                        //     );
-                        // }
-                    }
                 }
             }
         } catch (err) {
@@ -490,10 +448,6 @@ connection.onInitialized(() => {
         notifyWorkspace();
     });
 
-    // notifyWorkspace();
-
-    // loadPrimaryDfxConfig();
-
     notifyPackageConfigChange();
 });
 
@@ -575,10 +529,6 @@ function notifyWorkspace() {
 
 const checkQueue: string[] = [];
 let checkTimeout: ReturnType<typeof setTimeout>;
-// function clearCheckQueue() {
-//     checkQueue.length = 0;
-//     clearTimeout(checkTimeout);
-// }
 function processQueue() {
     clearTimeout(checkTimeout);
     checkTimeout = setTimeout(() => {
@@ -646,42 +596,8 @@ function checkWorkspace() {
                 }
             });
         });
-
-        // validateOpenDocuments();
-
-        // loadPrimaryDfxConfig()
-        //     .then((dfxConfig) => {
-        //         if (!dfxConfig) {
-        //             return;
-        //         }
-        //         console.log('dfx.json:', JSON.stringify(dfxConfig));
-        //         Object.values(dfxConfig.canisters).forEach((canister) => {
-        //             if (
-        //                 (!canister.type || canister.type === 'motoko') &&
-        //                 canister.main
-        //             ) {
-        //                 const folder = workspaceFolders![0]; // temp
-        //                 const filePath = join(
-        //                     resolveFilePath(folder.uri),
-        //                     canister.main,
-        //                 );
-        //                 const uri = URI.file(filePath).toString();
-        //                 validate(uri);
-        //             }
-        //         });
-        //     })
-        //     .catch((err) => console.error(`Error while loading dfx.json: ${err}`));
     }, 500);
 }
-
-// /**
-//  * Validates all Motoko files which are currently open in the editor.
-//  */
-// function validateOpenDocuments() {
-//     // TODO: validate all tabs
-//     documents.all().forEach((document) => notify(document));
-//     documents.all().forEach((document) => check(document));
-// }
 
 function validate(uri: string | TextDocument) {
     notify(uri);
@@ -850,9 +766,6 @@ function notifyDeleteUri(uri: string) {
 }
 
 function writeVirtual(path: string, content: string) {
-    // if (virtualPath.endsWith('.mo')) {
-    //     content = preprocessMotoko(content);
-    // }
     allContexts().forEach(({ motoko }) => motoko.write(path, content));
 }
 
@@ -921,12 +834,6 @@ connection.onCodeAction((event) => {
     });
     return results;
 });
-
-// connection.onCodeActionResolve((action) => {
-//     console.log('Code action resolve');
-//     console.log(action.data);
-//     return action;
-// });
 
 connection.onSignatureHelp((): SignatureHelp | null => {
     return null;
@@ -1209,7 +1116,6 @@ connection.onRequest(
 
         try {
             const { uri } = event;
-            console.log('Running test:', uri);
 
             const virtualPath = resolveVirtualPath(uri);
 
@@ -1218,7 +1124,13 @@ connection.onRequest(
             // TODO: optimize @testmode check
             const source = getFileText(uri);
 
-            if (/\/\/[^\S\n]*@testmode[^\S\n]*interpreter/.test(source)) {
+            const mode = /\/\/[^\S\n]*@testmode[^\S\n]*interpreter/.test(source)
+                ? 'interpreter'
+                : 'wasi';
+
+            console.log('Running test:', uri, `(${mode})`);
+
+            if (mode === 'interpreter') {
                 // Run tests via moc.js interpreter
                 motoko.setRunStepLimit(100_000_000);
                 const output = motoko.run(virtualPath);
@@ -1280,13 +1192,6 @@ documents.onDidChangeContent((event) => {
     }, 100);
     validatingUri = uri;
 });
-
-// documents.onDidClose((event) =>
-//     connection.sendDiagnostics({
-//         diagnostics: [],
-//         uri: event.document.uri,
-//     }),
-// );
 
 documents.listen(connection);
 connection.listen();
