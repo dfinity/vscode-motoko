@@ -103,8 +103,6 @@ function setupTests(context: ExtensionContext) {
 
         console.log(result);
 
-        // TODO
-
         if (!result.passed) {
             throw new Error(result.stderr || 'An unexpected error occurred');
         }

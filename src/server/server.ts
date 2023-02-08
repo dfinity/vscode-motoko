@@ -1232,8 +1232,7 @@ connection.onRequest(
                 const wasiResult = motoko.wasm(virtualPath, 'wasi');
                 await initWASI();
                 const wasi = new WASI({});
-                // @ts-ignore
-                const WebAssembly = global.WebAssembly;
+                const WebAssembly = (global as any).WebAssembly;
                 const module = await (
                     WebAssembly.compileStreaming || WebAssembly.compile
                 )(wasiResult.wasm);
@@ -1241,8 +1240,6 @@ connection.onRequest(
                 const exitCode = wasi.start();
                 const stdout = wasi.getStdoutString();
                 const stderr = wasi.getStderrString();
-                // console.log('STDERR:', stderr); ///////
-                // const output = { exitCode, stdout, stderr };
                 if (exitCode !== 0) {
                     console.log(stdout);
                     console.error(stderr);
