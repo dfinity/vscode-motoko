@@ -70,6 +70,7 @@ const ignoreGlobs = [
     '**/.vessel/.tmp/**/*', // temporary Vessel files
 ];
 
+const packageSourceCache = new Map();
 async function getPackageSources(
     directory: string,
 ): Promise<[string, string][]> {
@@ -101,6 +102,14 @@ async function getPackageSources(
         return sources;
     }
 
+    // Prioritize cached sources
+    const cached = packageSourceCache.get(directory);
+    if (cached) {
+        return cached;
+    }
+
+    let sources: [string, string][] = [];
+
     // Prioritize `defaults.build.packtool`
     const dfxPath = join(directory, 'dfx.json');
     if (existsSync(dfxPath)) {
@@ -108,7 +117,7 @@ async function getPackageSources(
             const dfxConfig = JSON.parse(readFileSync(dfxPath, 'utf8'));
             const command = dfxConfig?.defaults?.build?.packtool;
             if (command) {
-                return sourcesFromCommand(command);
+                sources = await sourcesFromCommand(command);
             }
         } catch (err: any) {
             throw new Error(
@@ -124,7 +133,7 @@ async function getPackageSources(
         // const command = 'mops sources';
         const command = 'npx --no ic-mops sources';
         try {
-            return sourcesFromCommand(command);
+            sources = await sourcesFromCommand(command);
         } catch (err: any) {
             // try {
             //     const sources = await mopsSources(directory);
@@ -154,7 +163,7 @@ async function getPackageSources(
     } else if (existsSync(join(directory, 'vessel.dhall'))) {
         const command = 'vessel sources';
         try {
-            return sourcesFromCommand(command);
+            sources = await sourcesFromCommand(command);
         } catch (err: any) {
             throw new Error(
                 `Error while running \`${command}\`.\nMake sure Vessel is installed (https://github.com/dfinity/vessel/#getting-started).\n${
@@ -163,15 +172,22 @@ async function getPackageSources(
             );
             // return vesselSources(directory);
         }
-    } else {
-        return [];
     }
+    // else {
+    //     sources = [];
+    // }
+
+    packageSourceCache.set(directory, sources);
+    return sources;
 }
 
 let loadingPackages = false;
 let packageConfigError = false;
 let packageConfigChangeTimeout: ReturnType<typeof setTimeout>;
-function notifyPackageConfigChange() {
+function notifyPackageConfigChange(retry = false) {
+    if (!retry) {
+        packageSourceCache.clear();
+    }
     clearTimeout(packageConfigChangeTimeout);
     loadingPackages = true;
     setTimeout(async () => {
@@ -182,13 +198,15 @@ function notifyPackageConfigChange() {
             const directories: string[] = [];
             try {
                 workspaceFolders?.forEach((workspaceFolder) => {
-                    const filenames = ['mops.toml', 'vessel.dhall'];
+                    const filenames = ['mops.toml', 'vessel.dhall', 'dfx.json'];
+                    const cwd = resolveFilePath(workspaceFolder.uri);
                     const paths = glob.sync(`**/{${filenames.join(',')}}`, {
-                        cwd: resolveFilePath(workspaceFolder.uri),
+                        cwd,
                         ignore: ignoreGlobs,
                         dot: false,
                     });
                     paths.forEach((path) => {
+                        path = join(cwd, path);
                         filenames.forEach((filename) => {
                             if (path.endsWith(filename)) {
                                 const dir = resolve(
@@ -1178,7 +1196,7 @@ let validatingTimeout: ReturnType<typeof setTimeout>;
 let validatingUri: string | undefined;
 documents.onDidChangeContent((event) => {
     if (packageConfigError) {
-        notifyPackageConfigChange();
+        notifyPackageConfigChange(true);
     }
     const document = event.document;
     const { uri } = document;
