@@ -121,10 +121,6 @@
             }
         ]
     },
-    "activationEvents": [
-        "onLanguage:motoko",
-        "onCommand:motoko.startService"
-    ],
     "main": "./out/extension",
     "browser": "./out/browser",
     "dependencies": {
