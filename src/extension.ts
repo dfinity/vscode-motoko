@@ -117,11 +117,18 @@ function setupTests(context: ExtensionContext) {
             const run = controller.createTestRun(request);
             const queue: TestItem[] = [];
             if (request.include) {
-                request.include.forEach((test) => queue.push(test));
+                request.include.forEach((item) => queue.push(item));
             } else {
-                controller.items.forEach((test) => queue.push(test));
+                controller.items.forEach((item) => queue.push(item));
             }
-
+            queue.sort((a, b) =>
+                a.label
+                    .toLocaleLowerCase()
+                    .localeCompare(b.label.toLocaleLowerCase()),
+            );
+            queue.forEach((item) => {
+                run.enqueued(item);
+            });
             while (queue.length > 0 && !token.isCancellationRequested) {
                 const item = queue.shift()!;
                 if (request.exclude?.includes(item)) {
