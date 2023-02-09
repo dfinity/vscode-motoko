@@ -585,9 +585,9 @@ function processQueue() {
         }
     }, 0);
 }
-function scheduleCheck(uri: string | TextDocument) {
+function scheduleCheck(uri: string | TextDocument): boolean {
     if (loadingPackages) {
-        return;
+        return false;
     }
     if (checkQueue.length === 0) {
         processQueue();
@@ -598,7 +598,7 @@ function scheduleCheck(uri: string | TextDocument) {
         unscheduleCheck(uri);
         checkQueue.unshift(uri);
     } else {
-        // Workspace file
+        // Workspace files
         if (checkQueue.includes(uri)) {
             return false;
         }
@@ -613,6 +613,7 @@ function unscheduleCheck(uri: string) {
     }
 }
 
+let previousTabs: string[] = [];
 let checkWorkspaceTimeout: ReturnType<typeof setTimeout>;
 /**
  * Type-checks all Motoko files in the current workspace.
@@ -632,50 +633,34 @@ function checkWorkspace() {
                 const path = join(folderPath, relativePath);
                 try {
                     const uri = URI.file(path).toString();
-                    // notify(uri);
-                    scheduleCheck(uri);
+                    notify(uri);
+                    // scheduleCheck(uri);
                 } catch (err) {
-                    console.error(`Error while checking Motoko file ${path}:`);
+                    // console.error(`Error while checking Motoko file ${path}:`);
+                    console.error(`Error while notifying Motoko file ${path}:`);
                     console.error(err);
                 }
             });
         });
-
-        // validateOpenDocuments();
-
-        // loadPrimaryDfxConfig()
-        //     .then((dfxConfig) => {
-        //         if (!dfxConfig) {
-        //             return;
-        //         }
-        //         console.log('dfx.json:', JSON.stringify(dfxConfig));
-        //         Object.values(dfxConfig.canisters).forEach((canister) => {
-        //             if (
-        //                 (!canister.type || canister.type === 'motoko') &&
-        //                 canister.main
-        //             ) {
-        //                 const folder = workspaceFolders![0]; // temp
-        //                 const filePath = join(
-        //                     resolveFilePath(folder.uri),
-        //                     canister.main,
-        //                 );
-        //                 const uri = URI.file(filePath).toString();
-        //                 validate(uri);
-        //             }
-        //         });
-        //     })
-        //     .catch((err) => console.error(`Error while loading dfx.json: ${err}`));
+        connection
+            .sendRequest<string[]>('vscode-motoko:get-open-files')
+            .then((tabs) => {
+                tabs = tabs.filter((uri) => uri.endsWith('.mo'));
+                previousTabs.forEach((uri) => {
+                    if (!tabs.includes(uri)) {
+                        connection.sendDiagnostics({
+                            uri,
+                            diagnostics: [],
+                        });
+                    }
+                });
+                tabs.forEach((uri) => notify(uri));
+                tabs.forEach((uri) => scheduleCheck(uri));
+                previousTabs = tabs;
+            })
+            .catch((err) => console.error(err));
     }, 500);
 }
-
-// /**
-//  * Validates all Motoko files which are currently open in the editor.
-//  */
-// function validateOpenDocuments() {
-//     // TODO: validate all tabs
-//     documents.all().forEach((document) => notify(document));
-//     documents.all().forEach((document) => check(document));
-// }
 
 function validate(uri: string | TextDocument) {
     notify(uri);
@@ -1195,9 +1180,9 @@ connection.onReferences(
 let validatingTimeout: ReturnType<typeof setTimeout>;
 let validatingUri: string | undefined;
 documents.onDidChangeContent((event) => {
-    if (packageConfigError) {
-        notifyPackageConfigChange(true);
-    }
+    // if (packageConfigError) {
+    //     notifyPackageConfigChange(true);
+    // }
     const document = event.document;
     const { uri } = document;
     if (uri === validatingUri) {
@@ -1209,6 +1194,10 @@ documents.onDidChangeContent((event) => {
         astResolver.update(uri, true); /// TODO: also use for type checking?
     }, 100);
     validatingUri = uri;
+});
+
+documents.onDidOpen((event) => {
+    scheduleCheck(event.document.uri); ////
 });
 
 // documents.onDidClose((event) =>

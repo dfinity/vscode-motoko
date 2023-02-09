@@ -143,6 +143,17 @@ function restartLanguageServer(
         serverOptions,
         clientOptions,
     );
+    client.onRequest('vscode-motoko:get-open-files', async () => {
+        const files: string[] = [];
+        window.tabGroups.all.forEach((group) =>
+            files.push(
+                ...group.tabs
+                    .map((tab) => (tab.input as any)?.uri?.toString())
+                    .filter((uri) => uri),
+            ),
+        );
+        return files;
+    });
     client.start().catch((err) => console.error(err.stack || err));
     context.subscriptions.push(client);
 }
