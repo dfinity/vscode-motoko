@@ -516,35 +516,39 @@ connection.onInitialized(() => {
     notifyPackageConfigChange();
 });
 
-connection.onDidChangeWatchedFiles((event) => {
-    event.changes.forEach((change) => {
-        try {
-            if (change.type === FileChangeType.Deleted) {
-                const path = resolveVirtualPath(change.uri);
-                deleteVirtual(path);
-                notifyDeleteUri(change.uri);
-                sendDiagnostics(change.uri, []);
-            } else {
-                notify(change.uri);
-            }
-            if (
-                change.uri.endsWith('.did') ||
-                change.uri.endsWith('/dfx.json')
-            ) {
-                notifyDfxChange();
-                if (change.uri.endsWith('/dfx.json')) {
-                    notifyPackageConfigChange(); // `defaults.build.packtool`
+connection.onDidChangeWatchedFiles(async (event) => {
+    await Promise.all(
+        event.changes.map(async (change) => {
+            try {
+                if (change.type === FileChangeType.Deleted) {
+                    const path = resolveVirtualPath(change.uri);
+                    deleteVirtual(path);
+                    notifyDeleteUri(change.uri);
+                    sendDiagnostics(change.uri, []);
+                } else {
+                    await notify(change.uri);
                 }
-            } else if (
-                change.uri.endsWith('.dhall') ||
-                change.uri.endsWith('/mops.toml')
-            ) {
-                notifyPackageConfigChange();
+                if (
+                    change.uri.endsWith('.did') ||
+                    change.uri.endsWith('/dfx.json')
+                ) {
+                    notifyDfxChange();
+                    if (change.uri.endsWith('/dfx.json')) {
+                        notifyPackageConfigChange(); // `defaults.build.packtool`
+                    }
+                } else if (
+                    change.uri.endsWith('.dhall') ||
+                    change.uri.endsWith('/mops.toml')
+                ) {
+                    notifyPackageConfigChange();
+                }
+            } catch (err) {
+                console.error(
+                    `Error while handling Motoko file change: ${err}`,
+                );
             }
-        } catch (err) {
-            console.error(`Error while handling Motoko file change: ${err}`);
-        }
-    });
+        }),
+    );
 
     checkWorkspace();
 });
@@ -674,8 +678,10 @@ function checkWorkspace() {
 
         // connection.sendRequest<string[]>('vscode-motoko:get-open-files')
         Promise.resolve(documents.all().map((document) => document.uri))
-            .then(async (tabs) => {
-                const checkedFiles = tabs.filter((uri) => uri.endsWith('.mo'));
+            .then(async (checkedFiles) => {
+                checkedFiles = checkedFiles.filter((uri) =>
+                    uri.endsWith('.mo'),
+                );
                 try {
                     // Include entry points from 'dfx.json'
                     const projectDir = await dfxResolver?.getProjectDirectory();
@@ -704,11 +710,11 @@ function checkWorkspace() {
                 }
 
                 previousCheckedFiles.forEach((uri) => {
-                    if (!tabs.includes(uri)) {
+                    if (!checkedFiles.includes(uri)) {
                         sendDiagnostics(uri, []);
                     }
                 });
-                checkedFiles.forEach((uri) => notify(uri));
+                await Promise.all(checkedFiles.map((uri) => notify(uri)));
                 checkedFiles.forEach((uri) => scheduleCheck(uri));
                 previousCheckedFiles = checkedFiles;
             })
