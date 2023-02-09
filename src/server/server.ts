@@ -54,6 +54,7 @@ import {
     resolveFilePath,
     resolveVirtualPath,
 } from './utils';
+import equal = require('fast-deep-equal');
 
 interface Settings {
     motoko: MotokoSettings;
@@ -393,6 +394,20 @@ function findNewImportPosition(uri: string, context: Context): Position {
     return Position.create(0, 0);
 }
 
+const diagnosticsCache = new Map<string, Diagnostic[]>();
+async function sendDiagnostics(
+    uri: string,
+    diagnostics: Diagnostic[],
+): Promise<boolean> {
+    const cache = diagnosticsCache.get(uri);
+    if (cache ? equal(diagnostics, cache) : diagnostics.length === 0) {
+        return false;
+    }
+    diagnosticsCache.set(uri, diagnostics);
+    await connection.sendDiagnostics({ uri, diagnostics });
+    return true;
+}
+
 // Create a connection for the language server
 const connection = createConnection(ProposedFeatures.all);
 
@@ -498,10 +513,7 @@ connection.onDidChangeWatchedFiles((event) => {
                 const path = resolveVirtualPath(change.uri);
                 deleteVirtual(path);
                 notifyDeleteUri(change.uri);
-                connection.sendDiagnostics({
-                    uri: change.uri,
-                    diagnostics: [],
-                });
+                sendDiagnostics(change.uri, []);
             } else {
                 notify(change.uri);
             }
@@ -714,10 +726,7 @@ function checkImmediate(uri: string | TextDocument): boolean {
         const skipExtension = '.mo_'; // Skip type checking `*.mo_` files
         const resolvedUri = typeof uri === 'string' ? uri : uri?.uri;
         if (resolvedUri?.endsWith(skipExtension)) {
-            connection.sendDiagnostics({
-                uri: resolvedUri,
-                diagnostics: [],
-            });
+            sendDiagnostics(resolvedUri, []);
             return false;
         }
 
@@ -790,26 +799,20 @@ function checkImmediate(uri: string | TextDocument): boolean {
         });
 
         Object.entries(diagnosticMap).forEach(([path, diagnostics]) => {
-            connection.sendDiagnostics({
-                uri: URI.file(path).toString(),
-                diagnostics,
-            });
+            sendDiagnostics(URI.file(path).toString(), diagnostics);
         });
         return true;
     } catch (err) {
         console.error(`Error while compiling Motoko file: ${err}`);
-        connection.sendDiagnostics({
-            uri: typeof uri === 'string' ? uri : uri.uri,
-            diagnostics: [
-                {
-                    message: 'Unexpected error while compiling Motoko file.',
-                    range: {
-                        start: { line: 0, character: 0 },
-                        end: { line: 0, character: 0 },
-                    },
+        sendDiagnostics(typeof uri === 'string' ? uri : uri.uri, [
+            {
+                message: 'Unexpected error while compiling Motoko file.',
+                range: {
+                    start: { line: 0, character: 0 },
+                    end: { line: 0, character: 0 },
                 },
-            ],
-        });
+            },
+        ]);
     }
     return false;
 }
@@ -1210,13 +1213,6 @@ documents.onDidChangeContent((event) => {
     }, 100);
     validatingUri = uri;
 });
-
-// documents.onDidClose((event) =>
-//     connection.sendDiagnostics({
-//         diagnostics: [],
-//         uri: event.document.uri,
-//     }),
-// );
 
 documents.listen(connection);
 connection.listen();
