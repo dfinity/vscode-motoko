@@ -635,25 +635,26 @@ function checkWorkspace() {
     checkWorkspaceTimeout = setTimeout(() => {
         console.log('Checking workspace');
 
-        workspaceFolders?.forEach((folder) => {
-            const folderPath = resolveFilePath(folder.uri);
-            glob.sync('**/*.mo', {
-                cwd: folderPath,
-                dot: false, // exclude directories such as `.vessel`
-                ignore: ignoreGlobs,
-            }).forEach((relativePath) => {
-                const path = join(folderPath, relativePath);
-                try {
-                    const uri = URI.file(path).toString();
-                    notify(uri);
-                    // scheduleCheck(uri);
-                } catch (err) {
-                    // console.error(`Error while checking Motoko file ${path}:`);
-                    console.error(`Error while notifying Motoko file ${path}:`);
-                    console.error(err);
-                }
-            });
-        });
+        // workspaceFolders?.forEach((folder) => {
+        //     const folderPath = resolveFilePath(folder.uri);
+        //     glob.sync('**/*.mo', {
+        //         cwd: folderPath,
+        //         dot: false, // exclude directories such as `.vessel`
+        //         ignore: ignoreGlobs,
+        //     }).forEach((relativePath) => {
+        //         const path = join(folderPath, relativePath);
+        //         try {
+        //             const uri = URI.file(path).toString();
+        //             notify(uri);
+        //             // scheduleCheck(uri);
+        //         } catch (err) {
+        //             // console.error(`Error while checking Motoko file ${path}:`);
+        //             console.error(`Error while notifying Motoko file ${path}:`);
+        //             console.error(err);
+        //         }
+        //     });
+        // });
+
         connection
             .sendRequest<string[]>('vscode-motoko:get-open-files')
             .then((tabs) => {
