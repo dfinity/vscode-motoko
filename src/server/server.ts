@@ -1,6 +1,7 @@
 import { exec } from 'child_process';
 import * as glob from 'fast-glob';
-import { existsSync, readFileSync } from 'fs';
+import { existsSync } from 'fs';
+import { readFile } from 'fs/promises';
 import { Node } from 'motoko/lib/ast';
 import { keywords } from 'motoko/lib/keywords';
 import * as baseLibrary from 'motoko/packages/latest/base.json';
@@ -71,6 +72,10 @@ const ignoreGlobs = [
     '**/.vessel/.tmp/**/*', // temporary Vessel files
 ];
 
+async function exists(path: string): Promise<boolean> {
+    return existsSync(path); // TODO: async
+}
+
 const packageSourceCache = new Map();
 async function getPackageSources(
     directory: string,
@@ -113,9 +118,9 @@ async function getPackageSources(
 
     // Prioritize `defaults.build.packtool`
     const dfxPath = join(directory, 'dfx.json');
-    if (existsSync(dfxPath)) {
+    if (await exists(dfxPath)) {
         try {
-            const dfxConfig = JSON.parse(readFileSync(dfxPath, 'utf8'));
+            const dfxConfig = JSON.parse(await readFile(dfxPath, 'utf8'));
             const command = dfxConfig?.defaults?.build?.packtool;
             if (command) {
                 sources = await sourcesFromCommand(command);
@@ -130,7 +135,7 @@ async function getPackageSources(
     }
 
     // Prioritize MOPS over Vessel
-    if (existsSync(join(directory, 'mops.toml'))) {
+    if (await exists(join(directory, 'mops.toml'))) {
         // const command = 'mops sources';
         const command = 'npx --no ic-mops sources';
         try {
@@ -161,7 +166,7 @@ async function getPackageSources(
                 }`,
             );
         }
-    } else if (existsSync(join(directory, 'vessel.dhall'))) {
+    } else if (await exists(join(directory, 'vessel.dhall'))) {
         const command = 'vessel sources';
         try {
             sources = await sourcesFromCommand(command);
@@ -278,7 +283,7 @@ function notifyPackageConfigChange(retry = false) {
             );
 
             loadingPackages = false;
-            notifyWorkspace(); // Update virtual file system
+            await notifyWorkspace(); // Update virtual file system
             notifyDfxChange(); // Reload dfx.json
         } catch (err) {
             packageConfigError = true;
@@ -293,7 +298,7 @@ function notifyDfxChange() {
     clearTimeout(dfxChangeTimeout);
     setTimeout(async () => {
         try {
-            const dfxResolver = new DfxResolver(() => {
+            const dfxResolver = new DfxResolver(async () => {
                 if (!workspaceFolders?.length) {
                     return null;
                 }
@@ -301,7 +306,7 @@ function notifyDfxChange() {
                 // for (const folder of workspaceFolders) {
                 const basePath = resolveFilePath(folder.uri);
                 const dfxPath = join(basePath, 'dfx.json');
-                if (existsSync(dfxPath)) {
+                if (await exists(dfxPath)) {
                     return dfxPath;
                 }
                 return null;
@@ -317,9 +322,9 @@ function notifyDfxChange() {
                             projectDir,
                             '.dfx/local/canister_ids.json',
                         );
-                        if (existsSync(idsPath)) {
+                        if (await exists(idsPath)) {
                             const canisterIds = JSON.parse(
-                                readFileSync(idsPath, 'utf8'),
+                                await readFile(idsPath, 'utf8'),
                             );
                             const aliases: Record<string, string> = {};
                             Object.entries(canisterIds).forEach(
@@ -382,8 +387,11 @@ function notifyDfxChange() {
 }
 
 // TODO: refactor
-function findNewImportPosition(uri: string, context: Context): Position {
-    const imports = context.astResolver.request(uri)?.program?.imports;
+async function findNewImportPosition(
+    uri: string,
+    context: Context,
+): Promise<Position> {
+    const imports = (await context.astResolver.request(uri))?.program?.imports;
     if (imports?.length) {
         const lastImport = imports[imports.length - 1];
         const end = (lastImport.ast as Node)?.end;
@@ -496,7 +504,7 @@ connection.onInitialized(() => {
             folders.push(workspaceFolder);
         });
 
-        notifyWorkspace();
+        notifyWorkspace().catch((err) => console.error(err));
     });
 
     // notifyWorkspace();
@@ -547,36 +555,44 @@ connection.onDidChangeConfiguration((event) => {
 /**
  * Registers or updates all Motoko files in the current workspace.
  */
-function notifyWorkspace() {
+async function notifyWorkspace() {
     if (!workspaceFolders) {
         return;
     }
-    workspaceFolders.forEach((folder) => {
-        const folderPath = resolveFilePath(folder.uri);
-        glob.sync(virtualFilePattern, {
-            cwd: folderPath,
-            dot: true,
-            ignore: ignoreGlobs,
-        }).forEach((relativePath) => {
-            const path = join(folderPath, relativePath);
-            try {
-                const virtualPath = resolveVirtualPath(
-                    folder.uri,
-                    relativePath,
-                );
-                // console.log('*', virtualPath, `(${allContexts().length})`);
-                const content = readFileSync(path, 'utf8');
-                writeVirtual(virtualPath, content);
-                const uri = URI.file(
-                    resolveFilePath(folder.uri, relativePath),
-                ).toString();
-                notifyWriteUri(uri, content);
-            } catch (err) {
-                console.error(`Error while adding Motoko file ${path}:`);
-                console.error(err);
-            }
-        });
-    });
+    await Promise.all(
+        workspaceFolders.map((folder) => {
+            const folderPath = resolveFilePath(folder.uri);
+            return Promise.all(
+                glob
+                    .sync(virtualFilePattern, {
+                        cwd: folderPath,
+                        dot: true,
+                        ignore: ignoreGlobs,
+                    })
+                    .map(async (relativePath) => {
+                        const path = join(folderPath, relativePath);
+                        try {
+                            const virtualPath = resolveVirtualPath(
+                                folder.uri,
+                                relativePath,
+                            );
+                            // console.log('*', virtualPath, `(${allContexts().length})`);
+                            const content = await readFile(path, 'utf8');
+                            writeVirtual(virtualPath, content);
+                            const uri = URI.file(
+                                resolveFilePath(folder.uri, relativePath),
+                            ).toString();
+                            notifyWriteUri(uri, content);
+                        } catch (err) {
+                            console.error(
+                                `Error while adding Motoko file ${path}:`,
+                            );
+                            console.error(err);
+                        }
+                    }),
+            );
+        }),
+    );
 }
 
 const checkQueue: string[] = [];
@@ -689,15 +705,15 @@ function checkWorkspace() {
 //     documents.all().forEach((document) => check(document));
 // }
 
-function validate(uri: string | TextDocument) {
-    notify(uri);
+async function validate(uri: string | TextDocument) {
+    await notify(uri);
     scheduleCheck(uri);
 }
 
 /**
  * Registers or updates the URI or document in the compiler's virtual file system.
  */
-function notify(uri: string | TextDocument): boolean {
+async function notify(uri: string | TextDocument): Promise<boolean> {
     try {
         const document = typeof uri === 'string' ? documents.get(uri) : uri;
         if (document) {
@@ -708,7 +724,7 @@ function notify(uri: string | TextDocument): boolean {
         } else if (typeof uri === 'string') {
             const virtualPath = resolveVirtualPath(uri);
             const filePath = resolveFilePath(uri);
-            const content = readFileSync(filePath, 'utf8');
+            const content = await readFile(filePath, 'utf8');
             writeVirtual(virtualPath, content);
             notifyWriteUri(uri, content);
         }
@@ -857,12 +873,12 @@ function deleteVirtual(path: string) {
     allContexts().forEach(({ motoko }) => motoko.delete(path));
 }
 
-connection.onCodeAction((event) => {
+connection.onCodeAction(async (event) => {
     const uri = event.textDocument.uri;
     const results: CodeAction[] = [];
 
     // Organize imports
-    const status = getContext(uri).astResolver.request(uri);
+    const status = await getContext(uri).astResolver.request(uri);
     const imports = status?.program?.imports;
     if (imports?.length) {
         const start = rangeFromNode(asNode(imports[0].ast))?.start;
@@ -889,33 +905,42 @@ connection.onCodeAction((event) => {
     }
 
     // Import quick-fix actions
-    event.context?.diagnostics?.forEach((diagnostic) => {
-        const name = /unbound variable ([a-z0-9_]+)/i.exec(
-            diagnostic.message,
-        )?.[1];
-        if (name) {
-            const context = getContext(uri);
-            context.importResolver.getImportPaths(name, uri).forEach((path) => {
-                // Add import suggestion
-                results.push({
-                    title: `Import "${path}"`,
-                    kind: CodeActionKind.QuickFix,
-                    isPreferred: true,
-                    diagnostics: [diagnostic],
-                    edit: {
-                        changes: {
-                            [uri]: [
-                                TextEdit.insert(
-                                    findNewImportPosition(uri, context),
-                                    `import ${name} "${path}";\n`,
-                                ),
-                            ],
-                        },
-                    },
-                });
-            });
-        }
-    });
+    await Promise.all(
+        event.context?.diagnostics?.map(async (diagnostic) => {
+            const name = /unbound variable ([a-z0-9_]+)/i.exec(
+                diagnostic.message,
+            )?.[1];
+            if (name) {
+                const context = getContext(uri);
+                await Promise.all(
+                    context.importResolver
+                        .getImportPaths(name, uri)
+                        .map(async (path) => {
+                            // Add import suggestion
+                            results.push({
+                                title: `Import "${path}"`,
+                                kind: CodeActionKind.QuickFix,
+                                isPreferred: true,
+                                diagnostics: [diagnostic],
+                                edit: {
+                                    changes: {
+                                        [uri]: [
+                                            TextEdit.insert(
+                                                await findNewImportPosition(
+                                                    uri,
+                                                    context,
+                                                ),
+                                                `import ${name} "${path}";\n`,
+                                            ),
+                                        ],
+                                    },
+                                },
+                            });
+                        }),
+                );
+            }
+        }),
+    );
     return results;
 });
 
@@ -929,53 +954,60 @@ connection.onSignatureHelp((): SignatureHelp | null => {
     return null;
 });
 
-connection.onCompletion((event) => {
+connection.onCompletion(async (event) => {
     const { position } = event;
     const { uri } = event.textDocument;
 
     const list = CompletionList.create([], true);
     try {
-        const text = getFileText(uri);
+        const text = await getFileText(uri);
         const lines = text.split(/\r?\n/g);
         const context = getContext(uri);
-        const program = context.astResolver.request(uri)?.program;
+        const program = (await context.astResolver.request(uri))?.program;
 
         const [dot, identStart] = /(\s*\.\s*)?([a-zA-Z_]?[a-zA-Z0-9_]*)$/
             .exec(lines[position.line].substring(0, position.character))
             ?.slice(1) ?? ['', ''];
 
         if (!dot) {
-            context.importResolver
-                .getNameEntries(uri)
-                .forEach(([name, path]) => {
-                    if (name.startsWith(identStart)) {
-                        const status = context.astResolver.request(uri);
-                        const existingImport = status?.program?.imports.find(
-                            (i) =>
-                                i.name === name ||
-                                i.fields.some(([, alias]) => alias === name),
-                        );
-                        if (existingImport || !status?.program) {
-                            // Skip alternatives with already imported name
-                            return;
+            await Promise.all(
+                context.importResolver
+                    .getNameEntries(uri)
+                    .map(async ([name, path]) => {
+                        if (name.startsWith(identStart)) {
+                            const status = await context.astResolver.request(
+                                uri,
+                            );
+                            const existingImport =
+                                status?.program?.imports.find(
+                                    (i) =>
+                                        i.name === name ||
+                                        i.fields.some(
+                                            ([, alias]) => alias === name,
+                                        ),
+                                );
+                            if (existingImport || !status?.program) {
+                                // Skip alternatives with already imported name
+                                return;
+                            }
+                            const edits: TextEdit[] = [
+                                TextEdit.insert(
+                                    await findNewImportPosition(uri, context),
+                                    `import ${name} "${path}";\n`,
+                                ),
+                            ];
+                            list.items.push({
+                                label: name,
+                                detail: path,
+                                insertText: name,
+                                kind: path.startsWith('mo:')
+                                    ? CompletionItemKind.Module
+                                    : CompletionItemKind.Class, // TODO: resolve actors, classes, etc.
+                                additionalTextEdits: edits,
+                            });
                         }
-                        const edits: TextEdit[] = [
-                            TextEdit.insert(
-                                findNewImportPosition(uri, context),
-                                `import ${name} "${path}";\n`,
-                            ),
-                        ];
-                        list.items.push({
-                            label: name,
-                            detail: path,
-                            insertText: name,
-                            kind: path.startsWith('mo:')
-                                ? CompletionItemKind.Module
-                                : CompletionItemKind.Class, // TODO: resolve actors, classes, etc.
-                            additionalTextEdits: edits,
-                        });
-                    }
-                });
+                    }),
+            );
 
             if (identStart) {
                 keywords.forEach((keyword) => {
@@ -1049,9 +1081,9 @@ connection.onCompletion((event) => {
     return list;
 });
 
-connection.onHover((event) => {
-    function findDocComment(node: Node): string | undefined {
-        const definition = findDefinition(uri, event.position, true);
+connection.onHover(async (event) => {
+    async function findDocComment(node: Node): Promise<string | undefined> {
+        const definition = await findDefinition(uri, event.position, true);
         let docNode: Node | undefined = definition?.cursor || node;
         let depth = 0; // Max AST depth to display doc comment
         while (
@@ -1077,7 +1109,7 @@ connection.onHover((event) => {
     const { position } = event;
     const { uri } = event.textDocument;
     const { astResolver } = getContext(uri);
-    const status = astResolver.requestTyped(uri);
+    const status = await astResolver.requestTyped(uri);
     if (!status || status.outdated || !status.ast) {
         return;
     }
@@ -1092,7 +1124,7 @@ connection.onHover((event) => {
         return;
     }
 
-    const text = getFileText(uri);
+    const text = await getFileText(uri);
     const lines = text.split(/\r?\n/g);
 
     const startLine = lines[node.start[0] - 1];
@@ -1103,7 +1135,7 @@ connection.onHover((event) => {
     const source = (
         isSameLine ? startLine.substring(node.start[1], node.end[1]) : startLine
     ).trim();
-    const doc = findDocComment(node);
+    const doc = await findDocComment(node);
     if (doc) {
         const typeInfo = node.type ? formatMotoko(node.type).trim() : '';
         const lineIndex = typeInfo.indexOf('\n');
@@ -1161,7 +1193,7 @@ connection.onDefinition(
     ): Promise<Location | Location[]> => {
         console.log('[Definition]');
         try {
-            const definition = findDefinition(
+            const definition = await findDefinition(
                 event.textDocument.uri,
                 event.position,
             );
@@ -1206,10 +1238,15 @@ documents.onDidChangeContent((event) => {
     if (uri === validatingUri) {
         clearTimeout(validatingTimeout);
     }
-    validatingTimeout = setTimeout(() => {
-        validate(document);
-        const { astResolver } = getContext(uri);
-        astResolver.update(uri, true); /// TODO: also use for type checking?
+    validatingTimeout = setTimeout(async () => {
+        try {
+            validate(document);
+            const { astResolver } = getContext(uri);
+            await astResolver.update(uri, true); /// TODO: also use for type checking?
+        } catch (err) {
+            console.error('Error while validating URI:', uri);
+            console.error(err);
+        }
     }, 100);
     validatingUri = uri;
 });

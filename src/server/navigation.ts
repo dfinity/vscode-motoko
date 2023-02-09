@@ -149,14 +149,14 @@ const nodePriorities: Record<string, number> = {
     VarP: 2, // field import
 };
 
-export function findDefinition(
+export async function findDefinition(
     uri: string,
     position: Position,
     isMouseCursor = false,
-): Definition | undefined {
+): Promise<Definition | undefined> {
     // Get relevant AST node
     const context = getContext(uri);
-    const status = context.astResolver.request(uri);
+    const status = await context.astResolver.request(uri);
     if (!status?.ast) {
         console.warn('Missing AST for', uri);
         return;
@@ -175,7 +175,7 @@ export function findDefinition(
         return;
     }
     const reference = { uri, node };
-    const importDefinition = followImport(context, reference);
+    const importDefinition = await followImport(context, reference);
     if (importDefinition) {
         return importDefinition;
     }
@@ -184,7 +184,7 @@ export function findDefinition(
         console.log('Reference not found from AST node:', node.name);
         return;
     }
-    const definition = search(context, reference, path);
+    const definition = await search(context, reference, path);
     if (!definition) {
         console.log(
             'Definition not found for reference path:',
@@ -253,10 +253,10 @@ function getTypeSearchPath(node: Node): Search[] {
     );
 }
 
-function followImport(
+async function followImport(
     context: Context,
     reference: Reference,
-): Definition | undefined {
+): Promise<Definition | undefined> {
     let importNode: Node | undefined = reference.node;
     while (
         importNode &&
@@ -277,7 +277,7 @@ function followImport(
         matchNode(reference.node, 'VarP', (name: string) => name),
     );
     // Follow the module import
-    return matchNode(importNode, 'ImportE', (path: string) => {
+    return matchNode(importNode, 'ImportE', async (path: string) => {
         const uri = context.importResolver.getFileSystemURI(
             path.includes(':')
                 ? path
@@ -287,7 +287,7 @@ function followImport(
             console.log('Unknown file system URI for path:', path);
             return;
         }
-        const status = context.astResolver.request(uri);
+        const status = await context.astResolver.request(uri);
         if (!status?.program?.export?.ast) {
             console.log('Missing export for', uri);
             return;
@@ -317,11 +317,11 @@ function followImport(
     });
 }
 
-function search(
+async function search(
     context: Context,
     reference: Reference,
     path: Search[],
-): Definition | undefined {
+): Promise<Definition | undefined> {
     if (!path.length) {
         return;
     }
@@ -331,10 +331,10 @@ function search(
     if (definition) {
         // Follow an import
         definition =
-            followImport(context, {
+            (await followImport(context, {
                 uri: definition.uri,
                 node: definition.cursor,
-            }) || definition;
+            })) || definition;
     }
     // Follow subsequent parts of the qualified path
     for (let i = 1; definition && i < path.length; i++) {
