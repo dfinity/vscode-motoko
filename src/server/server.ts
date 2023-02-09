@@ -1180,9 +1180,9 @@ connection.onReferences(
 let validatingTimeout: ReturnType<typeof setTimeout>;
 let validatingUri: string | undefined;
 documents.onDidChangeContent((event) => {
-    // if (packageConfigError) {
-    //     notifyPackageConfigChange(true);
-    // }
+    if (packageConfigError) {
+        // notifyPackageConfigChange(true);
+    }
     const document = event.document;
     const { uri } = document;
     if (uri === validatingUri) {
