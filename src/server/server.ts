@@ -224,22 +224,21 @@ function notifyPackageConfigChange(retry = false) {
                         const context = addContext(uri);
 
                         try {
-                            (await getPackageSources(dir)).forEach(
-                                ([name, relativePath]) => {
-                                    const path = resolveVirtualPath(
-                                        uri,
-                                        relativePath,
-                                    );
-                                    console.log(
-                                        'Package:',
-                                        name,
-                                        '->',
-                                        path,
-                                        `(${uri})`,
-                                    );
-                                    context.motoko.usePackage(name, path);
-                                },
-                            );
+                            context.packages = await getPackageSources(dir);
+                            context.packages.forEach(([name, relativePath]) => {
+                                const path = resolveVirtualPath(
+                                    uri,
+                                    relativePath,
+                                );
+                                console.log(
+                                    'Package:',
+                                    name,
+                                    '->',
+                                    path,
+                                    `(${uri})`,
+                                );
+                                context.motoko.usePackage(name, path);
+                            });
                         } catch (err) {
                             packageConfigError = true;
                             context.error = String(err);
@@ -1117,16 +1116,47 @@ connection.onRequest(
         try {
             const { uri } = event;
 
-            const virtualPath = resolveVirtualPath(uri);
-
-            const motoko = getContext(uri).motoko;
+            const context = getContext(uri);
+            const { motoko } = context;
 
             // TODO: optimize @testmode check
             const source = getFileText(uri);
 
+            return new Promise((resolve, reject) => {
+                let command = `$(dfx cache show)/moc -r ${JSON.stringify(
+                    resolveFilePath(uri),
+                )}`;
+                context.packages?.forEach(
+                    ([name, path]) =>
+                        (command += ` --package ${JSON.stringify(
+                            name,
+                        )} ${JSON.stringify(
+                            join(resolveFilePath(context.uri), path),
+                        )}`),
+                );
+                const process: ReturnType<typeof exec> = exec(
+                    command, // TODO: windows
+                    {
+                        encoding: 'utf8',
+                    },
+                    (err, stdout, stderr) => {
+                        console.log(err, stdout, stderr); /////
+                        err
+                            ? reject(err)
+                            : resolve({
+                                  passed: process.exitCode === 0,
+                                  stdout: stdout || '',
+                                  stderr: stderr || '',
+                              });
+                    },
+                );
+            });
+
             const mode = /\/\/[^\S\n]*@testmode[^\S\n]*interpreter/.test(source)
                 ? 'interpreter'
                 : 'wasi';
+
+            const virtualPath = resolveVirtualPath(uri);
 
             console.log('Running test:', uri, `(${mode})`);
 
