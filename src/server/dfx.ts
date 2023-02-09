@@ -1,4 +1,4 @@
-import { readFileSync } from 'fs';
+import { readFile } from 'fs/promises';
 import { dirname } from 'path';
 
 interface DfxCanister {
@@ -35,7 +35,7 @@ export default class DfxResolver {
             return null;
         }
         try {
-            return JSON.parse(readFileSync(directory, 'utf8')) as DfxConfig;
+            return JSON.parse(await readFile(directory, 'utf8')) as DfxConfig;
         } catch (err) {
             console.error(`Error while reading dfx.json config: ${err}`);
             return;

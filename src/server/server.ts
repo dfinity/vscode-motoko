@@ -5,7 +5,7 @@ import { readFile } from 'fs/promises';
 import { Node } from 'motoko/lib/ast';
 import { keywords } from 'motoko/lib/keywords';
 import * as baseLibrary from 'motoko/packages/latest/base.json';
-import { join, resolve } from 'path';
+import { dirname, join, resolve } from 'path';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import {
     CodeAction,
@@ -35,6 +35,7 @@ import { watchGlob as virtualFilePattern } from '../common/watchConfig';
 import {
     Context,
     addContext,
+    allContexts,
     allContexts,
     getContext,
     resetContexts,
@@ -293,12 +294,13 @@ function notifyPackageConfigChange(retry = false) {
     }, 1000);
 }
 
+let dfxResolver: DfxResolver | undefined;
 let dfxChangeTimeout: ReturnType<typeof setTimeout>;
 function notifyDfxChange() {
     clearTimeout(dfxChangeTimeout);
     setTimeout(async () => {
         try {
-            const dfxResolver = new DfxResolver(async () => {
+            dfxResolver = new DfxResolver(async () => {
                 if (!workspaceFolders?.length) {
                     return null;
                 }
@@ -641,7 +643,7 @@ function unscheduleCheck(uri: string) {
     }
 }
 
-let previousTabs: string[] = [];
+let previousCheckedFiles: string[] = [];
 let checkWorkspaceTimeout: ReturnType<typeof setTimeout>;
 /**
  * Type-checks all Motoko files in the current workspace.
@@ -661,8 +663,7 @@ function checkWorkspace() {
         //         const path = join(folderPath, relativePath);
         //         try {
         //             const uri = URI.file(path).toString();
-        //             notify(uri);
-        //             // scheduleCheck(uri);
+        //             scheduleCheck(uri);
         //         } catch (err) {
         //             // console.error(`Error while checking Motoko file ${path}:`);
         //             console.error(`Error while notifying Motoko file ${path}:`);
@@ -671,18 +672,45 @@ function checkWorkspace() {
         //     });
         // });
 
-        connection
-            .sendRequest<string[]>('vscode-motoko:get-open-files')
-            .then((tabs) => {
-                tabs = tabs.filter((uri) => uri.endsWith('.mo'));
-                previousTabs.forEach((uri) => {
+        // connection.sendRequest<string[]>('vscode-motoko:get-open-files')
+        Promise.resolve(documents.all().map((document) => document.uri))
+            .then(async (tabs) => {
+                const checkedFiles = tabs.filter((uri) => uri.endsWith('.mo'));
+                try {
+                    // Include entry points from 'dfx.json'
+                    const projectDir = await dfxResolver?.getProjectDirectory();
+                    const dfxConfig = await dfxResolver?.getConfig();
+                    if (projectDir && dfxConfig) {
+                        for (const [_name, canister] of Object.entries(
+                            dfxConfig.canisters,
+                        )) {
+                            if (
+                                (!canister.type ||
+                                    canister.type === 'motoko') &&
+                                canister.main?.endsWith('.mo')
+                            ) {
+                                const uri = URI.file(
+                                    join(projectDir, canister.main),
+                                ).toString();
+                                if (!checkedFiles.includes(uri)) {
+                                    checkedFiles.push(uri);
+                                }
+                            }
+                        }
+                    }
+                } catch (err) {
+                    console.error('Error while finding dfx canister paths');
+                    console.error(err);
+                }
+
+                previousCheckedFiles.forEach((uri) => {
                     if (!tabs.includes(uri)) {
                         sendDiagnostics(uri, []);
                     }
                 });
-                tabs.forEach((uri) => notify(uri));
-                tabs.forEach((uri) => scheduleCheck(uri));
-                previousTabs = tabs;
+                checkedFiles.forEach((uri) => notify(uri));
+                checkedFiles.forEach((uri) => scheduleCheck(uri));
+                previousCheckedFiles = checkedFiles;
             })
             .catch((err) => console.error(err));
     }, 2000);
@@ -1238,12 +1266,7 @@ documents.onDidOpen((event) => {
     scheduleCheck(event.document.uri);
 });
 
-// documents.onDidClose((event) =>
-//     connection.sendDiagnostics({
-//         diagnostics: [],
-//         uri: event.document.uri,
-//     }),
-// );
+documents.onDidClose((event) => checkWorkspace());
 
 documents.listen(connection);
 connection.listen();
