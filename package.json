@@ -125,6 +125,7 @@
     "browser": "./out/browser",
     "dependencies": {
         "change-case": "4.1.2",
+        "fast-deep-equal": "^3.1.3",
         "fast-glob": "3.2.12",
         "mnemonist": "0.39.5",
         "motoko": "3.4.3",
