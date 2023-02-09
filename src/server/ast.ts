@@ -27,8 +27,8 @@ export default class AstResolver {
         this._typedCache.clear();
     }
 
-    update(uri: string, typed: boolean): boolean {
-        const text = tryGetFileText(uri);
+    async update(uri: string, typed: boolean): Promise<boolean> {
+        const text = await tryGetFileText(uri);
         if (!text) {
             this.delete(uri);
             return true;
@@ -88,17 +88,17 @@ export default class AstResolver {
         }
     }
 
-    request(uri: string): AstStatus | undefined {
+    async request(uri: string): Promise<AstStatus | undefined> {
         const status = this._cache.get(uri);
-        if ((!status || status.outdated) && !this.update(uri, false)) {
+        if ((!status || status.outdated) && !(await this.update(uri, false))) {
             return status;
         }
         return this._cache.get(uri);
     }
 
-    requestTyped(uri: string): AstStatus | undefined {
+    async requestTyped(uri: string): Promise<AstStatus | undefined> {
         const status = this._typedCache.get(uri);
-        if ((!status || status.outdated) && !this.update(uri, true)) {
+        if ((!status || status.outdated) && !(await this.update(uri, true))) {
             return status;
         }
         return this._typedCache.get(uri);

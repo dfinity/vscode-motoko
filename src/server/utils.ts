@@ -1,4 +1,4 @@
-import { readFileSync } from 'fs';
+import { readFile } from 'fs/promises';
 import { join } from 'path';
 import * as motokoPlugin from 'prettier-plugin-motoko';
 import * as prettier from 'prettier/standalone';
@@ -21,20 +21,20 @@ export function resolveVirtualPath(uri: string, ...parts: string[]): string {
 /**
  * Reads a file from the given URI.
  */
-export function getFileText(uri: string): string {
+export async function getFileText(uri: string): Promise<string> {
     const document = require('./server').documents.get(uri);
     if (document) {
         return document.getText();
     } else {
         const filePath = resolveFilePath(uri);
-        return readFileSync(filePath, 'utf8');
+        return readFile(filePath, 'utf8');
     }
 }
 
 /**
  * Attempts to read a file. Returns null if not found.
  */
-export function tryGetFileText(uri: string): string | null {
+export async function tryGetFileText(uri: string): Promise<string | null> {
     try {
         return getFileText(uri);
     } catch (err) {

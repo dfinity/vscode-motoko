@@ -15,12 +15,12 @@ interface DfxConfig {
 type Cached<T> = T | undefined;
 
 export default class DfxResolver {
-    private readonly _findPath: () => string | null;
+    private readonly _findPath: () => Promise<string | null>;
 
     private _path: Cached<string | null>;
     private _cache: Cached<DfxConfig | null>;
 
-    constructor(findPath: () => string | null) {
+    constructor(findPath: () => Promise<string | null>) {
         this._findPath = findPath;
     }
 
@@ -58,7 +58,7 @@ export default class DfxResolver {
      */
     async getConfigPath(): Promise<Cached<string | null>> {
         if (this._path === undefined) {
-            this._path = this._findPath();
+            this._path = await this._findPath();
         }
         return this._path;
     }
