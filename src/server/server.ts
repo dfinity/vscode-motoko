@@ -643,12 +643,9 @@ function checkWorkspace() {
         //     });
         // });
 
-        // connection.sendRequest<string[]>('vscode-motoko:get-open-files')
-        Promise.resolve(documents.all().map((document) => document.uri))
-            .then(async (checkedFiles) => {
-                checkedFiles = checkedFiles.filter((uri) =>
-                    uri.endsWith('.mo'),
-                );
+        Promise.resolve()
+            .then(async () => {
+                const checkedFiles: string[] = [];
                 try {
                     // Include entry points from 'dfx.json'
                     const projectDir = await dfxResolver?.getProjectDirectory();
@@ -1217,7 +1214,7 @@ let validatingTimeout: ReturnType<typeof setTimeout>;
 let validatingUri: string | undefined;
 documents.onDidChangeContent((event) => {
     if (packageConfigError) {
-        notifyPackageConfigChange(true);
+        // notifyPackageConfigChange(true);
     }
     const document = event.document;
     const { uri } = document;
@@ -1232,12 +1229,14 @@ documents.onDidChangeContent((event) => {
     validatingUri = uri;
 });
 
-// documents.onDidClose((event) =>
-//     connection.sendDiagnostics({
-//         diagnostics: [],
-//         uri: event.document.uri,
-//     }),
-// );
+documents.onDidOpen((event) => scheduleCheck(event.document.uri));
+documents.onDidClose(async (event) => {
+    await connection.sendDiagnostics({
+        uri: event.document.uri,
+        diagnostics: [],
+    });
+    checkWorkspace();
+});
 
 documents.listen(connection);
 connection.listen();
