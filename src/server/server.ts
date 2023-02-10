@@ -287,12 +287,13 @@ function notifyPackageConfigChange(retry = false) {
     }, 1000);
 }
 
+let dfxResolver: DfxResolver | undefined;
 let dfxChangeTimeout: ReturnType<typeof setTimeout>;
 function notifyDfxChange() {
     clearTimeout(dfxChangeTimeout);
     setTimeout(async () => {
         try {
-            const dfxResolver = new DfxResolver(() => {
+            dfxResolver = new DfxResolver(() => {
                 if (!workspaceFolders?.length) {
                     return null;
                 }
@@ -613,58 +614,74 @@ function unscheduleCheck(uri: string) {
     }
 }
 
+let previousCheckedFiles: string[] = [];
 let checkWorkspaceTimeout: ReturnType<typeof setTimeout>;
 /**
  * Type-checks all Motoko files in the current workspace.
  */
 function checkWorkspace() {
     clearTimeout(checkWorkspaceTimeout);
-    checkWorkspaceTimeout = setTimeout(() => {
-        console.log('Checking workspace');
+    checkWorkspaceTimeout = setTimeout(async () => {
+        try {
+            console.log('Checking workspace');
 
-        workspaceFolders?.forEach((folder) => {
-            const folderPath = resolveFilePath(folder.uri);
-            glob.sync('**/*.mo', {
-                cwd: folderPath,
-                dot: false, // exclude directories such as `.vessel`
-                ignore: ignoreGlobs,
-            }).forEach((relativePath) => {
-                const path = join(folderPath, relativePath);
-                try {
-                    const uri = URI.file(path).toString();
-                    // notify(uri);
-                    scheduleCheck(uri);
-                } catch (err) {
-                    console.error(`Error while checking Motoko file ${path}:`);
-                    console.error(err);
+            // workspaceFolders?.forEach((folder) => {
+            //     const folderPath = resolveFilePath(folder.uri);
+            //     glob.sync('**/*.mo', {
+            //         cwd: folderPath,
+            //         dot: false, // exclude directories such as `.vessel`
+            //         ignore: ignoreGlobs,
+            //     }).forEach((relativePath) => {
+            //         const path = join(folderPath, relativePath);
+            //         try {
+            //             const uri = URI.file(path).toString();
+            //             scheduleCheck(uri);
+            //         } catch (err) {
+            //             // console.error(`Error while checking Motoko file ${path}:`);
+            //             console.error(`Error while notifying Motoko file ${path}:`);
+            //             console.error(err);
+            //         }
+            //     });
+            // });
+
+            const checkedFiles = documents
+                .all()
+                .map((document) => document.uri)
+                .filter((uri) => uri.endsWith('.mo'));
+
+            // Include entry points from 'dfx.json'
+            const projectDir = await dfxResolver?.getProjectDirectory();
+            const dfxConfig = await dfxResolver?.getConfig();
+            if (projectDir && dfxConfig) {
+                for (const [_name, canister] of Object.entries(
+                    dfxConfig.canisters,
+                )) {
+                    if (
+                        (!canister.type || canister.type === 'motoko') &&
+                        canister.main?.endsWith('.mo')
+                    ) {
+                        const uri = URI.file(
+                            join(projectDir, canister.main),
+                        ).toString();
+                        if (!checkedFiles.includes(uri)) {
+                            checkedFiles.push(uri);
+                        }
+                    }
+                }
+            }
+
+            previousCheckedFiles.forEach((uri) => {
+                if (!checkedFiles.includes(uri)) {
+                    connection.sendDiagnostics({ uri, diagnostics: [] });
                 }
             });
-        });
-
-        // validateOpenDocuments();
-
-        // loadPrimaryDfxConfig()
-        //     .then((dfxConfig) => {
-        //         if (!dfxConfig) {
-        //             return;
-        //         }
-        //         console.log('dfx.json:', JSON.stringify(dfxConfig));
-        //         Object.values(dfxConfig.canisters).forEach((canister) => {
-        //             if (
-        //                 (!canister.type || canister.type === 'motoko') &&
-        //                 canister.main
-        //             ) {
-        //                 const folder = workspaceFolders![0]; // temp
-        //                 const filePath = join(
-        //                     resolveFilePath(folder.uri),
-        //                     canister.main,
-        //                 );
-        //                 const uri = URI.file(filePath).toString();
-        //                 validate(uri);
-        //             }
-        //         });
-        //     })
-        //     .catch((err) => console.error(`Error while loading dfx.json: ${err}`));
+            checkedFiles.forEach((uri) => notify(uri));
+            checkedFiles.forEach((uri) => scheduleCheck(uri));
+            previousCheckedFiles = checkedFiles;
+        } catch (err) {
+            console.error('Error while finding dfx canister paths');
+            console.error(err);
+        }
     }, 500);
 }
 
@@ -1196,7 +1213,7 @@ let validatingTimeout: ReturnType<typeof setTimeout>;
 let validatingUri: string | undefined;
 documents.onDidChangeContent((event) => {
     if (packageConfigError) {
-        notifyPackageConfigChange(true);
+        // notifyPackageConfigChange(true);
     }
     const document = event.document;
     const { uri } = document;
@@ -1211,12 +1228,14 @@ documents.onDidChangeContent((event) => {
     validatingUri = uri;
 });
 
-// documents.onDidClose((event) =>
-//     connection.sendDiagnostics({
-//         diagnostics: [],
-//         uri: event.document.uri,
-//     }),
-// );
+documents.onDidOpen((event) => scheduleCheck(event.document.uri));
+documents.onDidClose(async (event) => {
+    await connection.sendDiagnostics({
+        uri: event.document.uri,
+        diagnostics: [],
+    });
+    checkWorkspace();
+});
 
 documents.listen(connection);
 connection.listen();
