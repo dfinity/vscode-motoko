@@ -621,68 +621,67 @@ let checkWorkspaceTimeout: ReturnType<typeof setTimeout>;
  */
 function checkWorkspace() {
     clearTimeout(checkWorkspaceTimeout);
-    checkWorkspaceTimeout = setTimeout(() => {
-        console.log('Checking workspace');
+    checkWorkspaceTimeout = setTimeout(async () => {
+        try {
+            console.log('Checking workspace');
 
-        // workspaceFolders?.forEach((folder) => {
-        //     const folderPath = resolveFilePath(folder.uri);
-        //     glob.sync('**/*.mo', {
-        //         cwd: folderPath,
-        //         dot: false, // exclude directories such as `.vessel`
-        //         ignore: ignoreGlobs,
-        //     }).forEach((relativePath) => {
-        //         const path = join(folderPath, relativePath);
-        //         try {
-        //             const uri = URI.file(path).toString();
-        //             scheduleCheck(uri);
-        //         } catch (err) {
-        //             // console.error(`Error while checking Motoko file ${path}:`);
-        //             console.error(`Error while notifying Motoko file ${path}:`);
-        //             console.error(err);
-        //         }
-        //     });
-        // });
+            // workspaceFolders?.forEach((folder) => {
+            //     const folderPath = resolveFilePath(folder.uri);
+            //     glob.sync('**/*.mo', {
+            //         cwd: folderPath,
+            //         dot: false, // exclude directories such as `.vessel`
+            //         ignore: ignoreGlobs,
+            //     }).forEach((relativePath) => {
+            //         const path = join(folderPath, relativePath);
+            //         try {
+            //             const uri = URI.file(path).toString();
+            //             scheduleCheck(uri);
+            //         } catch (err) {
+            //             // console.error(`Error while checking Motoko file ${path}:`);
+            //             console.error(`Error while notifying Motoko file ${path}:`);
+            //             console.error(err);
+            //         }
+            //     });
+            // });
 
-        Promise.resolve()
-            .then(async () => {
-                const checkedFiles: string[] = [];
-                try {
-                    // Include entry points from 'dfx.json'
-                    const projectDir = await dfxResolver?.getProjectDirectory();
-                    const dfxConfig = await dfxResolver?.getConfig();
-                    if (projectDir && dfxConfig) {
-                        for (const [_name, canister] of Object.entries(
-                            dfxConfig.canisters,
-                        )) {
-                            if (
-                                (!canister.type ||
-                                    canister.type === 'motoko') &&
-                                canister.main?.endsWith('.mo')
-                            ) {
-                                const uri = URI.file(
-                                    join(projectDir, canister.main),
-                                ).toString();
-                                if (!checkedFiles.includes(uri)) {
-                                    checkedFiles.push(uri);
-                                }
-                            }
+            const checkedFiles = documents
+                .all()
+                .map((document) => document.uri)
+                .filter((uri) => uri.endsWith('.mo'));
+
+            // Include entry points from 'dfx.json'
+            const projectDir = await dfxResolver?.getProjectDirectory();
+            const dfxConfig = await dfxResolver?.getConfig();
+            if (projectDir && dfxConfig) {
+                for (const [_name, canister] of Object.entries(
+                    dfxConfig.canisters,
+                )) {
+                    if (
+                        (!canister.type || canister.type === 'motoko') &&
+                        canister.main?.endsWith('.mo')
+                    ) {
+                        const uri = URI.file(
+                            join(projectDir, canister.main),
+                        ).toString();
+                        if (!checkedFiles.includes(uri)) {
+                            checkedFiles.push(uri);
                         }
                     }
-                } catch (err) {
-                    console.error('Error while finding dfx canister paths');
-                    console.error(err);
                 }
+            }
 
-                previousCheckedFiles.forEach((uri) => {
-                    if (!checkedFiles.includes(uri)) {
-                        connection.sendDiagnostics({ uri, diagnostics: [] });
-                    }
-                });
-                await Promise.all(checkedFiles.map((uri) => notify(uri)));
-                checkedFiles.forEach((uri) => scheduleCheck(uri));
-                previousCheckedFiles = checkedFiles;
-            })
-            .catch((err) => console.error(err));
+            previousCheckedFiles.forEach((uri) => {
+                if (!checkedFiles.includes(uri)) {
+                    connection.sendDiagnostics({ uri, diagnostics: [] });
+                }
+            });
+            checkedFiles.forEach((uri) => notify(uri));
+            checkedFiles.forEach((uri) => scheduleCheck(uri));
+            previousCheckedFiles = checkedFiles;
+        } catch (err) {
+            console.error('Error while finding dfx canister paths');
+            console.error(err);
+        }
     }, 500);
 }
 
