@@ -184,13 +184,13 @@ async function getPackageSources(
 let loadingPackages = false;
 let packageConfigError = false;
 let packageConfigChangeTimeout: ReturnType<typeof setTimeout>;
-function notifyPackageConfigChange(retry = false) {
-    if (!retry) {
+function notifyPackageConfigChange(reuseCached = false) {
+    if (!reuseCached) {
         packageSourceCache.clear();
     }
     loadingPackages = true;
     clearTimeout(packageConfigChangeTimeout);
-    setTimeout(async () => {
+    packageConfigChangeTimeout = setTimeout(async () => {
         packageConfigError = false;
         try {
             resetContexts();
@@ -288,7 +288,7 @@ let dfxResolver: DfxResolver | undefined;
 let dfxChangeTimeout: ReturnType<typeof setTimeout>;
 function notifyDfxChange() {
     clearTimeout(dfxChangeTimeout);
-    setTimeout(async () => {
+    dfxChangeTimeout = setTimeout(async () => {
         try {
             dfxResolver = new DfxResolver(() => {
                 if (!workspaceFolders?.length) {
@@ -483,9 +483,7 @@ connection.onInitialized(() => {
     });
 
     // notifyWorkspace();
-
     // loadPrimaryDfxConfig();
-
     notifyPackageConfigChange();
 });
 
