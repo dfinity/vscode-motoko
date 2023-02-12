@@ -9,6 +9,7 @@ import {
     Position,
     Range,
     TestItem,
+    TestMessage,
     TestRunProfileKind,
     TextDocument,
     TextEdit,
@@ -137,7 +138,11 @@ function setupTests(context: ExtensionContext) {
                             if (result.passed) {
                                 run.passed(item, end);
                             } else {
-                                run.failed(item, [], end);
+                                run.failed(
+                                    item,
+                                    new TestMessage(result.stderr),
+                                    end,
+                                );
                                 // TODO: DRY
                                 const location = item.uri
                                     ? {
@@ -148,7 +153,7 @@ function setupTests(context: ExtensionContext) {
                                           ),
                                       }
                                     : undefined;
-                                [result.stderr, result.stdout].forEach(
+                                [/* result.stderr,  */ result.stdout].forEach(
                                     (output) => {
                                         if (output) {
                                             run.appendOutput(
