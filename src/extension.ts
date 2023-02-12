@@ -9,7 +9,6 @@ import {
     Position,
     Range,
     TestItem,
-    TestMessage,
     TestRunProfileKind,
     TextDocument,
     TextEdit,
@@ -144,7 +143,8 @@ function setupTests(context: ExtensionContext) {
                                 ((e as any)?.message as string) || String(e);
                             run.failed(
                                 item,
-                                new TestMessage(message), // TODO: `TextMessage.diff()`
+                                // new TestMessage(message), // TODO: `TextMessage.diff()`
+                                [],
                                 Date.now() - start,
                             );
                             const location = item.uri
@@ -167,6 +167,7 @@ function setupTests(context: ExtensionContext) {
                 }
                 item.children.forEach((test) => queue.push(test));
             }
+            // queue.forEach((item) => run.(item));
             run.end();
         },
     );
