@@ -228,10 +228,7 @@ function notifyPackageConfigChange(retry = false) {
             await Promise.all(
                 directories.map(async (dir) => {
                     try {
-                        console.log(
-                            'Configuring package config directory:',
-                            dir,
-                        );
+                        console.log('Loading packages for directory:', dir);
 
                         const uri = URI.file(dir).toString();
                         const context = addContext(uri);
@@ -262,7 +259,7 @@ function notifyPackageConfigChange(retry = false) {
                     } catch (err) {
                         packageConfigError = true;
                         console.error(
-                            `Error while configuring Vessel directory (${dir}): ${err}`,
+                            `Error while reading packages for directory (${dir}): ${err}`,
                         );
                     }
                 }),
