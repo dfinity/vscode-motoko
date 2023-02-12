@@ -167,7 +167,7 @@ function setupTests(context: ExtensionContext) {
                 }
                 item.children.forEach((test) => queue.push(test));
             }
-            // queue.forEach((item) => run.(item));
+            queue.forEach((item) => run.skipped(item));
             run.end();
         },
     );
