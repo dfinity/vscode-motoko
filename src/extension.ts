@@ -138,25 +138,28 @@ function setupTests(context: ExtensionContext) {
                                 run.passed(item, end);
                             } else {
                                 run.failed(item, [], end);
+                                // TODO: DRY
+                                const location = item.uri
+                                    ? {
+                                          uri: item.uri,
+                                          range: new Range(
+                                              new Position(0, 0),
+                                              new Position(0, 100),
+                                          ),
+                                      }
+                                    : undefined;
+                                [result.stderr, result.stdout].forEach(
+                                    (output) => {
+                                        if (output) {
+                                            run.appendOutput(
+                                                output,
+                                                location,
+                                                item,
+                                            );
+                                        }
+                                    },
+                                );
                             }
-                            // TODO: DRY
-                            const location = item.uri
-                                ? {
-                                      uri: item.uri,
-                                      range: new Range(
-                                          new Position(0, 0),
-                                          new Position(0, 100),
-                                      ),
-                                  }
-                                : undefined;
-                            const outputs = result.passed
-                                ? [result.stdout]
-                                : [result.stderr, result.stdout];
-                            outputs.forEach((output) => {
-                                if (output) {
-                                    run.appendOutput(output, location, item);
-                                }
-                            });
                         } catch (e) {
                             const message =
                                 ((e as any)?.message as string) || String(e);
