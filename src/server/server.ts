@@ -120,7 +120,7 @@ async function getPackageSources(
     const dfxPath = join(directory, 'dfx.json');
     if (existsSync(dfxPath)) {
         try {
-            const dfxConfig = JSON.parse(readFileSync(dfxPath, 'utf8'));
+            const dfxConfig = JSON.parse(getFileText(URI.file(dfxPath).path));
             const command = dfxConfig?.defaults?.build?.packtool;
             if (command) {
                 sources = await sourcesFromCommand(command);
@@ -134,35 +134,53 @@ async function getPackageSources(
         }
     }
 
-    // Prioritize MOPS over Vessel
-    if (existsSync(join(directory, 'mops.toml'))) {
-        // const command = 'mops sources';
-        const command = 'npx --no ic-mops sources';
-        try {
-            sources = await sourcesFromCommand(command);
-        } catch (err: any) {
-            throw new Error(
-                `Error while finding MOPS packages.\nMake sure MOPS is installed locally or globally (https://mops.one/docs/install).\n${
-                    err?.message || err
-                }`,
-            );
-        }
-    } else if (existsSync(join(directory, 'vessel.dhall'))) {
-        const command = 'vessel sources';
-        try {
-            sources = await sourcesFromCommand(command);
-        } catch (err: any) {
-            throw new Error(
-                `Error while running \`${command}\`.\nMake sure Vessel is installed (https://github.com/dfinity/vessel/#getting-started).\n${
-                    err?.message || err
-                }`,
-            );
-            // return vesselSources(directory);
+    if (!sources) {
+        // Prioritize MOPS over Vessel
+        if (existsSync(join(directory, 'mops.toml'))) {
+            // const command = 'mops sources';
+            const command = 'npx --no ic-mops sources';
+            try {
+                sources = await sourcesFromCommand(command);
+            } catch (err: any) {
+                // try {
+                //     const sources = await mopsSources(directory);
+                //     if (!sources) {
+                //         throw new Error('Unexpected output');
+                //     }
+                //     return Object.entries(sources);
+                // } catch (fallbackError) {
+                //     console.error(
+                //         `Error in fallback MOPS implementation:`,
+                //         fallbackError,
+                //     );
+                //     // Provide a verbose error message for MOPS command
+                //     throw new Error(
+                //         `Error while running \`${command}\`: ${
+                //             err?.message || err
+                //         }`,
+                //     );
+                // }
+
+                throw new Error(
+                    `Error while finding MOPS packages.\nMake sure MOPS is installed locally or globally (https://mops.one/docs/install).\n${
+                        err?.message || err
+                    }`,
+                );
+            }
+        } else if (existsSync(join(directory, 'vessel.dhall'))) {
+            const command = 'vessel sources';
+            try {
+                sources = await sourcesFromCommand(command);
+            } catch (err: any) {
+                throw new Error(
+                    `Error while running \`${command}\`.\nMake sure Vessel is installed (https://github.com/dfinity/vessel/#getting-started).\n${
+                        err?.message || err
+                    }`,
+                );
+                // return vesselSources(directory);
+            }
         }
     }
-    // else {
-    //     sources = [];
-    // }
 
     packageSourceCache.set(directory, sources);
     return sources;
@@ -171,13 +189,13 @@ async function getPackageSources(
 let loadingPackages = false;
 let packageConfigError = false;
 let packageConfigChangeTimeout: ReturnType<typeof setTimeout>;
-function notifyPackageConfigChange(retry = false) {
-    if (!retry) {
+function notifyPackageConfigChange(reuseCached = false) {
+    if (!reuseCached) {
         packageSourceCache.clear();
     }
-    clearTimeout(packageConfigChangeTimeout);
     loadingPackages = true;
-    setTimeout(async () => {
+    clearTimeout(packageConfigChangeTimeout);
+    packageConfigChangeTimeout = setTimeout(async () => {
         packageConfigError = false;
         try {
             resetContexts();
@@ -215,10 +233,7 @@ function notifyPackageConfigChange(retry = false) {
             await Promise.all(
                 directories.map(async (dir) => {
                     try {
-                        console.log(
-                            'Configuring package config directory:',
-                            dir,
-                        );
+                        console.log('Loading packages for directory:', dir);
 
                         const uri = URI.file(dir).toString();
                         const context = addContext(uri);
@@ -248,7 +263,7 @@ function notifyPackageConfigChange(retry = false) {
                     } catch (err) {
                         packageConfigError = true;
                         console.error(
-                            `Error while configuring Vessel directory (${dir}): ${err}`,
+                            `Error while reading packages for directory (${dir}): ${err}`,
                         );
                     }
                 }),
@@ -266,8 +281,8 @@ function notifyPackageConfigChange(retry = false) {
             notifyWorkspace(); // Update virtual file system
             notifyDfxChange(); // Reload dfx.json
         } catch (err) {
-            packageConfigError = true;
             loadingPackages = false;
+            packageConfigError = true;
             console.error(`Error while loading packages: ${err}`);
         }
     }, 1000);
@@ -277,7 +292,7 @@ let dfxResolver: DfxResolver | undefined;
 let dfxChangeTimeout: ReturnType<typeof setTimeout>;
 function notifyDfxChange() {
     clearTimeout(dfxChangeTimeout);
-    setTimeout(async () => {
+    dfxChangeTimeout = setTimeout(async () => {
         try {
             dfxResolver = new DfxResolver(() => {
                 if (!workspaceFolders?.length) {
@@ -465,6 +480,7 @@ connection.onDidChangeWatchedFiles((event) => {
             } else {
                 notify(change.uri);
             }
+
             if (
                 change.uri.endsWith('.did') ||
                 change.uri.endsWith('/dfx.json')
@@ -636,7 +652,7 @@ function checkWorkspace() {
             console.error('Error while finding dfx canister paths');
             console.error(err);
         }
-    }, 500);
+    }, 1000);
 }
 
 function validate(uri: string | TextDocument) {
@@ -1256,12 +1272,12 @@ documents.onDidChangeContent((event) => {
     if (uri === validatingUri) {
         clearTimeout(validatingTimeout);
     }
+    validatingUri = uri;
     validatingTimeout = setTimeout(() => {
         validate(document);
         const { astResolver } = getContext(uri);
         astResolver.update(uri, true); /// TODO: also use for type checking?
     }, 100);
-    validatingUri = uri;
 });
 
 documents.onDidOpen((event) => scheduleCheck(event.document.uri));
