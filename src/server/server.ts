@@ -128,54 +128,53 @@ async function getPackageSources(
         }
     }
 
-    // Prioritize MOPS over Vessel
-    if (existsSync(join(directory, 'mops.toml'))) {
-        // const command = 'mops sources';
-        const command = 'npx --no ic-mops sources';
-        try {
-            sources = await sourcesFromCommand(command);
-        } catch (err: any) {
-            // try {
-            //     const sources = await mopsSources(directory);
-            //     if (!sources) {
-            //         throw new Error('Unexpected output');
-            //     }
-            //     return Object.entries(sources);
-            // } catch (fallbackError) {
-            //     console.error(
-            //         `Error in fallback MOPS implementation:`,
-            //         fallbackError,
-            //     );
-            //     // Provide a verbose error message for MOPS command
-            //     throw new Error(
-            //         `Error while running \`${command}\`: ${
-            //             err?.message || err
-            //         }`,
-            //     );
-            // }
+    if (!sources) {
+        // Prioritize MOPS over Vessel
+        if (existsSync(join(directory, 'mops.toml'))) {
+            // const command = 'mops sources';
+            const command = 'npx --no ic-mops sources';
+            try {
+                sources = await sourcesFromCommand(command);
+            } catch (err: any) {
+                // try {
+                //     const sources = await mopsSources(directory);
+                //     if (!sources) {
+                //         throw new Error('Unexpected output');
+                //     }
+                //     return Object.entries(sources);
+                // } catch (fallbackError) {
+                //     console.error(
+                //         `Error in fallback MOPS implementation:`,
+                //         fallbackError,
+                //     );
+                //     // Provide a verbose error message for MOPS command
+                //     throw new Error(
+                //         `Error while running \`${command}\`: ${
+                //             err?.message || err
+                //         }`,
+                //     );
+                // }
 
-            throw new Error(
-                `Error while finding MOPS packages.\nMake sure MOPS is installed locally or globally (https://mops.one/docs/install).\n${
-                    err?.message || err
-                }`,
-            );
-        }
-    } else if (existsSync(join(directory, 'vessel.dhall'))) {
-        const command = 'vessel sources';
-        try {
-            sources = await sourcesFromCommand(command);
-        } catch (err: any) {
-            throw new Error(
-                `Error while running \`${command}\`.\nMake sure Vessel is installed (https://github.com/dfinity/vessel/#getting-started).\n${
-                    err?.message || err
-                }`,
-            );
-            // return vesselSources(directory);
+                throw new Error(
+                    `Error while finding MOPS packages.\nMake sure MOPS is installed locally or globally (https://mops.one/docs/install).\n${
+                        err?.message || err
+                    }`,
+                );
+            }
+        } else if (existsSync(join(directory, 'vessel.dhall'))) {
+            const command = 'vessel sources';
+            try {
+                sources = await sourcesFromCommand(command);
+            } catch (err: any) {
+                throw new Error(
+                    `Error while running \`${command}\`.\nMake sure Vessel is installed (https://github.com/dfinity/vessel/#getting-started).\n${
+                        err?.message || err
+                    }`,
+                );
+                // return vesselSources(directory);
+            }
         }
     }
-    // else {
-    //     sources = [];
-    // }
 
     packageSourceCache.set(directory, sources);
     return sources;
