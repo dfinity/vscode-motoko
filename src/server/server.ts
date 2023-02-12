@@ -114,7 +114,7 @@ async function getPackageSources(
     const dfxPath = join(directory, 'dfx.json');
     if (existsSync(dfxPath)) {
         try {
-            const dfxConfig = JSON.parse(readFileSync(dfxPath, 'utf8'));
+            const dfxConfig = JSON.parse(getFileText(URI.file(dfxPath).path));
             const command = dfxConfig?.defaults?.build?.packtool;
             if (command) {
                 sources = await sourcesFromCommand(command);
