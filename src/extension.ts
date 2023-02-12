@@ -100,11 +100,7 @@ function setupTests(context: ExtensionContext) {
             uri: item.uri.toString(),
         } as TestParams);
 
-        console.log(result);
-
-        if (!result.passed) {
-            throw new Error(result.stderr || 'An unexpected error occurred');
-        }
+        return result;
     };
 
     const runProfile = controller.createRunProfile(
@@ -136,12 +132,35 @@ function setupTests(context: ExtensionContext) {
                         const start = Date.now();
                         try {
                             run.started(item);
-                            await runTest(item);
-                            run.passed(item, Date.now() - start);
+                            const result = await runTest(item);
+                            const end = Date.now() - start;
+                            if (result.passed) {
+                                run.passed(item, end);
+                            } else {
+                                run.failed(item, [], end);
+                            }
+                            // TODO: DRY
+                            const location = item.uri
+                                ? {
+                                      uri: item.uri,
+                                      range: new Range(
+                                          new Position(0, 0),
+                                          new Position(0, 100),
+                                      ),
+                                  }
+                                : undefined;
+                            const outputs = result.passed
+                                ? [result.stdout]
+                                : [result.stderr, result.stdout];
+                            outputs.forEach((output) => {
+                                if (output) {
+                                    run.appendOutput(output, location, item);
+                                }
+                            });
                         } catch (e) {
                             const message =
                                 ((e as any)?.message as string) || String(e);
-                            run.failed(
+                            run.errored(
                                 item,
                                 // new TestMessage(message), // TODO: `TextMessage.diff()`
                                 [],

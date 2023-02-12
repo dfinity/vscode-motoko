@@ -5,7 +5,7 @@ import { existsSync, readFileSync } from 'fs';
 import { Node } from 'motoko/lib/ast';
 import { keywords } from 'motoko/lib/keywords';
 import * as baseLibrary from 'motoko/packages/latest/base.json';
-import { join, resolve } from 'path';
+import { dirname, join, resolve } from 'path';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import {
     CodeAction,
@@ -1179,29 +1179,30 @@ connection.onRequest(
             // TODO: optimize @testmode check
             const source = getFileText(uri);
 
+            const path = resolveFilePath(uri);
+            const cwd = dirname(path);
+
+            let command = `$(dfx cache show)/moc -r ${JSON.stringify(path)}`;
+            context.packages?.forEach(
+                ([name, path]) =>
+                    (command += ` --package ${JSON.stringify(
+                        name,
+                    )} ${JSON.stringify(
+                        join(resolveFilePath(context.uri), path),
+                    )}`),
+            );
             return new Promise((resolve, reject) => {
-                let command = `$(dfx cache show)/moc -r ${JSON.stringify(
-                    resolveFilePath(uri),
-                )}`;
-                context.packages?.forEach(
-                    ([name, path]) =>
-                        (command += ` --package ${JSON.stringify(
-                            name,
-                        )} ${JSON.stringify(
-                            join(resolveFilePath(context.uri), path),
-                        )}`),
-                );
-                const process: ReturnType<typeof exec> = exec(
+                const testProcess: ReturnType<typeof exec> = exec(
                     command, // TODO: windows
                     {
+                        cwd,
                         encoding: 'utf8',
                     },
                     (err, stdout, stderr) => {
-                        console.log(err, stdout, stderr); /////
                         err
                             ? reject(err)
                             : resolve({
-                                  passed: process.exitCode === 0,
+                                  passed: testProcess.exitCode === 0,
                                   stdout: stdout || '',
                                   stderr: stderr || '',
                               });
