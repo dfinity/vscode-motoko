@@ -506,6 +506,7 @@ connection.onDidChangeWatchedFiles((event) => {
             } else {
                 notify(change.uri);
             }
+
             if (
                 change.uri.endsWith('.did') ||
                 change.uri.endsWith('/dfx.json')
@@ -1220,12 +1221,12 @@ documents.onDidChangeContent((event) => {
     if (uri === validatingUri) {
         clearTimeout(validatingTimeout);
     }
+    validatingUri = uri;
     validatingTimeout = setTimeout(() => {
         validate(document);
         const { astResolver } = getContext(uri);
         astResolver.update(uri, true); /// TODO: also use for type checking?
     }, 100);
-    validatingUri = uri;
 });
 
 documents.onDidOpen((event) => scheduleCheck(event.document.uri));
