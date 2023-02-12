@@ -5,7 +5,7 @@ import { existsSync, readFileSync } from 'fs';
 import { Node } from 'motoko/lib/ast';
 import { keywords } from 'motoko/lib/keywords';
 import * as baseLibrary from 'motoko/packages/latest/base.json';
-import { dirname, join, resolve } from 'path';
+import { join, resolve } from 'path';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import {
     CodeAction,
@@ -31,6 +31,11 @@ import {
     createConnection,
 } from 'vscode-languageserver/node';
 import { URI } from 'vscode-uri';
+import {
+    TEST_FILE_REQUEST,
+    TestParams,
+    TestResult,
+} from '../common/testConfig';
 import { watchGlob as virtualFilePattern } from '../common/watchConfig';
 import {
     Context,
@@ -49,11 +54,6 @@ import {
     rangeFromNode,
 } from './navigation';
 import { Program, asNode, findNodes } from './syntax';
-import {
-    TEST_FILE_REQUEST,
-    TestParams,
-    TestResult,
-} from '../common/testConfig';
 import {
     formatMotoko,
     getFileText,
@@ -1179,40 +1179,39 @@ connection.onRequest(
             // TODO: optimize @testmode check
             const source = getFileText(uri);
 
-            const path = resolveFilePath(uri);
-            const cwd = dirname(path);
+            // const path = resolveFilePath(uri);
+            // const cwd = dirname(path);
+            // let command = `$(dfx cache show)/moc -r ${JSON.stringify(path)}`;
+            // context.packages?.forEach(
+            //     ([name, path]) =>
+            //         (command += ` --package ${JSON.stringify(
+            //             name,
+            //         )} ${JSON.stringify(
+            //             join(resolveFilePath(context.uri), path),
+            //         )}`),
+            // );
+            // return new Promise((resolve, reject) => {
+            //     const testProcess: ReturnType<typeof exec> = exec(
+            //         command, // TODO: windows
+            //         {
+            //             cwd,
+            //             encoding: 'utf8',
+            //         },
+            //         (err, stdout, stderr) => {
+            //             err
+            //                 ? reject(err)
+            //                 : resolve({
+            //                       passed: testProcess.exitCode === 0,
+            //                       stdout: stdout || '',
+            //                       stderr: stderr || '',
+            //                   });
+            //         },
+            //     );
+            // });
 
-            let command = `$(dfx cache show)/moc -r ${JSON.stringify(path)}`;
-            context.packages?.forEach(
-                ([name, path]) =>
-                    (command += ` --package ${JSON.stringify(
-                        name,
-                    )} ${JSON.stringify(
-                        join(resolveFilePath(context.uri), path),
-                    )}`),
-            );
-            return new Promise((resolve, reject) => {
-                const testProcess: ReturnType<typeof exec> = exec(
-                    command, // TODO: windows
-                    {
-                        cwd,
-                        encoding: 'utf8',
-                    },
-                    (err, stdout, stderr) => {
-                        err
-                            ? reject(err)
-                            : resolve({
-                                  passed: testProcess.exitCode === 0,
-                                  stdout: stdout || '',
-                                  stderr: stderr || '',
-                              });
-                    },
-                );
-            });
-
-            const mode = /\/\/[^\S\n]*@testmode[^\S\n]*interpreter/.test(source)
-                ? 'interpreter'
-                : 'wasi';
+            const mode =
+                /\/\/[^\S\n]*@testmode[^\S\n]*([a-zA-Z]+)/.exec(source)?.[1] ||
+                'wasi';
 
             const virtualPath = resolveVirtualPath(uri);
 
