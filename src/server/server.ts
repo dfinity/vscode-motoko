@@ -188,8 +188,8 @@ function notifyPackageConfigChange(retry = false) {
     if (!retry) {
         packageSourceCache.clear();
     }
-    clearTimeout(packageConfigChangeTimeout);
     loadingPackages = true;
+    clearTimeout(packageConfigChangeTimeout);
     setTimeout(async () => {
         packageConfigError = false;
         try {
@@ -277,8 +277,8 @@ function notifyPackageConfigChange(retry = false) {
             notifyWorkspace(); // Update virtual file system
             notifyDfxChange(); // Reload dfx.json
         } catch (err) {
-            packageConfigError = true;
             loadingPackages = false;
+            packageConfigError = true;
             console.error(`Error while loading packages: ${err}`);
         }
     }, 1000);
