@@ -114,7 +114,7 @@ async function getPackageSources(
     const dfxPath = join(directory, 'dfx.json');
     if (existsSync(dfxPath)) {
         try {
-            const dfxConfig = JSON.parse(readFileSync(dfxPath, 'utf8'));
+            const dfxConfig = JSON.parse(getFileText(URI.file(dfxPath).path));
             const command = dfxConfig?.defaults?.build?.packtool;
             if (command) {
                 sources = await sourcesFromCommand(command);
@@ -183,13 +183,13 @@ async function getPackageSources(
 let loadingPackages = false;
 let packageConfigError = false;
 let packageConfigChangeTimeout: ReturnType<typeof setTimeout>;
-function notifyPackageConfigChange(retry = false) {
-    if (!retry) {
+function notifyPackageConfigChange(reuseCached = false) {
+    if (!reuseCached) {
         packageSourceCache.clear();
     }
-    clearTimeout(packageConfigChangeTimeout);
     loadingPackages = true;
-    setTimeout(async () => {
+    clearTimeout(packageConfigChangeTimeout);
+    packageConfigChangeTimeout = setTimeout(async () => {
         packageConfigError = false;
         try {
             resetContexts();
@@ -227,10 +227,7 @@ function notifyPackageConfigChange(retry = false) {
             await Promise.all(
                 directories.map(async (dir) => {
                     try {
-                        console.log(
-                            'Configuring package config directory:',
-                            dir,
-                        );
+                        console.log('Loading packages for directory:', dir);
 
                         const uri = URI.file(dir).toString();
                         const context = addContext(uri);
@@ -261,7 +258,7 @@ function notifyPackageConfigChange(retry = false) {
                     } catch (err) {
                         packageConfigError = true;
                         console.error(
-                            `Error while configuring Vessel directory (${dir}): ${err}`,
+                            `Error while reading packages for directory (${dir}): ${err}`,
                         );
                     }
                 }),
@@ -279,8 +276,8 @@ function notifyPackageConfigChange(retry = false) {
             notifyWorkspace(); // Update virtual file system
             notifyDfxChange(); // Reload dfx.json
         } catch (err) {
-            packageConfigError = true;
             loadingPackages = false;
+            packageConfigError = true;
             console.error(`Error while loading packages: ${err}`);
         }
     }, 1000);
@@ -290,7 +287,7 @@ let dfxResolver: DfxResolver | undefined;
 let dfxChangeTimeout: ReturnType<typeof setTimeout>;
 function notifyDfxChange() {
     clearTimeout(dfxChangeTimeout);
-    setTimeout(async () => {
+    dfxChangeTimeout = setTimeout(async () => {
         try {
             dfxResolver = new DfxResolver(() => {
                 if (!workspaceFolders?.length) {
@@ -485,9 +482,7 @@ connection.onInitialized(() => {
     });
 
     // notifyWorkspace();
-
     // loadPrimaryDfxConfig();
-
     notifyPackageConfigChange();
 });
 
