@@ -1228,13 +1228,16 @@ connection.onRequest(
                 };
             } else {
                 // Run tests via WASI module
+                const start = Date.now();
                 const wasiResult = motoko.wasm(virtualPath, 'wasi');
-                await initWASI();
-                const wasi = new WASI({});
+                console.log('Compile time:', Date.now() - start);
+
                 const WebAssembly = (global as any).WebAssembly;
                 const module = await (
                     WebAssembly.compileStreaming || WebAssembly.compile
                 )(wasiResult.wasm);
+                await initWASI();
+                const wasi = new WASI({});
                 await wasi.instantiate(module, {});
                 const exitCode = wasi.start();
                 const stdout = wasi.getStdoutString();
