@@ -682,7 +682,7 @@ function checkWorkspace() {
             console.error('Error while finding dfx canister paths');
             console.error(err);
         }
-    }, 500);
+    }, 1000);
 }
 
 // /**
