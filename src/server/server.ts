@@ -94,7 +94,7 @@ async function getPackageSources(
             return [];
         }
         const sources: [string, string][] = [];
-        let nextArg;
+        let nextArg: string | undefined;
         while ((nextArg = args.shift())) {
             if (nextArg === '--package') {
                 const name = args.shift()!;
@@ -134,7 +134,7 @@ async function getPackageSources(
         }
     }
 
-    if (!sources) {
+    if (!sources.length) {
         // Prioritize MOPS over Vessel
         if (existsSync(join(directory, 'mops.toml'))) {
             // const command = 'mops sources';
