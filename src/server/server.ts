@@ -1242,6 +1242,7 @@ connection.onRequest(
                 const exitCode = wasi.start();
                 const stdout = wasi.getStdoutString();
                 const stderr = wasi.getStderrString();
+                wasi.free();
                 if (exitCode !== 0) {
                     console.log(stdout);
                     console.error(stderr);
