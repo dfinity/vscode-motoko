@@ -1211,7 +1211,7 @@ connection.onRequest(
 
             const mode =
                 /\/\/[^\S\n]*@testmode[^\S\n]*([a-zA-Z]+)/.exec(source)?.[1] ||
-                'wasi';
+                'wasmer';
 
             const virtualPath = resolveVirtualPath(uri);
 
@@ -1226,7 +1226,7 @@ connection.onRequest(
                     stdout: output.stdout,
                     stderr: output.stderr,
                 };
-            } else {
+            } else if (mode === 'wasmer') {
                 // Run tests via Wasmer
                 const start = Date.now();
                 const wasiResult = motoko.wasm(virtualPath, 'wasi');
@@ -1253,6 +1253,8 @@ connection.onRequest(
                     stdout,
                     stderr,
                 };
+            } else {
+                throw new Error(`Invalid test mode: '${mode}'`);
             }
             // else {
             //     const start = Date.now();

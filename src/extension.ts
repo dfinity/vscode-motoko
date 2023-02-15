@@ -9,7 +9,6 @@ import {
     Position,
     Range,
     TestItem,
-    TestMessage,
     TestRunProfileKind,
     TextDocument,
     TextEdit,
@@ -140,7 +139,8 @@ function setupTests(context: ExtensionContext) {
                             } else {
                                 run.failed(
                                     item,
-                                    new TestMessage(result.stderr),
+                                    // new TestMessage(result.stderr),
+                                    [],
                                     end,
                                 );
                                 // TODO: DRY
@@ -153,11 +153,14 @@ function setupTests(context: ExtensionContext) {
                                           ),
                                       }
                                     : undefined;
-                                [/* result.stderr,  */ result.stdout].forEach(
+                                [result.stderr, result.stdout].forEach(
                                     (output) => {
                                         if (output) {
                                             run.appendOutput(
-                                                output,
+                                                output.replace(
+                                                    /\r?\n/g,
+                                                    '\r\n',
+                                                ),
                                                 location,
                                                 item,
                                             );
@@ -166,7 +169,7 @@ function setupTests(context: ExtensionContext) {
                                 );
                             }
                         } catch (e) {
-                            const message =
+                            const output =
                                 ((e as any)?.message as string) || String(e);
                             run.errored(
                                 item,
@@ -183,7 +186,11 @@ function setupTests(context: ExtensionContext) {
                                       ),
                                   }
                                 : undefined;
-                            run.appendOutput(message, location, item);
+                            run.appendOutput(
+                                output.replace(/\r?\n/g, '\r\n'),
+                                location,
+                                item,
+                            );
                         }
                         // if (test.children.size === 0) {
                         //     await parseTestsInFileContents(test);
