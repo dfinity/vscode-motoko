@@ -107,6 +107,22 @@ function setupTests(context: ExtensionContext) {
         'Run',
         TestRunProfileKind.Run,
         async (request, token) => {
+            const appendOutput = (item: TestItem, output: string) => {
+                const location = item.uri
+                    ? {
+                          uri: item.uri,
+                          range: new Range(
+                              new Position(0, 0),
+                              new Position(0, 100),
+                          ),
+                      }
+                    : undefined;
+                run.appendOutput(
+                    output.replace(/\r?\n/g, '\r\n'),
+                    location,
+                    item,
+                );
+            };
             const run = controller.createTestRun(request);
             const queue: TestItem[] = [];
             if (request.include) {
@@ -137,60 +153,21 @@ function setupTests(context: ExtensionContext) {
                             if (result.passed) {
                                 run.passed(item, end);
                             } else {
-                                run.failed(
+                                run.failed(item, [], end);
+                                appendOutput(
                                     item,
-                                    // new TestMessage(result.stderr),
-                                    [],
-                                    end,
+                                    result.stdout.replace(
+                                        /All tests passed\.\r?\n?/g,
+                                        '', // Remove noise from Matchers output
+                                    ),
                                 );
-                                // TODO: DRY
-                                const location = item.uri
-                                    ? {
-                                          uri: item.uri,
-                                          range: new Range(
-                                              new Position(0, 0),
-                                              new Position(0, 100),
-                                          ),
-                                      }
-                                    : undefined;
-                                [result.stderr, result.stdout].forEach(
-                                    (output) => {
-                                        if (output) {
-                                            run.appendOutput(
-                                                output.replace(
-                                                    /\r?\n/g,
-                                                    '\r\n',
-                                                ),
-                                                location,
-                                                item,
-                                            );
-                                        }
-                                    },
-                                );
+                                appendOutput(item, result.stderr);
                             }
                         } catch (e) {
                             const output =
                                 ((e as any)?.message as string) || String(e);
-                            run.errored(
-                                item,
-                                // new TestMessage(message), // TODO: `TextMessage.diff()`
-                                [],
-                                Date.now() - start,
-                            );
-                            const location = item.uri
-                                ? {
-                                      uri: item.uri,
-                                      range: new Range(
-                                          new Position(0, 0),
-                                          new Position(0, 100),
-                                      ),
-                                  }
-                                : undefined;
-                            run.appendOutput(
-                                output.replace(/\r?\n/g, '\r\n'),
-                                location,
-                                item,
-                            );
+                            run.errored(item, [], Date.now() - start);
+                            appendOutput(item, output);
                         }
                         // if (test.children.size === 0) {
                         //     await parseTestsInFileContents(test);
