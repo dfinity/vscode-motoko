@@ -1211,7 +1211,7 @@ connection.onRequest(
 
             const mode =
                 /\/\/[^\S\n]*@testmode[^\S\n]*([a-zA-Z]+)/.exec(source)?.[1] ||
-                'wasmer';
+                'interpreter';
 
             const virtualPath = resolveVirtualPath(uri);
 
