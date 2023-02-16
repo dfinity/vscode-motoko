@@ -1,8 +1,10 @@
 import { readFileSync } from 'fs';
-import { join } from 'path';
+import { join, sep } from 'path';
 import * as motokoPlugin from 'prettier-plugin-motoko';
 import * as prettier from 'prettier/standalone';
 import { URI, Utils } from 'vscode-uri';
+
+const fileSeparatorPattern = new RegExp(sep.replace(/[/\\]/g, '\\$&'), 'g');
 
 /**
  * Resolves the absolute file system path from the given URI.
@@ -15,7 +17,10 @@ export function resolveFilePath(uri: string, ...parts: string[]): string {
  * Resolves the virtual compiler path from the given URI.
  */
 export function resolveVirtualPath(uri: string, ...parts: string[]): string {
-    return join(URI.parse(uri).path, ...parts).replace(/\\/g, '/');
+    return join(URI.parse(uri).path, ...parts).replace(
+        fileSeparatorPattern,
+        '/',
+    );
 }
 
 /**
