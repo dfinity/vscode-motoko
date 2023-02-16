@@ -1222,7 +1222,9 @@ connection.onRequest(
                 motoko.setRunStepLimit(100_000_000);
                 const output = motoko.run(virtualPath);
                 return {
-                    passed: !output.stderr.includes('error'), // TODO
+                    passed: output.result
+                        ? !output.result.error
+                        : !output.stderr.includes('error'), // fallback for previous moc.js versions
                     stdout: output.stdout,
                     stderr: output.stderr,
                 };
