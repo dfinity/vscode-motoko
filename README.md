@@ -1,4 +1,4 @@
-# Motoko - VS Code Extension
+# Motoko &middot; VS Code Extension
 
 > #### Motoko language support for [Visual Studio Code](https://code.visualstudio.com/).
 

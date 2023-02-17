@@ -1,3 +1,4 @@
+import * as glob from 'fast-glob';
 import * as fs from 'fs';
 import { Package } from 'motoko/lib/package';
 import * as baseLibrary from 'motoko/packages/latest/base.json';
@@ -5,11 +6,16 @@ import * as path from 'path';
 import {
     ExtensionContext,
     FormattingOptions,
+    Position,
+    Range,
+    TestItem,
+    TestRunProfileKind,
     TextDocument,
     TextEdit,
     Uri,
     commands,
     languages,
+    tests,
     window,
     workspace,
 } from 'vscode';
@@ -20,6 +26,7 @@ import {
     TransportKind,
 } from 'vscode-languageclient/node';
 import * as which from 'which';
+import { TEST_FILE_REQUEST, TestParams, TestResult } from './common/testConfig';
 import { watchGlob } from './common/watchConfig';
 import { formatDocument } from './formatter';
 
@@ -57,6 +64,155 @@ export function activate(context: ExtensionContext) {
         }),
     );
     startServer(context);
+    setupTests(context);
+}
+
+export async function deactivate() {
+    if (client) {
+        await client.stop();
+    }
+}
+
+function setupTests(context: ExtensionContext) {
+    const controller = tests.createTestController(
+        'motokoTests',
+        'Motoko Tests',
+    );
+
+    enum ItemType {
+        File,
+        TestCase,
+    }
+    const testItemTypeMap = new WeakMap<TestItem, ItemType>();
+    const getType = (item: TestItem) => testItemTypeMap.get(item)!;
+
+    const runTest = async (item: TestItem) => {
+        console.log('Running test:', item);
+
+        if (!client) {
+            startServer(context);
+        }
+
+        if (!item.uri) {
+            throw new Error('Unknown file system path');
+        }
+        const result: TestResult = await client.sendRequest(TEST_FILE_REQUEST, {
+            uri: item.uri.toString(),
+        } as TestParams);
+
+        return result;
+    };
+
+    const runProfile = controller.createRunProfile(
+        'Run',
+        TestRunProfileKind.Run,
+        async (request, token) => {
+            const appendOutput = (item: TestItem, output: string) => {
+                const location = item.uri
+                    ? {
+                          uri: item.uri,
+                          range: new Range(
+                              new Position(0, 0),
+                              new Position(0, 100),
+                          ),
+                      }
+                    : undefined;
+                run.appendOutput(
+                    output.replace(/\r?\n/g, '\r\n'),
+                    location,
+                    item,
+                );
+            };
+            const run = controller.createTestRun(request);
+            const queue: TestItem[] = [];
+            if (request.include) {
+                request.include.forEach((item) => queue.push(item));
+            } else {
+                controller.items.forEach((item) => queue.push(item));
+            }
+            queue.sort((a, b) =>
+                a.label
+                    .toLocaleLowerCase()
+                    .localeCompare(b.label.toLocaleLowerCase()),
+            );
+            queue.forEach((item) => {
+                run.enqueued(item);
+            });
+            while (queue.length > 0 && !token.isCancellationRequested) {
+                const item = queue.shift()!;
+                if (request.exclude?.includes(item)) {
+                    continue;
+                }
+                switch (getType(item)) {
+                    case ItemType.File:
+                        const start = Date.now();
+                        try {
+                            run.started(item);
+                            const result = await runTest(item);
+                            const end = Date.now() - start;
+                            if (result.passed) {
+                                run.passed(item, end);
+                            } else {
+                                run.failed(item, [], end);
+                                appendOutput(
+                                    item,
+                                    result.stdout.replace(
+                                        /All tests passed\.\r?\n?/g,
+                                        '', // Remove noise from Matchers output
+                                    ),
+                                );
+                                appendOutput(item, result.stderr);
+                            }
+                        } catch (e) {
+                            const output =
+                                ((e as any)?.message as string) || String(e);
+                            run.errored(item, [], Date.now() - start);
+                            appendOutput(item, output);
+                        }
+                        // if (test.children.size === 0) {
+                        //     await parseTestsInFileContents(test);
+                        // }
+                        break;
+                    // case ItemType.TestCase:
+                    //     break;
+                }
+                item.children.forEach((test) => queue.push(test));
+            }
+            queue.forEach((item) => run.skipped(item));
+            run.end();
+        },
+    );
+
+    const pattern = '**/*.test.mo';
+    const watcher = workspace.createFileSystemWatcher(pattern);
+    const addFile = (uri: Uri) => {
+        try {
+            const uriString = uri.toString();
+            if (/\/(\.vessel|\.mops|node_modules)\//.test(uriString)) {
+                return;
+            }
+            const name =
+                /([^\\/]+)\.test\.mo$/.exec(uriString)?.[1] || 'Motoko';
+            const item = controller.createTestItem(uriString, name, uri);
+            controller.items.add(item);
+            testItemTypeMap.set(item, ItemType.File);
+        } catch (err) {
+            console.error(`Error while adding test file: ${uri}\n${err}`);
+        }
+    };
+    workspace.workspaceFolders?.forEach((workspaceFolder) => {
+        const directory = workspaceFolder.uri.fsPath;
+        glob.sync(pattern, { cwd: directory }).forEach((file) => {
+            addFile(Uri.file(path.resolve(directory, file)));
+        });
+    });
+    watcher.onDidCreate(addFile, context.subscriptions);
+    watcher.onDidChange(addFile, context.subscriptions);
+    watcher.onDidDelete((uri) => {
+        controller.items.delete(uri.toString());
+    }, context.subscriptions);
+
+    context.subscriptions.push(controller, watcher, runProfile);
 }
 
 export function startServer(context: ExtensionContext) {
@@ -69,11 +225,12 @@ export function startServer(context: ExtensionContext) {
 
     // Cross-platform language server
     const module = context.asAbsolutePath(path.join('out', 'server.js'));
+    const execArgv = ['--stack-size=1361']; // TODO: reduce after improving moc.js WASI compilation
     restartLanguageServer(context, {
-        run: { module, transport: TransportKind.ipc },
+        run: { module, transport: TransportKind.ipc, options: { execArgv } },
         debug: {
             module,
-            options: { execArgv: ['--nolazy', '--inspect=6004'] },
+            options: { execArgv: ['--nolazy', '--inspect=6004', ...execArgv] },
             transport: TransportKind.ipc,
         },
     });
@@ -145,12 +302,6 @@ function restartLanguageServer(
     );
     client.start().catch((err) => console.error(err.stack || err));
     context.subscriptions.push(client);
-}
-
-export async function deactivate() {
-    if (client) {
-        await client.stop();
-    }
 }
 
 interface DfxCanisters {

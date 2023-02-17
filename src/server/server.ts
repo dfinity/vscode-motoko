@@ -1,3 +1,4 @@
+import { WASI, init as initWASI } from '@wasmer/wasi';
 import { exec } from 'child_process';
 import * as glob from 'fast-glob';
 import { existsSync, readFileSync } from 'fs';
@@ -30,6 +31,11 @@ import {
     createConnection,
 } from 'vscode-languageserver/node';
 import { URI } from 'vscode-uri';
+import {
+    TEST_FILE_REQUEST,
+    TestParams,
+    TestResult,
+} from '../common/testConfig';
 import { watchGlob as virtualFilePattern } from '../common/watchConfig';
 import {
     Context,
@@ -233,22 +239,21 @@ function notifyPackageConfigChange(reuseCached = false) {
                         const context = addContext(uri);
 
                         try {
-                            (await getPackageSources(dir)).forEach(
-                                ([name, relativePath]) => {
-                                    const path = resolveVirtualPath(
-                                        uri,
-                                        relativePath,
-                                    );
-                                    console.log(
-                                        'Package:',
-                                        name,
-                                        '->',
-                                        path,
-                                        `(${uri})`,
-                                    );
-                                    context.motoko.usePackage(name, path);
-                                },
-                            );
+                            context.packages = await getPackageSources(dir);
+                            context.packages.forEach(([name, relativePath]) => {
+                                const path = resolveVirtualPath(
+                                    uri,
+                                    relativePath,
+                                );
+                                console.log(
+                                    'Package:',
+                                    name,
+                                    '->',
+                                    path,
+                                    `(${uri})`,
+                                );
+                                context.motoko.usePackage(name, path);
+                            });
                         } catch (err) {
                             packageConfigError = true;
                             context.error = String(err);
@@ -342,29 +347,6 @@ function notifyDfxChange() {
                         console.error(
                             `Error while resolving canister aliases: ${err}`,
                         );
-                    }
-
-                    for (const [_name, _canister] of Object.entries(
-                        dfxConfig.canisters,
-                    )) {
-                        // try {
-                        //     if (
-                        //         (!canister.type || canister.type === 'motoko') &&
-                        //         canister.main
-                        //     ) {
-                        //         const uri = URI.file(
-                        //             dirname(join(projectDir, canister.main)),
-                        //         ).toString();
-                        //         mo.usePackage(
-                        //             `canister:${name}`,
-                        //             resolveVirtualPath(uri),
-                        //         );
-                        //     }
-                        // } catch (err) {
-                        //     console.error(
-                        //         `Error while adding sibling Motoko canister '${name}' as a package: ${err}`,
-                        //     );
-                        // }
                     }
                 }
             }
@@ -481,8 +463,6 @@ connection.onInitialized(() => {
         notifyWorkspace();
     });
 
-    // notifyWorkspace();
-    // loadPrimaryDfxConfig();
     notifyPackageConfigChange();
 });
 
@@ -565,10 +545,6 @@ function notifyWorkspace() {
 
 const checkQueue: string[] = [];
 let checkTimeout: ReturnType<typeof setTimeout>;
-// function clearCheckQueue() {
-//     checkQueue.length = 0;
-//     clearTimeout(checkTimeout);
-// }
 function processQueue() {
     clearTimeout(checkTimeout);
     checkTimeout = setTimeout(() => {
@@ -664,7 +640,6 @@ function checkWorkspace() {
                     }
                 }
             }
-
             previousCheckedFiles.forEach((uri) => {
                 if (!checkedFiles.includes(uri)) {
                     connection.sendDiagnostics({ uri, diagnostics: [] });
@@ -679,15 +654,6 @@ function checkWorkspace() {
         }
     }, 1000);
 }
-
-// /**
-//  * Validates all Motoko files which are currently open in the editor.
-//  */
-// function validateOpenDocuments() {
-//     // TODO: validate all tabs
-//     documents.all().forEach((document) => notify(document));
-//     documents.all().forEach((document) => check(document));
-// }
 
 function validate(uri: string | TextDocument) {
     notify(uri);
@@ -856,9 +822,6 @@ function notifyDeleteUri(uri: string) {
 }
 
 function writeVirtual(path: string, content: string) {
-    // if (virtualPath.endsWith('.mo')) {
-    //     content = preprocessMotoko(content);
-    // }
     allContexts().forEach(({ motoko }) => motoko.write(path, content));
 }
 
@@ -927,12 +890,6 @@ connection.onCodeAction((event) => {
     });
     return results;
 });
-
-// connection.onCodeActionResolve((action) => {
-//     console.log('Code action resolve');
-//     console.log(action.data);
-//     return action;
-// });
 
 connection.onSignatureHelp((): SignatureHelp | null => {
     return null;
@@ -1201,6 +1158,146 @@ connection.onReferences(
     async (_event: ReferenceParams): Promise<Location[]> => {
         console.log('[References]');
         return [];
+    },
+);
+
+// Run a file which is recognized as a unit test
+connection.onRequest(
+    TEST_FILE_REQUEST,
+    async (event: TestParams): Promise<TestResult> => {
+        while (loadingPackages) {
+            // Load all packages before running tests
+            await new Promise((resolve) => setTimeout(resolve, 500));
+        }
+
+        try {
+            const { uri } = event;
+
+            const context = getContext(uri);
+            const { motoko } = context;
+
+            // TODO: optimize @testmode check
+            const source = getFileText(uri);
+
+            // const path = resolveFilePath(uri);
+            // const cwd = dirname(path);
+            // let command = `$(dfx cache show)/moc -r ${JSON.stringify(path)}`;
+            // context.packages?.forEach(
+            //     ([name, path]) =>
+            //         (command += ` --package ${JSON.stringify(
+            //             name,
+            //         )} ${JSON.stringify(
+            //             join(resolveFilePath(context.uri), path),
+            //         )}`),
+            // );
+            // return new Promise((resolve, reject) => {
+            //     const testProcess: ReturnType<typeof exec> = exec(
+            //         command, // TODO: windows
+            //         {
+            //             cwd,
+            //             encoding: 'utf8',
+            //         },
+            //         (err, stdout, stderr) => {
+            //             err
+            //                 ? reject(err)
+            //                 : resolve({
+            //                       passed: testProcess.exitCode === 0,
+            //                       stdout: stdout || '',
+            //                       stderr: stderr || '',
+            //                   });
+            //         },
+            //     );
+            // });
+
+            const mode =
+                /\/\/[^\S\n]*@testmode[^\S\n]*([a-zA-Z]+)/.exec(source)?.[1] ||
+                'interpreter';
+
+            const virtualPath = resolveVirtualPath(uri);
+
+            console.log('Running test:', uri, `(${mode})`);
+
+            if (mode === 'interpreter') {
+                // Run tests via moc.js interpreter
+                motoko.setRunStepLimit(100_000_000);
+                const output = motoko.run(virtualPath);
+                return {
+                    passed: output.result
+                        ? !output.result.error
+                        : !output.stderr.includes('error'), // fallback for previous moc.js versions
+                    stdout: output.stdout,
+                    stderr: output.stderr,
+                };
+            } else if (mode === 'wasmer') {
+                // Run tests via Wasmer
+                const start = Date.now();
+                const wasiResult = motoko.wasm(virtualPath, 'wasi');
+                console.log('Compile time:', Date.now() - start);
+
+                const WebAssembly = (global as any).WebAssembly;
+                const module = await (
+                    WebAssembly.compileStreaming || WebAssembly.compile
+                )(wasiResult.wasm);
+                await initWASI();
+                const wasi = new WASI({});
+                await wasi.instantiate(module, {});
+                const exitCode = wasi.start();
+                const stdout = wasi.getStdoutString();
+                const stderr = wasi.getStderrString();
+                wasi.free();
+                if (exitCode !== 0) {
+                    console.log(stdout);
+                    console.error(stderr);
+                    console.log('Exit code:', exitCode);
+                }
+                return {
+                    passed: exitCode === 0,
+                    stdout,
+                    stderr,
+                };
+            } else {
+                throw new Error(`Invalid test mode: '${mode}'`);
+            }
+            // else {
+            //     const start = Date.now();
+            //     const wasiResult = motoko.wasm(virtualPath, 'wasi');
+            //     console.log('Compile time:', Date.now() - start);
+
+            //     const WebAssembly = (global as any).WebAssembly;
+            //     const module = await (
+            //         WebAssembly.compileStreaming || WebAssembly.compile
+            //     )(wasiResult.wasm);
+            //     const WASI = require('wasi');
+            //     const wasi = new WASI({});
+            //     const inst = new WebAssembly.Instance(module, {
+            //         wasi_unstable: wasi.exports,
+            //     });
+            //     wasi.setMemory(inst.exports.memory);
+            //     inst.exports._start();
+
+            //     // if (exitCode !== 0) {
+            //     //     console.log(stdout);
+            //     //     console.error(stderr);
+            //     //     console.log('Exit code:', exitCode);
+            //     // }
+            //     // return {
+            //     //     passed: exitCode === 0,
+            //     //     stdout,
+            //     //     stderr,
+            //     // };
+
+            //     console.log(Object.keys(inst.exports)); ///////
+
+            //     return { passed: true, stdout: '', stderr: '' };
+            // }
+        } catch (err) {
+            console.error(err);
+            return {
+                passed: false,
+                stdout: '',
+                stderr: (err as any)?.message || String(err),
+            };
+        }
     },
 );
 
