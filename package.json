@@ -2,7 +2,7 @@
     "name": "vscode-motoko",
     "displayName": "Motoko",
     "description": "Motoko language support",
-    "version": "0.10.1",
+    "version": "0.10.2",
     "publisher": "dfinity-foundation",
     "repository": "https://github.com/dfinity/vscode-motoko",
     "engines": {
