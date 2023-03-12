@@ -113,7 +113,7 @@
 		<key>assignment-operator</key>
 		<dict>
 			<key>match</key>
-			<string>(?&lt;![/=\-+!*%&lt;&gt;&amp;|\^~.])(\+|\-|\*|\/|%|&lt;&lt;|&gt;&gt;|&amp;|\^|\||&amp;&amp;|\|\|)?=(?![/=\-+!*%&lt;&gt;&amp;|\^~.])</string>
+			<string>(?&lt;![/=\-+!*%&lt;&gt;&amp;|\^~.])(\+|\-|\*|\/|%|&lt;&lt;&gt;?|&lt;?&gt;&gt;|&amp;|\^|\||&amp;&amp;|\|\|)?=(?![/=\-+!*%&lt;&gt;&amp;|\^~.])</string>
 			<key>name</key>
 			<string>keyword.operator.assignment.motoko</string>
 		</dict>
@@ -188,7 +188,7 @@
 		<key>bitwise-operator</key>
 		<dict>
 			<key>match</key>
-			<string>(?&lt;![/=\-+!*%&lt;&gt;&amp;|\^~.])(&amp;|\||\^|&lt;&lt;|&gt;&gt;)(?![/=\-+!*%&lt;&gt;&amp;|\^~.])</string>
+			<string>(?&lt;![/=\-+!*%&lt;&gt;&amp;|\^~.])(&amp;|\||\^|&lt;&lt;&gt;?|&lt;?&gt;&gt;)(?![/=\-+!*%&lt;&gt;&amp;|\^~.])</string>
 			<key>name</key>
 			<string>keyword.operator.bitwise.motoko</string>
 		</dict>
