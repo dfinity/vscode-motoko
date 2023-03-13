@@ -164,9 +164,9 @@ const barebonesWASI = function () {
     };
 };
 
-let runWasmModule = () => {
-    console.log('Module not (yet) loaded');
-};
+// let runWasmModule = () => {
+//     console.log('Module not (yet) loaded');
+// };
 
 let memory = null;
 
@@ -174,41 +174,34 @@ let motokoSections = null;
 
 let motokoHashMap = null;
 
-function importWasmModule(moduleName, wasiPolyfill) {
+async function importWasmModule(moduleName, wasiPolyfill) {
     const moduleImports = {
         wasi_unstable: wasiPolyfill,
         env: {},
     };
 
-    (async () => {
-        if (WebAssembly.compileStreaming) {
-            module = await WebAssembly.compileStreaming(fetch(moduleName));
-        } else {
-            const response = await fetch(moduleName);
-            const buffer = await response.arrayBuffer();
-            module = await WebAssembly.compile(buffer);
-        }
+    if (WebAssembly.compileStreaming) {
+        module = await WebAssembly.compileStreaming(fetch(moduleName));
+    } else {
+        const response = await fetch(moduleName);
+        const buffer = await response.arrayBuffer();
+        module = await WebAssembly.compile(buffer);
+    }
 
-        motokoSections = WebAssembly.Module.customSections(module, 'motoko');
-        motokoHashMap =
-            motokoSections.length > 0
-                ? decodeMotokoSection(motokoSections)
-                : null;
+    motokoSections = WebAssembly.Module.customSections(module, 'motoko');
+    motokoHashMap =
+        motokoSections.length > 0 ? decodeMotokoSection(motokoSections) : null;
 
-        runWasmModule = async () => {
-            const instance = await WebAssembly.instantiate(
-                module,
-                moduleImports,
-            );
-            wasiPolyfill.setModuleInstance(instance);
-            memory = instance.exports.memory;
+    const runWasmModule = async () => {
+        const instance = await WebAssembly.instantiate(module, moduleImports);
+        wasiPolyfill.setModuleInstance(instance);
+        memory = instance.exports.memory;
 
-            document.getElementById('output').value = 'Running _start()\n';
-            instance.exports._start();
-            document.getElementById('output').value += '\nstart() finished';
-        };
-        await runWasmModule();
-    })();
+        document.getElementById('output').value = 'Running _start()\n';
+        instance.exports._start();
+        document.getElementById('output').value += '\nstart() finished';
+    };
+    await runWasmModule();
 }
 
 // From https://github.com/bma73/hexdump-js, with fixes
@@ -258,36 +251,12 @@ const hexdump = (function () {
     return hexdump;
 })();
 
-const wasiPolyfill = new barebonesWASI();
-
-// load files from directory listing
-(async () => {
-    let ok = false;
-    try {
-        const dir = await fetch('/run/_out/').then((resp) => resp.text());
-        const select = document.getElementById('test');
-        for (const match of dir.matchAll(/href="([^"]+.wasm)"/g)) {
-            const el = document.createElement('option');
-            el.textContent = match[1];
-            el.value = match[1];
-            select.appendChild(el);
-            ok = true;
-        }
-    } finally {
-        if (!ok) {
-            console.error(
-                'Could not find any wasm files. Did you start this as instructed in test/README.md?',
-            );
-        }
-    }
-})();
-
-function loadTest() {
+async function loadTest() {
     const test = document.getElementById('test').value;
     if (test == 'none') return;
     document.getElementById('output').value =
         'Loading ' + test + '… (see console for errors)';
-    importWasmModule('run/_out/' + test, wasiPolyfill);
+    await importWasmModule('run/_out/' + test, wasiPolyfill);
 }
 
 function updateHexDump() {
@@ -512,4 +481,47 @@ function decode(view, v) {
 function show(v) {
     const view = new DataView(memory.buffer);
     return decode(view, v);
+}
+
+const wasiPolyfill = new barebonesWASI();
+
+// load files from directory listing
+export async function loadWASI() {
+    let ok = false;
+    try {
+        const dir = await fetch('/run/_out/').then((resp) => resp.text());
+        const select = document.getElementById('test');
+        for (const match of dir.matchAll(/href="([^"]+.wasm)"/g)) {
+            const el = document.createElement('option');
+            el.textContent = match[1];
+            el.value = match[1];
+            select.appendChild(el);
+            ok = true;
+        }
+    } finally {
+        if (!ok) {
+            console.error(
+                'Could not find any wasm files. Did you start this as instructed in test/README.md?',
+            );
+        }
+    }
+
+    // let ok = false;
+    // try {
+    //     const dir = await fetch('/run/_out/').then((resp) => resp.text());
+    //     const select = document.getElementById('test');
+    //     for (const match of dir.matchAll(/href="([^"]+.wasm)"/g)) {
+    //         const el = document.createElement('option');
+    //         el.textContent = match[1];
+    //         el.value = match[1];
+    //         select.appendChild(el);
+    //         ok = true;
+    //     }
+    // } finally {
+    //     if (!ok) {
+    //         console.error(
+    //             'Could not find any wasm files. Did you start this as instructed in test/README.md?',
+    //         );
+    //     }
+    // }
 }
