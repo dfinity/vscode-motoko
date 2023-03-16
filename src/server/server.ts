@@ -1228,7 +1228,7 @@ connection.onRequest(
                     stdout: output.stdout,
                     stderr: output.stderr,
                 };
-            } else if (mode === 'wasmer') {
+            } else if (mode === 'wasi') {
                 // Run tests via Wasmer
                 const start = Date.now();
                 const wasiResult = motoko.wasm(virtualPath, 'wasi');
