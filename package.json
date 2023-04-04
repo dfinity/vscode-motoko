@@ -33,6 +33,17 @@
                     "light": "assets/icons/motoko-color.png",
                     "dark": "assets/icons/motoko-color.png"
                 }
+            },{
+                "id": "candid",
+                "aliases": [
+                    "Candid",
+                    "candid"
+                ],
+                "extensions": [
+                    ".did",
+                    ".did_"
+                ],
+                "configuration": "./language-configuration.json"
             }
         ],
         "grammars": [
@@ -40,6 +51,11 @@
                 "language": "motoko",
                 "scopeName": "source.mo",
                 "path": "./syntaxes/Major.tmLanguage"
+            },
+            {
+                "language": "candid",
+                "scopeName": "source.did",
+                "path": "./syntaxes/Candid.tmLanguage"
             }
         ],
         "configuration": {
