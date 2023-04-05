@@ -2,11 +2,11 @@
     "name": "vscode-motoko",
     "displayName": "Motoko",
     "description": "Motoko language support",
-    "version": "0.10.7",
+    "version": "0.11.0",
     "publisher": "dfinity-foundation",
     "repository": "https://github.com/dfinity/vscode-motoko",
     "engines": {
-        "vscode": "^1.63.0"
+        "vscode": "^1.75.0"
     },
     "categories": [
         "Programming Languages"
@@ -33,6 +33,18 @@
                     "light": "assets/icons/motoko-color.png",
                     "dark": "assets/icons/motoko-color.png"
                 }
+            },
+            {
+                "id": "candid",
+                "aliases": [
+                    "Candid",
+                    "candid"
+                ],
+                "extensions": [
+                    ".did",
+                    ".did_"
+                ],
+                "configuration": "./language-configuration.json"
             }
         ],
         "grammars": [
@@ -40,6 +52,11 @@
                 "language": "motoko",
                 "scopeName": "source.mo",
                 "path": "./syntaxes/Major.tmLanguage"
+            },
+            {
+                "language": "candid",
+                "scopeName": "source.did",
+                "path": "./syntaxes/Candid.tmLanguage"
             }
         ],
         "configuration": {
@@ -121,10 +138,7 @@
             }
         ]
     },
-    "activationEvents": [
-        "onLanguage:motoko",
-        "onCommand:motoko.startService"
-    ],
+    "activationEvents": [],
     "main": "./out/extension",
     "browser": "./out/browser",
     "dependencies": {
