@@ -16,10 +16,6 @@
 	<array>
 		<dict>
 			<key>include</key>
-			<string>#shebang-line</string>
-		</dict>
-		<dict>
-			<key>include</key>
 			<string>#comment</string>
 		</dict>
 		<dict>
@@ -602,7 +598,7 @@
 					<key>comment</key>
 					<string>statement keyword</string>
 					<key>match</key>
-					<string>\b(opt|vec|record|variant|func|blob|principal|nat|nat8|nat16|nat32|nat64|int|int8|int16|int32|int64|float32|float64|bool|text|null|empty|oneway|query)\b</string>
+					<string>\b(opt|vec|record|variant|func|null|empty|oneway|query)\b</string>
 					<key>name</key>
 					<string>keyword.statement.candid</string>
 				</dict>
@@ -813,7 +809,7 @@
 			<key>comment</key>
 			<string>Primitive types</string>
 			<key>match</key>
-			<string>\b(Blob|Bool|Char|Float|(Int|Nat)(8|16|32|64)?|Principal|Text|Error)\b</string>
+			<string>\b(blob|bool|char|float(32|64)|(int|nat)(8|16|32|64)?|principal|text)\b</string>
 			<key>name</key>
 			<string>support.type.candid</string>
 		</dict>
@@ -867,23 +863,6 @@
 			<string>(?&lt;![/=\-+!*%&lt;&gt;&amp;|\^~.])\%(?![/=\-+!*%&lt;&gt;&amp;|\^~.])</string>
 			<key>name</key>
 			<string>keyword.operator.remainder.candid</string>
-		</dict>
-		<key>shebang-line</key>
-		<dict>
-			<key>captures</key>
-			<dict>
-				<key>1</key>
-				<dict>
-					<key>name</key>
-					<string>punctuation.definition.comment.line.shebang.candid</string>
-				</dict>
-			</dict>
-			<key>comment</key>
-			<string>Shebang line</string>
-			<key>match</key>
-			<string>^(#!).*$</string>
-			<key>name</key>
-			<string>comment.line.shebang.candid</string>
 		</dict>
 		<key>string-literal</key>
 		<dict>
