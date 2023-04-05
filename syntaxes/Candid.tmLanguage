@@ -16,13 +16,6 @@
 	<array>
 		<dict>
 			<key>include</key>
-<<<<<<< HEAD
-=======
-			<string>#shebang-line</string>
-		</dict>
-		<dict>
-			<key>include</key>
->>>>>>> be3a773837c95b86315f4e129032c706fdc5c4e1
 			<string>#comment</string>
 		</dict>
 		<dict>
