@@ -41,7 +41,7 @@ export function activate(context: ExtensionContext) {
         ),
     );
     context.subscriptions.push(
-        languages.registerDocumentFormattingEditProvider('motoko', {
+        languages.registerDocumentFormattingEditProvider(['motoko', 'candid'], {
             provideDocumentFormattingEdits(
                 document: TextDocument,
                 options: FormattingOptions,

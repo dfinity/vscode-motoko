@@ -729,7 +729,7 @@
 					<key>comment</key>
 					<string>declaration keyword</string>
 					<key>match</key>
-					<string>\b(actor|and|class|func|import|let|module|not|or)\b</string>
+					<string>\b(import|service|type)\b</string>
 					<key>name</key>
 					<string>keyword.declaration.candid</string>
 				</dict>
@@ -737,7 +737,7 @@
 					<key>comment</key>
 					<string>statement keyword</string>
 					<key>match</key>
-					<string>\b(assert|break|case|continue|default|debug|debug_show|else|if|ignore|in|for|label|null|return|switch|while|loop|try|throw|catch|do|to_candid|from_candid|with)\b</string>
+					<string>\b(opt|vec|record|variant|func|blob|principal|nat|nat8|nat16|nat32|nat64|int|int8|int16|int32|int64|float32|float64|bool|text|null|empty|oneway|query)\b</string>
 					<key>name</key>
 					<string>keyword.statement.candid</string>
 				</dict>
@@ -745,7 +745,7 @@
 					<key>comment</key>
 					<string>other keyword</string>
 					<key>match</key>
-					<string>\b(flexible|query|stable)\b</string>
+					<string>\b(reserved)\b</string>
 					<key>name</key>
 					<string>keyword.other.candid</string>
 				</dict>
@@ -1154,7 +1154,7 @@
 		</dict>
 	</dict>
 	<key>scopeName</key>
-	<string>source.mo</string>
+	<string>source.did</string>
 	<key>uuid</key>
 	<string>7efa1168-97c3-4433-8dd7-15b99bf3bb53</string>
 </dict>
