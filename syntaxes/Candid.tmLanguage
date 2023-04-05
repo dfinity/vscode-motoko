@@ -36,14 +36,6 @@
 		</dict>
 		<dict>
 			<key>include</key>
-			<string>#declaration</string>
-		</dict>
-		<dict>
-			<key>include</key>
-			<string>#storage-type</string>
-		</dict>
-		<dict>
-			<key>include</key>
 			<string>#keyword</string>
 		</dict>
 		<dict>
@@ -57,15 +49,6 @@
 	</array>
 	<key>repository</key>
 	<dict>
-		<key>access-level-modifier</key>
-		<dict>
-			<key>comment</key>
-			<string>access-level-modifier</string>
-			<key>match</key>
-			<string>\b(public|system|private)\b</string>
-			<key>name</key>
-			<string>keyword.other.access-level-modifier.candid</string>
-		</dict>
 		<key>arithmetic-operator</key>
 		<dict>
 			<key>match</key>
@@ -343,24 +326,6 @@
 				</dict>
 			</array>
 		</dict>
-		<key>declaration</key>
-		<dict>
-			<key>comment</key>
-			<string>declaration</string>
-			<key>name</key>
-			<string>meta.declaration.candid</string>
-			<key>patterns</key>
-			<array>
-				<dict>
-					<key>include</key>
-					<string>#import-declaration</string>
-				</dict>
-				<!-- <dict>
-					<key>include</key>
-					<string>#function-declaration</string>
-				</dict> -->
-			</array>
-		</dict>
 		<key>declaration-modifier</key>
 		<dict>
 			<key>comment</key>
@@ -468,75 +433,6 @@
 				</dict>
 			</array>
 		</dict>
-		<key>function-declaration</key>
-		<dict>
-			<key>begin</key>
-			<string>\b(func)\s+(\B\$[0-9]+|\b[\w^\d][\w\d]*\b|\B`[\w^\d][\w\d]*`\B|[/=\-+!*%&lt;&gt;&amp;|\^~.]+)\s*(?=\(|&lt;)</string>
-			<key>beginCaptures</key>
-			<dict>
-				<key>1</key>
-				<dict>
-					<key>name</key>
-					<string>storage.type.function.candid</string>
-				</dict>
-				<key>2</key>
-				<dict>
-					<key>name</key>
-					<string>entity.type.function.candid</string>
-				</dict>
-			</dict>
-			<key>comment</key>
-			<string>function-declaration</string>
-			<key>end</key>
-			<string>(?&lt;=\})</string>
-			<key>name</key>
-			<string>meta.function-declaration.candid</string>
-			<key>patterns</key>
-			<array>
-				<dict>
-					<key>include</key>
-					<string>#generic-parameter-clause</string>
-				</dict>
-				<dict>
-					<key>include</key>
-					<string>#parameter-clause</string>
-				</dict>
-				<dict>
-					<key>include</key>
-					<string>#function-result</string>
-				</dict>
-				<dict>
-					<key>include</key>
-					<string>#function-body</string>
-				</dict>
-			</array>
-		</dict>
-		<key>function-result</key>
-		<dict>
-			<key>begin</key>
-			<string>(?&lt;![/=\-+!*%&lt;&gt;&amp;|\^~.])(\-&gt;)(?![/=\-+!*%&lt;&gt;&amp;|\^~.])\s*</string>
-			<key>beginCaptures</key>
-			<dict>
-				<key>1</key>
-				<dict>
-					<key>name</key>
-					<string>keyword.operator.function-result.candid</string>
-				</dict>
-			</dict>
-			<key>comment</key>
-			<string>function-result</string>
-			<key>end</key>
-			<string>\s*(?=\{)</string>
-			<key>name</key>
-			<string>meta.function-result.candid</string>
-			<key>patterns</key>
-			<array>
-				<dict>
-					<key>include</key>
-					<string>#type</string>
-				</dict>
-			</array>
-		</dict>
 		<key>generic-parameter-clause</key>
 		<dict>
 			<key>begin</key>
@@ -588,33 +484,6 @@
 			<string>\b(if|else)\b</string>
 			<key>name</key>
 			<string>keyword.control.if.candid</string>
-		</dict>
-		<key>import-declaration</key>
-		<dict>
-			<key>captures</key>
-			<dict>
-				<key>1</key>
-				<dict>
-					<key>name</key>
-					<string>keyword.other.import.candid</string>
-				</dict>
-				<key>2</key>
-				<dict>
-					<key>name</key>
-					<string>storage.modifier.candid</string>
-				</dict>
-				<key>3</key>
-				<dict>
-					<key>name</key>
-					<string>support.type.module.import.candid</string>
-				</dict>
-			</dict>
-			<key>comment</key>
-			<string>import-declaration</string>
-			<key>match</key>
-			<string>\b(import)\s+(?:(class|var|func)\s+)?((?:\B\$[0-9]+|\b[\w^\d][\w\d]*\b|\B`[\w^\d][\w\d]*`\B|[/=\-+!*%&lt;&gt;&amp;|\^~.]+)(?:\.(?:\B\$[0-9]+|\b[\w^\d][\w\d]*\b|\B`[\w^\d][\w\d]*`\B|[/=\-+!*%&lt;&gt;&amp;|\^~.]+))*)</string>
-			<key>name</key>
-			<string>meta.import.candid</string>
 		</dict>
 		<key>in-line-comment</key>
 		<dict>
@@ -720,10 +589,6 @@
 				<dict>
 					<key>include</key>
 					<string>#declaration-modifier</string>
-				</dict>
-				<dict>
-					<key>include</key>
-					<string>#access-level-modifier</string>
 				</dict>
 				<dict>
 					<key>comment</key>
@@ -1020,13 +885,6 @@
 			<key>name</key>
 			<string>comment.line.shebang.candid</string>
 		</dict>
-		<key>storage-type</key>
-		<dict>
-			<key>match</key>
-			<string>\b(var|func|let|class|enum)\b</string>
-			<key>name</key>
-			<string>storage.type.candid</string>
-		</dict>
 		<key>string-literal</key>
 		<dict>
 			<key>begin</key>
@@ -1156,6 +1014,6 @@
 	<key>scopeName</key>
 	<string>source.did</string>
 	<key>uuid</key>
-	<string>7efa1168-97c3-4433-8dd7-15b99bf3bb53</string>
+	<string>c4ecff80-b7f4-46c9-97e6-3c009d7ad198</string>
 </dict>
 </plist>

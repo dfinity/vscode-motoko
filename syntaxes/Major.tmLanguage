@@ -1023,7 +1023,7 @@
 		<key>storage-type</key>
 		<dict>
 			<key>match</key>
-			<string>\b(var|func|let|class|enum)\b</string>
+			<string>\b(var|func|let|class|module|actor)\b</string>
 			<key>name</key>
 			<string>storage.type.motoko</string>
 		</dict>
