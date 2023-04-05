@@ -138,6 +138,7 @@
             }
         ]
     },
+    "activationEvents": [],
     "main": "./out/extension",
     "browser": "./out/browser",
     "dependencies": {
