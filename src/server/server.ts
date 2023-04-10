@@ -59,7 +59,7 @@ import { compileViper } from './viper';
 import { organizeImports } from './imports';
 
 interface Settings {
-    motoko: MotokoSettings;
+    motokoSan: MotokoSettings;
 }
 
 interface MotokoSettings {
@@ -481,7 +481,7 @@ connection.onDidChangeWatchedFiles((event) => {
 });
 
 connection.onDidChangeConfiguration((event) => {
-    settings = (<Settings>event.settings).motoko;
+    settings = (<Settings>event.settings).motokoSan;
     notifyPackageConfigChange();
 });
 
@@ -655,7 +655,7 @@ export function sendDiagnostics(
             }
             (diagnosticMap[key] || (diagnosticMap[key] = [])).push({
                 ...diagnostic,
-                source: 'Motoko',
+                source: 'Motoko-san',
             });
         }
     });

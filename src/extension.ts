@@ -26,7 +26,7 @@ let client: LanguageClient;
 
 export async function activate(context: ExtensionContext) {
     context.subscriptions.push(
-        commands.registerCommand('motoko-viper.startService', () =>
+        commands.registerCommand('motokoSan.restartServer', () =>
             startServer(context).catch(console.error),
         ),
     );
