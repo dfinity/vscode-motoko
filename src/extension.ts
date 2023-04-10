@@ -44,17 +44,17 @@ export async function activate(context: ExtensionContext) {
         'dfinity-foundation.vscode-motoko',
     );
     if (incompatible) {
-        const verifyName = require('../package.json').displayName;
+        const extensionName = require('../package.json').displayName;
         const originalName = 'Motoko';
         window
             .showErrorMessage(
-                `[${verifyName}](https://marketplace.visualstudio.com/items?itemName=dfinity-foundation.motoko-viper) is incompatible with the standard [${originalName}](https://marketplace.visualstudio.com/items?itemName=dfinity-foundation.vscode-motoko) extension. Please choose which extension to keep installed:`,
-                verifyName,
+                `[${extensionName}](https://marketplace.visualstudio.com/items?itemName=dfinity-foundation.motoko-viper) is incompatible with the standard [${originalName}](https://marketplace.visualstudio.com/items?itemName=dfinity-foundation.vscode-motoko) extension. Please choose which extension to keep installed:`,
+                extensionName,
                 originalName,
             )
             .then((choice) => {
                 let uninstallPromise;
-                if (choice === verifyName) {
+                if (choice === extensionName) {
                     uninstallPromise = commands.executeCommand(
                         'workbench.extensions.uninstallExtension',
                         'dfinity-foundation.vscode-motoko',
