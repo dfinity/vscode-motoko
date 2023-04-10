@@ -1,19 +1,14 @@
 import locateJavaHome from '@viperproject/locate-java-home';
 import { IJavaHomeInfo } from '@viperproject/locate-java-home/js/es5/lib/interfaces';
-import { homedir } from 'os';
-import * as fs from 'fs';
 import { Package } from 'motoko/lib/package';
 import * as baseLibrary from 'motoko/packages/latest/base.json';
+import { homedir } from 'os';
 import * as path from 'path';
 import {
     ExtensionContext,
-    extensions,
-    FormattingOptions,
-    TextDocument,
-    TextEdit,
     Uri,
     commands,
-    languages,
+    extensions,
     window,
     workspace,
 } from 'vscode';
