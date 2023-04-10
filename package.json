@@ -2,7 +2,7 @@
     "name": "motoko-viper",
     "displayName": "Motoko-san",
     "description": "Experimental formal verification support for Motoko",
-    "version": "0.0.3",
+    "version": "0.0.4",
     "publisher": "dfinity-foundation",
     "repository": "https://github.com/dfinity/vscode-motoko/tree/viper",
     "engines": {
