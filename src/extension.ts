@@ -20,7 +20,6 @@ import {
     TransportKind,
 } from 'vscode-languageclient/node';
 import { watchGlob } from './common/watchConfig';
-import { existsSync, fstat } from 'fs';
 
 // const config = workspace.getConfiguration('motoko');
 
