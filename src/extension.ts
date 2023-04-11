@@ -8,6 +8,7 @@ import {
     ExtensionContext,
     Uri,
     commands,
+    env,
     extensions,
     window,
     workspace,
@@ -187,6 +188,13 @@ export async function startServer(context: ExtensionContext) {
             viperTools = viperTools.replace(
                 /\/Local\/ViperTools$/,
                 `/${buildVersion}/ViperTools`,
+            );
+        }
+        // WSL tweak
+        if (env.remoteName === 'wsl') {
+            viperTools = viperTools.replace(
+                path.join(homePath, '.config', 'Code'),
+                path.join(homePath, '.vscode-server', 'data'),
             );
         }
         // Codium tweak

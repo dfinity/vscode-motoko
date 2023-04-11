@@ -104,6 +104,13 @@ try {
                     verificationCompleted,
                     time,
                 }) => {
+                    console.log(
+                        '[Viper] state change:',
+                        diagnostics,
+                        newState,
+                        verificationCompleted,
+                        time,
+                    );
                     try {
                         if (!uri) {
                             return;
