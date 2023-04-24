@@ -40,8 +40,7 @@ export function formatDocument(
                 }
                 const prettierOptions: prettier.Options = {
                     filepath: document.fileName,
-                    // parser: "motoko-tt-parse",
-                    pluginSearchDirs: [context.extensionPath],
+                    // pluginSearchDirs: [join(rootPath, 'node_modules')],
                     plugins: [motokoPlugin],
                     tabWidth: options.tabSize,
                     useTabs: !options.insertSpaces,
