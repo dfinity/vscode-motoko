@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import { Package } from 'motoko/lib/package';
 import * as baseLibrary from 'motoko/packages/latest/base.json';
 import * as path from 'path';
+import * as vscode from 'vscode';
 import {
     ExtensionContext,
     FormattingOptions,
@@ -362,17 +363,28 @@ async function deployPlayground(_context: ExtensionContext) {
         return;
     }
     try {
-        const result = await client.sendRequest(DEPLOY_PLAYGROUND, { file });
+        const result = await window.withProgress(
+            { location: vscode.ProgressLocation.Window },
+            async (progress) => {
+                progress.report({
+                    message: 'Deploying to Motoko Playground...',
+                });
+                const result = await client.sendRequest(DEPLOY_PLAYGROUND, {
+                    file,
+                });
+                return result;
+            },
+        );
         const panel = window.createWebviewPanel(
             'candid-ui',
             'Candid UI',
             ViewColumn.Beside,
         );
         panel.webview.html = `
-        <iframe
-            src="https://a4gq6-oaaaa-aaaab-qaa4q-cai.raw.ic0.app/?id=${result.canisterId}"
-            style="width:100vw; height:100vh; border:none"
-        />`;
+            <iframe
+                src="https://a4gq6-oaaaa-aaaab-qaa4q-cai.raw.ic0.app/?id=${result.canisterId}"
+                style="width:100vw; height:100vh; border:none"
+            />`;
     } catch (err: any) {
         window.showErrorMessage(
             err?.message

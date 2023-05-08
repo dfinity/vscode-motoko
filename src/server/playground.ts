@@ -1,19 +1,28 @@
-import { Principal } from '@dfinity/principal';
 import { IDL } from '@dfinity/candid';
-import ic from 'ic0';
+import { Principal } from '@dfinity/principal';
+import { HttpAgent, replica } from 'ic0';
 import { URI } from 'vscode-uri';
 import { DeployParams, DeployResult } from '../common/requestConfig';
 import motoko from './motoko';
 import { resolveVirtualPath } from './utils';
+import fetch, { Headers } from 'cross-fetch';
 
-const playground = ic('mwrha-maaaa-aaaab-qabqq-cai');
+global.fetch = fetch;
+global.Headers = Headers;
+
+// const playground = ic('mwrha-maaaa-aaaab-qabqq-cai');
+const playground = replica(
+    new HttpAgent({
+        host: 'http://127.0.0.1:4943',
+        fetch,
+    }),
+    { local: true },
+)('rrkah-fqaaa-aaaaa-aaaaq-cai'); // TODO: use global
 
 export async function deployPlayground(
     params: DeployParams,
 ): Promise<DeployResult> {
-    const virtualFile = resolveVirtualPath(
-        resolveVirtualPath(URI.file(params.file).path),
-    );
+    const virtualFile = resolveVirtualPath(URI.file(params.file).path);
     const name = chooseCanisterName(virtualFile);
     const info = await createCanister();
     const arg = IDL.encode([], []);
@@ -50,6 +59,7 @@ interface CompileResult {
 // }
 
 async function compile(virtualFile: string): Promise<CompileResult> {
+    console.log('Compiling...');
     const result = motoko.wasm(virtualFile, 'ic');
     // if (!result.code ) {
     //     throw new Error('Syntax error');
@@ -71,6 +81,7 @@ async function deploy(
     wasm: Uint8Array,
     profiling: boolean,
 ): Promise<CanisterInfo | undefined> {
+    console.log('Deploying...');
     try {
         let updatedState: CanisterInfo | null = null;
         if (!canisterInfo) {
@@ -107,6 +118,7 @@ async function deploy(
 }
 
 async function createCanister(): Promise<CanisterInfo> {
+    console.log('Creating canister...');
     const timestamp = BigInt(Date.now()) * BigInt(1_000_000);
     const nonce = pow(timestamp);
     const info: CanisterInfo = await playground.call('getCanisterId', nonce);
@@ -127,8 +139,9 @@ async function install(
     mode: string,
     profiling: boolean,
 ): Promise<CanisterInfo> {
+    console.log('Installing WebAssembly...');
     if (!canisterInfo) {
-        throw new Error('no canister id');
+        throw new Error('No canister id');
     }
     const canisterId = canisterInfo.id;
     const installArgs = {
@@ -162,6 +175,7 @@ function chooseCanisterName(file: string): string {
 const DOMAIN = 'motoko-playground';
 
 function pow(timestamp: bigint) {
+    console.log('Running proof of work...');
     console.time('PoW');
     let nonce = BigInt(Math.floor(Math.random() * Number.MAX_SAFE_INTEGER));
     const prefix = DOMAIN + timestamp;
