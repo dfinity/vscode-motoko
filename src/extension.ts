@@ -368,7 +368,11 @@ async function deployPlayground(_context: ExtensionContext) {
             'Candid UI',
             ViewColumn.Beside,
         );
-        panel.webview.html = `<iframe src="${result.canisterId}"></iframe>`;
+        panel.webview.html = `
+        <iframe
+            src="https://a4gq6-oaaaa-aaaab-qaa4q-cai.raw.ic0.app/?id=${result.canisterId}"
+            style="width:100vw; height:100vh; border:none"
+        />`;
     } catch (err: any) {
         window.showErrorMessage(
             err?.message
