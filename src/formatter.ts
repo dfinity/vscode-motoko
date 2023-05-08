@@ -13,7 +13,7 @@ import * as motokoPlugin from 'prettier-plugin-motoko';
 
 export function formatDocument(
     document: TextDocument,
-    context: ExtensionContext,
+    _context: ExtensionContext,
     options: FormattingOptions,
 ): TextEdit[] {
     const formatter = workspace
