@@ -1,9 +1,10 @@
-// import { Principal } from "@dfinity/principal";
+import { Principal } from '@dfinity/principal';
+import { IDL } from '@dfinity/candid';
+import ic from 'ic0';
 import { URI } from 'vscode-uri';
 import { DeployParams, DeployResult } from '../common/requestConfig';
 import motoko from './motoko';
 import { resolveVirtualPath } from './utils';
-import ic from 'ic0';
 
 const playground = ic('mwrha-maaaa-aaaab-qabqq-cai');
 
@@ -13,14 +14,13 @@ export async function deployPlayground(
     const virtualFile = resolveVirtualPath(
         resolveVirtualPath(URI.file(params.file).path),
     );
-    const name = getCanisterName(file);
-    const arg = IDL.encode(initTypes, []);
+    const name = getCanisterName(virtualFile);
+    const arg = IDL.encode([], []);
     deploy(name, arg);
 }
 
 interface CanisterInfo {
-    //   id: Principal;
-    id: string;
+    id: Principal;
     timestamp?: bigint;
     name?: string;
     candid?: string | null;
