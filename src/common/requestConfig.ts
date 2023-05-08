@@ -1,4 +1,4 @@
-import { RequestType } from 'vscode-languageclient';
+import { RequestType } from 'vscode-languageserver';
 
 export const TEST_FILE_REQUEST = new RequestType<TestParams, TestResult, any>(
     'vscode-motoko/run-test-file',
