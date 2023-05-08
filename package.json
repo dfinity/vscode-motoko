@@ -2,11 +2,11 @@
     "name": "vscode-motoko",
     "displayName": "Motoko",
     "description": "Motoko language support",
-    "version": "0.9.2",
+    "version": "0.11.4",
     "publisher": "dfinity-foundation",
     "repository": "https://github.com/dfinity/vscode-motoko",
     "engines": {
-        "vscode": "^1.63.0"
+        "vscode": "^1.75.0"
     },
     "categories": [
         "Programming Languages"
@@ -33,6 +33,18 @@
                     "light": "assets/icons/motoko-color.png",
                     "dark": "assets/icons/motoko-color.png"
                 }
+            },
+            {
+                "id": "candid",
+                "aliases": [
+                    "Candid",
+                    "candid"
+                ],
+                "extensions": [
+                    ".did",
+                    ".did_"
+                ],
+                "configuration": "./language-configuration.json"
             }
         ],
         "grammars": [
@@ -40,6 +52,11 @@
                 "language": "motoko",
                 "scopeName": "source.mo",
                 "path": "./syntaxes/Major.tmLanguage"
+            },
+            {
+                "language": "candid",
+                "scopeName": "source.did",
+                "path": "./syntaxes/Candid.tmLanguage"
             }
         ],
         "configuration": {
@@ -121,19 +138,17 @@
             }
         ]
     },
-    "activationEvents": [
-        "onLanguage:motoko",
-        "onCommand:motoko.startService"
-    ],
+    "activationEvents": [],
     "main": "./out/extension",
     "browser": "./out/browser",
     "dependencies": {
+        "@wasmer/wasi": "1.2.2",
         "change-case": "4.1.2",
         "fast-glob": "3.2.12",
         "mnemonist": "0.39.5",
-        "motoko": "3.4.3",
+        "motoko": "3.5.6",
         "prettier": "2.8.0",
-        "prettier-plugin-motoko": "0.3.3",
+        "prettier-plugin-motoko": "0.5.2",
         "url-relative": "1.0.0",
         "vscode-languageclient": "8.0.2",
         "vscode-languageserver": "8.0.2",

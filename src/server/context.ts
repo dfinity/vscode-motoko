@@ -12,6 +12,7 @@ export class Context {
     public readonly astResolver: AstResolver;
     public readonly importResolver: ImportResolver;
 
+    public packages: [string, string][] | undefined;
     public error: string | undefined;
 
     constructor(uri: string, motoko: Motoko) {
