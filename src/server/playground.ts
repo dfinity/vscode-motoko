@@ -1,7 +1,22 @@
 // import { Principal } from "@dfinity/principal";
+import { URI } from 'vscode-uri';
+import { DeployParams, DeployResult } from '../common/requestConfig';
 import motoko from './motoko';
+import { resolveVirtualPath } from './utils';
+import ic from 'ic0';
 
-export async function deployPlayground() {}
+const playground = ic('mwrha-maaaa-aaaab-qabqq-cai');
+
+export async function deployPlayground(
+    params: DeployParams,
+): Promise<DeployResult> {
+    const virtualFile = resolveVirtualPath(
+        resolveVirtualPath(URI.file(params.file).path),
+    );
+    const name = getCanisterName(file);
+    const arg = IDL.encode(initTypes, []);
+    deploy(name, arg);
+}
 
 interface CanisterInfo {
     //   id: Principal;
@@ -51,7 +66,7 @@ async function compileWasm(
 }
 
 async function deploy(
-    canisterName: string,
+    // canisterName: string,
     canisterInfo: CanisterInfo | null,
     args: Uint8Array,
     mode: string,
@@ -95,8 +110,8 @@ async function deploy(
 
 async function createCanister(): Promise<CanisterInfo> {
     const timestamp = BigInt(Date.now()) * BigInt(1_000_000);
-    const nonce = await worker.pow(timestamp);
-    const info = await backend.getCanisterId(nonce);
+    const nonce = pow(timestamp);
+    const info: CanisterInfo = await playground.call('getCanisterId', nonce);
     return {
         id: info.id,
         timestamp: info.timestamp,
@@ -104,7 +119,7 @@ async function createCanister(): Promise<CanisterInfo> {
 }
 
 async function deleteCanister(info: CanisterInfo) {
-    await backend.removeCode(info);
+    await playground.call('removeCode', info);
 }
 
 async function install(
@@ -124,12 +139,13 @@ async function install(
         mode: { [mode]: null },
         canister_id: canisterId,
     };
-    const new_info = await backend.installCode(
+    const newInfo: CanisterInfo = await playground.call(
+        'installCode',
         canisterInfo,
         installArgs,
         profiling,
     );
-    canisterInfo = new_info;
+    canisterInfo = newInfo;
     return canisterInfo;
 }
 
@@ -143,4 +159,38 @@ function getCanisterName(file: string): string {
         if (suffix === -1) return name;
         return name.slice(0, suffix);
     }
+}
+
+const DOMAIN = 'motoko-playground';
+
+function pow(timestamp: bigint) {
+    console.time('PoW');
+    let nonce = BigInt(Math.floor(Math.random() * Number.MAX_SAFE_INTEGER));
+    const prefix = DOMAIN + timestamp;
+    while (true) {
+        const hash = motokoHash(prefix + nonce);
+        if (hashOk(hash)) {
+            break;
+        }
+        nonce += BigInt(1);
+    }
+    console.timeEnd('PoW');
+    return {
+        timestamp,
+        nonce,
+    };
+}
+
+function motokoHash(message: string): number {
+    const base = 2 ** 32;
+    var x = 5381;
+    for (let i = 0; i < message.length; i++) {
+        const c = message.charCodeAt(i);
+        x = ((((x << 5) + x) % base) + c) % base;
+    }
+    return x;
+}
+
+function hashOk(hash: number): boolean {
+    return (hash & 0xc0000000) === 0;
 }

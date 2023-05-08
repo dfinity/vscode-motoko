@@ -33,10 +33,7 @@ import {
 import { URI } from 'vscode-uri';
 import {
     DEPLOY_PLAYGROUND,
-    DeployParams,
-    DeployResult,
     TEST_FILE_REQUEST,
-    TestParams,
     TestResult,
 } from '../common/requestConfig';
 import { watchGlob as virtualFilePattern } from '../common/watchConfig';
@@ -56,6 +53,7 @@ import {
     locationFromDefinition,
     rangeFromNode,
 } from './navigation';
+import { deployPlayground } from './playground';
 import { Program, asNode, findNodes } from './syntax';
 import {
     formatMotoko,
@@ -1301,14 +1299,8 @@ connection.onRequest(TEST_FILE_REQUEST, async (event): Promise<TestResult> => {
     }
 });
 
-connection.onRequest(
-    DEPLOY_PLAYGROUND,
-    async (event): Promise<DeployResult> => {
-        return {
-            canisterId: 'abc',
-        };
-    },
-);
+// Deploy to Motoko Playground
+connection.onRequest(DEPLOY_PLAYGROUND, deployPlayground);
 
 let validatingTimeout: ReturnType<typeof setTimeout>;
 let validatingUri: string | undefined;
