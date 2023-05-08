@@ -13,6 +13,7 @@ import {
     TextDocument,
     TextEdit,
     Uri,
+    ViewColumn,
     commands,
     languages,
     tests,
@@ -362,7 +363,17 @@ async function deployPlayground(_context: ExtensionContext) {
     }
     try {
         const result = await client.sendRequest(DEPLOY_PLAYGROUND, { file });
-    } catch (err) {
-        ///
+        const panel = window.createWebviewPanel(
+            'candid-ui',
+            'Candid UI',
+            ViewColumn.Beside,
+        );
+        panel.webview.html = `<iframe src="${result.canisterId}"></iframe>`;
+    } catch (err: any) {
+        window.showErrorMessage(
+            err?.message
+                ? String(err.message)
+                : 'Unexpected error while deploying canister',
+        );
     }
 }

@@ -24,10 +24,6 @@ export interface DeployParams {
     file: string;
 }
 
-export type DeployResult =
-    | {
-          error: string;
-      }
-    | {
-          canisterId: string;
-      };
+export interface DeployResult {
+    canisterId: string;
+}

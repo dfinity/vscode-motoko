@@ -14,9 +14,15 @@ export async function deployPlayground(
     const virtualFile = resolveVirtualPath(
         resolveVirtualPath(URI.file(params.file).path),
     );
-    const name = getCanisterName(virtualFile);
+    const name = chooseCanisterName(virtualFile);
+    const info = await createCanister();
     const arg = IDL.encode([], []);
-    deploy(name, arg);
+    const { wasm } = await compile(virtualFile);
+    const profiling = false;
+    await deploy(name, info, new Uint8Array(arg), 'install', wasm, profiling);
+    return {
+        canisterId: info.id.toString(),
+    };
 }
 
 interface CanisterInfo {
@@ -33,43 +39,35 @@ interface CompileResult {
     stable: string;
 }
 
-async function compileCandid(virtualFile: string): Promise<string | undefined> {
-    const candid = motoko.candid(virtualFile);
-    if (!candid) {
-        throw new Error(`Cannot deploy: syntax error`);
-    } else if (candid.trim() === '') {
-        throw new Error(`Cannot deploy: ${virtualFile} has no actor`);
-    }
-    return candid;
-}
+// async function compileCandid(virtualFile: string): Promise<string | undefined> {
+//     const candid = motoko.candid(virtualFile);
+//     if (!candid) {
+//         throw new Error(`Cannot deploy: syntax error`);
+//     } else if (candid.trim() === '') {
+//         throw new Error(`Cannot deploy: ${virtualFile} has no actor`);
+//     }
+//     return candid;
+// }
 
-async function compileWasm(
-    virtualFile: string,
-): Promise<CompileResult | undefined> {
+async function compile(virtualFile: string): Promise<CompileResult> {
     const result = motoko.wasm(virtualFile, 'ic');
-    // if (!out.code ) {
-    //     logger.log('syntax error');
-    //     return;
+    // if (!result.code ) {
+    //     throw new Error('Syntax error');
     // }
-    // if (out.code.candid.trim() === '') {
-    //     logger.log(`cannot deploy: ${virtualFile} has no actor`);
-    //     return;
-    // }
-    // if (out.code.stable === null) {
-    //     logger.log(`cannot deploy: ${virtualFile} cannot generate stable signature`);
-    //     return;
-    // }
-    // logger.log(
-    //     `Compiled Wasm size: ${Math.floor(out.code.wasm.length / 1024)}KB`,
-    // );
-    return result.wasm /* .code */;
+    if (result.candid.trim() === '') {
+        throw new Error(`${virtualFile} has no actor`);
+    }
+    if (result.stable === null) {
+        throw new Error(`${virtualFile} cannot generate stable signature`);
+    }
+    return result;
 }
 
 async function deploy(
-    // canisterName: string,
+    canisterName: string,
     canisterInfo: CanisterInfo | null,
     args: Uint8Array,
-    mode: string,
+    mode: 'install' | 'reinstall' | 'upgrade',
     wasm: Uint8Array,
     profiling: boolean,
 ): Promise<CanisterInfo | undefined> {
@@ -118,9 +116,9 @@ async function createCanister(): Promise<CanisterInfo> {
     };
 }
 
-async function deleteCanister(info: CanisterInfo) {
-    await playground.call('removeCode', info);
-}
+// async function deleteCanister(info: CanisterInfo) {
+//     await playground.call('removeCode', info);
+// }
 
 async function install(
     canisterInfo: CanisterInfo,
@@ -149,7 +147,7 @@ async function install(
     return canisterInfo;
 }
 
-function getCanisterName(file: string): string {
+function chooseCanisterName(file: string): string {
     const path = file.split('/');
     const name = path.pop()!.toLowerCase();
     if (name === 'main.mo' && path.length) {
