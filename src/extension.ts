@@ -26,7 +26,12 @@ import {
     TransportKind,
 } from 'vscode-languageclient/node';
 import * as which from 'which';
-import { TEST_FILE_REQUEST, TestParams, TestResult } from './common/testConfig';
+import {
+    DEPLOY_PLAYGROUND,
+    TEST_FILE_REQUEST,
+    TestParams,
+    TestResult,
+} from './common/requestConfig';
 import { watchGlob } from './common/watchConfig';
 import { formatDocument } from './formatter';
 
@@ -38,6 +43,11 @@ export function activate(context: ExtensionContext) {
     context.subscriptions.push(
         commands.registerCommand('motoko.startService', () =>
             startServer(context),
+        ),
+    );
+    context.subscriptions.push(
+        commands.registerCommand('motoko.deployPlayground', () =>
+            deployPlayground(context),
         ),
     );
     context.subscriptions.push(
@@ -342,5 +352,17 @@ function getDfxPath(): string {
         return which.sync(dfx);
     } catch {
         return dfx;
+    }
+}
+
+async function deployPlayground(_context: ExtensionContext) {
+    const file = window.activeTextEditor?.document?.fileName;
+    if (!file || !file.endsWith('.mo')) {
+        return;
+    }
+    try {
+        const result = await client.sendRequest(DEPLOY_PLAYGROUND, { file });
+    } catch (err) {
+        ///
     }
 }

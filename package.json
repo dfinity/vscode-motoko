@@ -123,6 +123,10 @@
             {
                 "command": "motoko.startService",
                 "title": "Motoko: Restart language server"
+            },
+            {
+                "command": "motoko.deployPlayground",
+                "title": "Motoko: Deploy to IC (20 minutes)"
             }
         ],
         "jsonValidation": [

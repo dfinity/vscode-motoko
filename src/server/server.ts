@@ -32,10 +32,13 @@ import {
 } from 'vscode-languageserver/node';
 import { URI } from 'vscode-uri';
 import {
+    DEPLOY_PLAYGROUND,
+    DeployParams,
+    DeployResult,
     TEST_FILE_REQUEST,
     TestParams,
     TestResult,
-} from '../common/testConfig';
+} from '../common/requestConfig';
 import { watchGlob as virtualFilePattern } from '../common/watchConfig';
 import {
     Context,
@@ -1162,142 +1165,148 @@ connection.onReferences(
 );
 
 // Run a file which is recognized as a unit test
-connection.onRequest(
-    TEST_FILE_REQUEST,
-    async (event: TestParams): Promise<TestResult> => {
-        while (loadingPackages) {
-            // Load all packages before running tests
-            await new Promise((resolve) => setTimeout(resolve, 500));
-        }
+connection.onRequest(TEST_FILE_REQUEST, async (event): Promise<TestResult> => {
+    while (loadingPackages) {
+        // Load all packages before running tests
+        await new Promise((resolve) => setTimeout(resolve, 500));
+    }
 
-        try {
-            const { uri } = event;
+    try {
+        const { uri } = event;
 
-            const context = getContext(uri);
-            const { motoko } = context;
+        const context = getContext(uri);
+        const { motoko } = context;
 
-            // TODO: optimize @testmode check
-            const source = getFileText(uri);
+        // TODO: optimize @testmode check
+        const source = getFileText(uri);
 
-            // const path = resolveFilePath(uri);
-            // const cwd = dirname(path);
-            // let command = `$(dfx cache show)/moc -r ${JSON.stringify(path)}`;
-            // context.packages?.forEach(
-            //     ([name, path]) =>
-            //         (command += ` --package ${JSON.stringify(
-            //             name,
-            //         )} ${JSON.stringify(
-            //             join(resolveFilePath(context.uri), path),
-            //         )}`),
-            // );
-            // return new Promise((resolve, reject) => {
-            //     const testProcess: ReturnType<typeof exec> = exec(
-            //         command, // TODO: windows
-            //         {
-            //             cwd,
-            //             encoding: 'utf8',
-            //         },
-            //         (err, stdout, stderr) => {
-            //             err
-            //                 ? reject(err)
-            //                 : resolve({
-            //                       passed: testProcess.exitCode === 0,
-            //                       stdout: stdout || '',
-            //                       stderr: stderr || '',
-            //                   });
-            //         },
-            //     );
-            // });
+        // const path = resolveFilePath(uri);
+        // const cwd = dirname(path);
+        // let command = `$(dfx cache show)/moc -r ${JSON.stringify(path)}`;
+        // context.packages?.forEach(
+        //     ([name, path]) =>
+        //         (command += ` --package ${JSON.stringify(
+        //             name,
+        //         )} ${JSON.stringify(
+        //             join(resolveFilePath(context.uri), path),
+        //         )}`),
+        // );
+        // return new Promise((resolve, reject) => {
+        //     const testProcess: ReturnType<typeof exec> = exec(
+        //         command, // TODO: windows
+        //         {
+        //             cwd,
+        //             encoding: 'utf8',
+        //         },
+        //         (err, stdout, stderr) => {
+        //             err
+        //                 ? reject(err)
+        //                 : resolve({
+        //                       passed: testProcess.exitCode === 0,
+        //                       stdout: stdout || '',
+        //                       stderr: stderr || '',
+        //                   });
+        //         },
+        //     );
+        // });
 
-            const mode =
-                /\/\/[^\S\n]*@testmode[^\S\n]*([a-zA-Z]+)/.exec(source)?.[1] ||
-                'interpreter';
+        const mode =
+            /\/\/[^\S\n]*@testmode[^\S\n]*([a-zA-Z]+)/.exec(source)?.[1] ||
+            'interpreter';
 
-            const virtualPath = resolveVirtualPath(uri);
+        const virtualPath = resolveVirtualPath(uri);
 
-            console.log('Running test:', uri, `(${mode})`);
+        console.log('Running test:', uri, `(${mode})`);
 
-            if (mode === 'interpreter') {
-                // Run tests via moc.js interpreter
-                motoko.setRunStepLimit(100_000_000);
-                const output = motoko.run(virtualPath);
-                return {
-                    passed: output.result
-                        ? !output.result.error
-                        : !output.stderr.includes('error'), // fallback for previous moc.js versions
-                    stdout: output.stdout,
-                    stderr: output.stderr,
-                };
-            } else if (mode === 'wasi') {
-                // Run tests via Wasmer
-                const start = Date.now();
-                const wasiResult = motoko.wasm(virtualPath, 'wasi');
-                console.log('Compile time:', Date.now() - start);
-
-                const WebAssembly = (global as any).WebAssembly;
-                const module = await (
-                    WebAssembly.compileStreaming || WebAssembly.compile
-                )(wasiResult.wasm);
-                await initWASI();
-                const wasi = new WASI({});
-                await wasi.instantiate(module, {});
-                const exitCode = wasi.start();
-                const stdout = wasi.getStdoutString();
-                const stderr = wasi.getStderrString();
-                wasi.free();
-                if (exitCode !== 0) {
-                    console.log(stdout);
-                    console.error(stderr);
-                    console.log('Exit code:', exitCode);
-                }
-                return {
-                    passed: exitCode === 0,
-                    stdout,
-                    stderr,
-                };
-            } else {
-                throw new Error(`Invalid test mode: '${mode}'`);
-            }
-            // else {
-            //     const start = Date.now();
-            //     const wasiResult = motoko.wasm(virtualPath, 'wasi');
-            //     console.log('Compile time:', Date.now() - start);
-
-            //     const WebAssembly = (global as any).WebAssembly;
-            //     const module = await (
-            //         WebAssembly.compileStreaming || WebAssembly.compile
-            //     )(wasiResult.wasm);
-            //     const WASI = require('wasi');
-            //     const wasi = new WASI({});
-            //     const inst = new WebAssembly.Instance(module, {
-            //         wasi_unstable: wasi.exports,
-            //     });
-            //     wasi.setMemory(inst.exports.memory);
-            //     inst.exports._start();
-
-            //     // if (exitCode !== 0) {
-            //     //     console.log(stdout);
-            //     //     console.error(stderr);
-            //     //     console.log('Exit code:', exitCode);
-            //     // }
-            //     // return {
-            //     //     passed: exitCode === 0,
-            //     //     stdout,
-            //     //     stderr,
-            //     // };
-
-            //     console.log(Object.keys(inst.exports)); ///////
-
-            //     return { passed: true, stdout: '', stderr: '' };
-            // }
-        } catch (err) {
-            console.error(err);
+        if (mode === 'interpreter') {
+            // Run tests via moc.js interpreter
+            motoko.setRunStepLimit(100_000_000);
+            const output = motoko.run(virtualPath);
             return {
-                passed: false,
-                stdout: '',
-                stderr: (err as any)?.message || String(err),
+                passed: output.result
+                    ? !output.result.error
+                    : !output.stderr.includes('error'), // fallback for previous moc.js versions
+                stdout: output.stdout,
+                stderr: output.stderr,
             };
+        } else if (mode === 'wasi') {
+            // Run tests via Wasmer
+            const start = Date.now();
+            const wasiResult = motoko.wasm(virtualPath, 'wasi');
+            console.log('Compile time:', Date.now() - start);
+
+            const WebAssembly = (global as any).WebAssembly;
+            const module = await (
+                WebAssembly.compileStreaming || WebAssembly.compile
+            )(wasiResult.wasm);
+            await initWASI();
+            const wasi = new WASI({});
+            await wasi.instantiate(module, {});
+            const exitCode = wasi.start();
+            const stdout = wasi.getStdoutString();
+            const stderr = wasi.getStderrString();
+            wasi.free();
+            if (exitCode !== 0) {
+                console.log(stdout);
+                console.error(stderr);
+                console.log('Exit code:', exitCode);
+            }
+            return {
+                passed: exitCode === 0,
+                stdout,
+                stderr,
+            };
+        } else {
+            throw new Error(`Invalid test mode: '${mode}'`);
         }
+        // else {
+        //     const start = Date.now();
+        //     const wasiResult = motoko.wasm(virtualPath, 'wasi');
+        //     console.log('Compile time:', Date.now() - start);
+
+        //     const WebAssembly = (global as any).WebAssembly;
+        //     const module = await (
+        //         WebAssembly.compileStreaming || WebAssembly.compile
+        //     )(wasiResult.wasm);
+        //     const WASI = require('wasi');
+        //     const wasi = new WASI({});
+        //     const inst = new WebAssembly.Instance(module, {
+        //         wasi_unstable: wasi.exports,
+        //     });
+        //     wasi.setMemory(inst.exports.memory);
+        //     inst.exports._start();
+
+        //     // if (exitCode !== 0) {
+        //     //     console.log(stdout);
+        //     //     console.error(stderr);
+        //     //     console.log('Exit code:', exitCode);
+        //     // }
+        //     // return {
+        //     //     passed: exitCode === 0,
+        //     //     stdout,
+        //     //     stderr,
+        //     // };
+
+        //     console.log(Object.keys(inst.exports)); ///////
+
+        //     return { passed: true, stdout: '', stderr: '' };
+        // }
+    } catch (err) {
+        console.error(err);
+        return {
+            passed: false,
+            stdout: '',
+            stderr: (err as any)?.message || String(err),
+        };
+    }
+});
+
+connection.onRequest(
+    DEPLOY_PLAYGROUND,
+    async (event): Promise<DeployResult> => {
+        return {
+            canisterId: 'abc',
+        };
     },
 );
 
