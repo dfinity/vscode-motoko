@@ -1,11 +1,10 @@
 import { IDL } from '@dfinity/candid';
 import { Principal } from '@dfinity/principal';
-import { HttpAgent, replica } from 'ic0';
-import { URI } from 'vscode-uri';
-import { DeployParams, DeployResult } from '../common/requestConfig';
-import motoko from './motoko';
-import { resolveVirtualPath } from './utils';
 import fetch, { Headers } from 'cross-fetch';
+import { HttpAgent, replica } from 'ic0';
+import { DeployParams, DeployResult } from '../common/requestConfig';
+import { getContext } from './context';
+import { resolveVirtualPath } from './utils';
 
 global.fetch = fetch;
 global.Headers = Headers;
@@ -19,14 +18,13 @@ const playground = replica(
     { local: true },
 )('rrkah-fqaaa-aaaaa-aaaaq-cai'); // TODO: use global
 
-export async function deployPlayground(
-    params: DeployParams,
-): Promise<DeployResult> {
-    const virtualFile = resolveVirtualPath(URI.file(params.file).path);
-    const name = chooseCanisterName(virtualFile);
+export async function deployPlayground({
+    uri,
+}: DeployParams): Promise<DeployResult> {
+    const name = chooseCanisterName(uri);
     const info = await createCanister();
     const arg = IDL.encode([], []);
-    const { wasm } = await compile(virtualFile);
+    const { wasm } = await compile(uri);
     const profiling = false;
     await deploy(name, info, new Uint8Array(arg), 'install', wasm, profiling);
     return {
@@ -58,17 +56,18 @@ interface CompileResult {
 //     return candid;
 // }
 
-async function compile(virtualFile: string): Promise<CompileResult> {
+async function compile(uri: string): Promise<CompileResult> {
     console.log('Compiling...');
-    const result = motoko.wasm(virtualFile, 'ic');
+    const { motoko } = getContext(uri);
+    const result = motoko.wasm(resolveVirtualPath(uri), 'ic');
     // if (!result.code ) {
     //     throw new Error('Syntax error');
     // }
     if (result.candid.trim() === '') {
-        throw new Error(`${virtualFile} has no actor`);
+        throw new Error(`${uri} has no actor`);
     }
     if (result.stable === null) {
-        throw new Error(`${virtualFile} cannot generate stable signature`);
+        throw new Error(`${uri} cannot generate stable signature`);
     }
     return result;
 }
@@ -160,8 +159,8 @@ async function install(
     return canisterInfo;
 }
 
-function chooseCanisterName(file: string): string {
-    const path = file.split('/');
+function chooseCanisterName(uri: string): string {
+    const path = uri.split('/');
     const name = path.pop()!.toLowerCase();
     if (name === 'main.mo' && path.length) {
         return path.pop()!.toLowerCase();
@@ -175,13 +174,22 @@ function chooseCanisterName(file: string): string {
 const DOMAIN = 'motoko-playground';
 
 function pow(timestamp: bigint) {
+    function motokoHash(message: string): number {
+        const base = 2 ** 32;
+        let x = 5381;
+        for (let i = 0; i < message.length; i++) {
+            const c = message.charCodeAt(i);
+            x = ((((x << 5) + x) % base) + c) % base;
+        }
+        return x;
+    }
     console.log('Running proof of work...');
     console.time('PoW');
     let nonce = BigInt(Math.floor(Math.random() * Number.MAX_SAFE_INTEGER));
     const prefix = DOMAIN + timestamp;
     while (true) {
         const hash = motokoHash(prefix + nonce);
-        if (hashOk(hash)) {
+        if ((hash & 0xc0000000) === 0) {
             break;
         }
         nonce += BigInt(1);
@@ -191,18 +199,4 @@ function pow(timestamp: bigint) {
         timestamp,
         nonce,
     };
-}
-
-function motokoHash(message: string): number {
-    const base = 2 ** 32;
-    var x = 5381;
-    for (let i = 0; i < message.length; i++) {
-        const c = message.charCodeAt(i);
-        x = ((((x << 5) + x) % base) + c) % base;
-    }
-    return x;
-}
-
-function hashOk(hash: number): boolean {
-    return (hash & 0xc0000000) === 0;
 }

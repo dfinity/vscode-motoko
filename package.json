@@ -126,7 +126,7 @@
             },
             {
                 "command": "motoko.deployPlayground",
-                "title": "Motoko: Deploy to IC (20 minutes)"
+                "title": "Motoko: Deploy to Internet Computer (20 minutes)"
             }
         ],
         "jsonValidation": [

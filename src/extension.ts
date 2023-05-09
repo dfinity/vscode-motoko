@@ -358,8 +358,8 @@ function getDfxPath(): string {
 }
 
 async function deployPlayground(_context: ExtensionContext) {
-    const file = window.activeTextEditor?.document?.fileName;
-    if (!file || !file.endsWith('.mo')) {
+    const uri = window.activeTextEditor?.document?.uri.path;
+    if (!uri || !uri.endsWith('.mo')) {
         return;
     }
     try {
@@ -370,7 +370,7 @@ async function deployPlayground(_context: ExtensionContext) {
                     message: 'Deploying to Motoko Playground...',
                 });
                 const result = await client.sendRequest(DEPLOY_PLAYGROUND, {
-                    file,
+                    uri,
                 });
                 return result;
             },

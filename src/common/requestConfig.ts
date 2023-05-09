@@ -21,7 +21,7 @@ export const DEPLOY_PLAYGROUND = new RequestType<
 >('vscode-motoko/deploy-playground');
 
 export interface DeployParams {
-    file: string;
+    uri: string;
 }
 
 export interface DeployResult {
