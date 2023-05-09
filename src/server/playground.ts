@@ -38,7 +38,9 @@ export async function deployPlayground({
     const arg = IDL.encode([], []);
     const profiling = false;
 
+    // Deploy and reset canister state
     await deploy(name, info, new Uint8Array(arg), 'reinstall', wasm, profiling);
+
     return {
         canisterId: info.id.toString(),
     };
