@@ -379,6 +379,7 @@ async function deployPlayground(_context: ExtensionContext) {
             'candid-ui',
             'Candid UI',
             ViewColumn.Beside,
+            { enableScripts: true },
         );
         panel.webview.html = `
             <iframe
