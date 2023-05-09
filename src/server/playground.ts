@@ -26,7 +26,7 @@ export async function deployPlayground({
     const arg = IDL.encode([], []);
     const { wasm } = await compile(uri);
     const profiling = false;
-    await deploy(name, info, new Uint8Array(arg), 'install', wasm, profiling);
+    await deploy(name, info, new Uint8Array(arg), 'reinstall', wasm, profiling);
     return {
         canisterId: info.id.toString(),
     };
