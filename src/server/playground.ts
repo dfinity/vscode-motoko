@@ -18,14 +18,26 @@ const playground = replica(
     { local: true },
 )('rrkah-fqaaa-aaaaa-aaaaq-cai'); // TODO: use global
 
+let currentCanister: CanisterInfo | undefined;
+let currentCanisterTimeout: ReturnType<typeof setTimeout>;
+
 export async function deployPlayground({
     uri,
 }: DeployParams): Promise<DeployResult> {
     const name = chooseCanisterName(uri);
-    const info = await createCanister();
-    const arg = IDL.encode([], []);
+
+    // Reuse or create a canister
+    const info = currentCanister || (await createCanister());
+    clearTimeout(currentCanisterTimeout);
+    setTimeout(() => (currentCanister = undefined), 20 * 60 * 1000);
+
+    // Compile WebAssembly
     const { wasm } = await compile(uri);
+
+    // TODO: custom init args?
+    const arg = IDL.encode([], []);
     const profiling = false;
+
     await deploy(name, info, new Uint8Array(arg), 'reinstall', wasm, profiling);
     return {
         canisterId: info.id.toString(),
@@ -174,6 +186,7 @@ function chooseCanisterName(uri: string): string {
 const DOMAIN = 'motoko-playground';
 
 function pow(timestamp: bigint) {
+    'use strict';
     function motokoHash(message: string): number {
         const base = 2 ** 32;
         let x = 5381;
