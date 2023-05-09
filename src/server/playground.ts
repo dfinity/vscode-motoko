@@ -1,22 +1,15 @@
 import { IDL } from '@dfinity/candid';
 import { Principal } from '@dfinity/principal';
-import fetch, { Headers } from 'cross-fetch';
-import { HttpAgent, replica } from 'ic0';
+import { Headers } from 'cross-fetch';
+import ic from 'ic0';
 import { DeployParams, DeployResult } from '../common/requestConfig';
 import { getContext } from './context';
 import { resolveVirtualPath } from './utils';
 
-global.fetch = fetch;
+// Patch for `@dfinity/agent`
 global.Headers = Headers;
 
-// const playground = ic('mwrha-maaaa-aaaab-qabqq-cai');
-const playground = replica(
-    new HttpAgent({
-        host: 'http://127.0.0.1:4943',
-        fetch,
-    }),
-    { local: true },
-)('rrkah-fqaaa-aaaaa-aaaaq-cai'); // TODO: use global
+const playground = ic('mwrha-maaaa-aaaab-qabqq-cai');
 
 let currentCanister: CanisterInfo | undefined;
 let currentCanisterTimeout: ReturnType<typeof setTimeout>;
