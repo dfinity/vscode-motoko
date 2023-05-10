@@ -357,6 +357,8 @@ function getDfxPath(): string {
     }
 }
 
+const deployPanelMap = new Map<string, vscode.WebviewPanel>();
+
 async function deployPlayground(_context: ExtensionContext) {
     const uri = window.activeTextEditor?.document?.uri.path;
     if (!uri || !uri.endsWith('.mo')) {
@@ -375,12 +377,18 @@ async function deployPlayground(_context: ExtensionContext) {
                 return result;
             },
         );
-        const panel = window.createWebviewPanel(
-            'candid-ui',
-            'Candid UI',
-            ViewColumn.Beside,
-            { enableScripts: true },
-        );
+        const key = result.canisterId;
+        let panel = deployPanelMap.get(key);
+        if (!panel) {
+            panel = window.createWebviewPanel(
+                'candid-ui',
+                'Candid UI',
+                ViewColumn.Beside,
+                { enableScripts: true },
+            );
+            deployPanelMap.set(key, panel);
+            panel.onDidDispose(() => deployPanelMap.delete(key));
+        }
         panel.webview.html = `
             <iframe
                 src="https://a4gq6-oaaaa-aaaab-qaa4q-cai.raw.ic0.app/?id=${result.canisterId}"
