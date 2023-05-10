@@ -33,7 +33,7 @@ import {
     TEST_FILE_REQUEST,
     TestParams,
     TestResult,
-} from './common/requestConfig';
+} from './common/connectionTypes';
 import { watchGlob } from './common/watchConfig';
 import { formatDocument } from './formatter';
 
@@ -48,8 +48,21 @@ export function activate(context: ExtensionContext) {
         ),
     );
     context.subscriptions.push(
-        commands.registerCommand('motoko.deployPlayground', () =>
-            deployPlayground(context),
+        commands.registerCommand(
+            'motoko.deployPlayground',
+            async (relevantUri?: Uri) => {
+                const uri =
+                    relevantUri?.path ||
+                    window.activeTextEditor?.document?.uri.path;
+                if (!uri || !uri.endsWith('.mo')) {
+                    window.showErrorMessage(
+                        'Invalid deploy URI:',
+                        uri ?? `(${uri})`,
+                    );
+                    return;
+                }
+                await deployPlayground(context, uri);
+            },
         ),
     );
     context.subscriptions.push(
@@ -359,11 +372,7 @@ function getDfxPath(): string {
 
 const deployPanelMap = new Map<string, vscode.WebviewPanel>();
 
-async function deployPlayground(_context: ExtensionContext) {
-    const uri = window.activeTextEditor?.document?.uri.path;
-    if (!uri || !uri.endsWith('.mo')) {
-        return;
-    }
+async function deployPlayground(_context: ExtensionContext, uri: string) {
     try {
         const result = await window.withProgress(
             { location: vscode.ProgressLocation.Window },

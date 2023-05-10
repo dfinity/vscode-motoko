@@ -148,6 +148,13 @@
                     "command": "motoko.deployPlayground",
                     "group": "navigation"
                 }
+            ],
+            "editor/context": [
+                {
+                    "when": "resourceLangId == motoko",
+                    "command": "motoko.deployPlayground",
+                    "group": "navigation"
+                }
             ]
         }
     },

@@ -33,9 +33,10 @@ import {
 import { URI } from 'vscode-uri';
 import {
     DEPLOY_PLAYGROUND,
+    DEPLOY_PLAYGROUND_MESSAGE,
     TEST_FILE_REQUEST,
     TestResult,
-} from '../common/requestConfig';
+} from '../common/connectionTypes';
 import { watchGlob as virtualFilePattern } from '../common/watchConfig';
 import {
     Context,
@@ -1300,7 +1301,11 @@ connection.onRequest(TEST_FILE_REQUEST, async (event): Promise<TestResult> => {
 });
 
 // Deploy to Motoko Playground
-connection.onRequest(DEPLOY_PLAYGROUND, deployPlayground);
+connection.onRequest(DEPLOY_PLAYGROUND, (params) =>
+    deployPlayground(params, (message) =>
+        connection.sendNotification(DEPLOY_PLAYGROUND_MESSAGE, { message }),
+    ),
+);
 
 let validatingTimeout: ReturnType<typeof setTimeout>;
 let validatingUri: string | undefined;
