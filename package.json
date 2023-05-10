@@ -126,7 +126,7 @@
             },
             {
                 "command": "motoko.deployPlayground",
-                "title": "Motoko: Deploy to Internet Computer (20 minutes)"
+                "title": "Motoko: Deploy (20 minutes)"
             }
         ],
         "jsonValidation": [
@@ -140,7 +140,16 @@
                 "language": "motoko",
                 "path": "./snippets.json"
             }
-        ]
+        ],
+        "menus": {
+            "explorer/context": [
+                {
+                    "when": "resourceLangId == motoko",
+                    "command": "motoko.deployPlayground",
+                    "group": ""
+                }
+            ]
+        }
     },
     "activationEvents": [],
     "main": "./out/extension",
