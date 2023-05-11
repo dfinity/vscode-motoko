@@ -167,10 +167,9 @@ export async function deployPlayground(
         }
     }
 
-    const DOMAIN = 'motoko-playground';
-
     function pow(timestamp: bigint) {
         'use strict';
+        const domain = 'motoko-playground';
         function motokoHash(message: string): number {
             const base = 2 ** 32;
             let x = 5381;
@@ -183,7 +182,7 @@ export async function deployPlayground(
         notify('Running proof of work...');
         console.time('PoW');
         let nonce = BigInt(Math.floor(Math.random() * Number.MAX_SAFE_INTEGER));
-        const prefix = DOMAIN + timestamp;
+        const prefix = domain + timestamp;
         while (true) {
             const hash = motokoHash(prefix + nonce);
             if ((hash & 0xc0000000) === 0) {
