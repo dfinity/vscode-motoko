@@ -30,6 +30,7 @@ import {
 import * as which from 'which';
 import {
     DEPLOY_PLAYGROUND,
+    DEPLOY_PLAYGROUND_MESSAGE,
     TEST_FILE_REQUEST,
     TestParams,
     TestResult,
@@ -380,9 +381,14 @@ async function deployPlayground(_context: ExtensionContext, uri: string) {
                 progress.report({
                     message: 'Deploying to Motoko Playground...',
                 });
+                const listener = client.onNotification(
+                    DEPLOY_PLAYGROUND_MESSAGE,
+                    ({ message }) => progress.report({ message }),
+                );
                 const result = await client.sendRequest(DEPLOY_PLAYGROUND, {
                     uri,
                 });
+                listener.dispose();
                 return result;
             },
         );
