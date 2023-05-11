@@ -35,9 +35,13 @@ export async function deployPlayground(
     const name = chooseCanisterName(uri);
 
     // Reuse or create a canister
-    const info = currentCanister || (await createCanister());
+    const canister = currentCanister || (await createCanister());
     clearTimeout(currentCanisterTimeout);
-    setTimeout(() => (currentCanister = undefined), 20 * 60 * 1000);
+    currentCanisterTimeout = setTimeout(
+        () => (currentCanister = undefined),
+        20 * 60 * 1000,
+    );
+    currentCanister = canister;
 
     // Compile WebAssembly
     const { wasm } = await compile(uri);
@@ -47,10 +51,17 @@ export async function deployPlayground(
     const profiling = false;
 
     // Deploy and reset canister state
-    await deploy(name, info, new Uint8Array(arg), 'reinstall', wasm, profiling);
+    await deploy(
+        name,
+        canister,
+        new Uint8Array(arg),
+        'reinstall',
+        wasm,
+        profiling,
+    );
 
     return {
-        canisterId: info.id.toString(),
+        canisterId: canister.id.toString(),
     };
     async function compile(uri: string): Promise<CompileResult> {
         notify('Compiling...');

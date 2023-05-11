@@ -376,7 +376,7 @@ const deployPanelMap = new Map<string, vscode.WebviewPanel>();
 async function deployPlayground(_context: ExtensionContext, uri: string) {
     try {
         const result = await window.withProgress(
-            { location: vscode.ProgressLocation.Window },
+            { location: vscode.ProgressLocation.Notification },
             async (progress) => {
                 progress.report({
                     message: 'Deploying to Motoko Playground...',
