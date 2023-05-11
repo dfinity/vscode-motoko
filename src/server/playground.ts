@@ -25,8 +25,11 @@ interface CompileResult {
 
 const playground = ic('mwrha-maaaa-aaaab-qabqq-cai');
 
-let currentCanister: CanisterInfo | undefined;
-let currentCanisterTimeout: ReturnType<typeof setTimeout>;
+const currentCanisterMap = new Map<string, CanisterInfo>();
+const currentCanisterTimeoutMap = new Map<
+    string,
+    ReturnType<typeof setTimeout>
+>();
 
 export async function deployPlayground(
     { uri }: DeployParams,
@@ -35,13 +38,12 @@ export async function deployPlayground(
     const name = chooseCanisterName(uri);
 
     // Reuse or create a canister
-    const canister = currentCanister || (await createCanister());
-    clearTimeout(currentCanisterTimeout);
-    currentCanisterTimeout = setTimeout(
-        () => (currentCanister = undefined),
-        20 * 60 * 1000,
+    const canister = currentCanisterMap.get(uri) || (await createCanister());
+    clearTimeout(currentCanisterTimeoutMap.get(uri)!);
+    currentCanisterTimeoutMap.set(
+        uri,
+        setTimeout(() => currentCanisterMap.delete(uri), 20 * 60 * 1000),
     );
-    currentCanister = canister;
 
     // Compile WebAssembly
     const { wasm } = await compile(uri);
@@ -51,7 +53,7 @@ export async function deployPlayground(
     const profiling = false;
 
     // Deploy and reset canister state
-    await deploy(
+    const updatedCanister = await deploy(
         name,
         canister,
         new Uint8Array(arg),
@@ -59,6 +61,7 @@ export async function deployPlayground(
         wasm,
         profiling,
     );
+    currentCanisterMap.set(uri, updatedCanister);
 
     return {
         canisterId: canister.id.toString(),
@@ -86,12 +89,12 @@ export async function deployPlayground(
         mode: 'install' | 'reinstall' | 'upgrade',
         wasm: Uint8Array,
         profiling: boolean,
-    ): Promise<CanisterInfo | undefined> {
+    ): Promise<CanisterInfo> {
         try {
             let updatedState: CanisterInfo | null = null;
             if (!canisterInfo) {
                 if (mode !== 'install') {
-                    throw new Error(`Cannot ${mode} for new canister`);
+                    throw new Error(`Cannot '${mode}' for new canister`);
                 }
                 canisterInfo = await createCanister();
                 notify('Deploying...');
@@ -104,7 +107,7 @@ export async function deployPlayground(
                 );
             } else {
                 if (mode !== 'reinstall' && mode !== 'upgrade') {
-                    throw new Error(`Unknown mode ${mode}`);
+                    throw new Error(`Unknown mode '${mode}'`);
                 }
                 notify('Deploying...');
                 updatedState = await install(
@@ -127,7 +130,7 @@ export async function deployPlayground(
     async function createCanister(): Promise<CanisterInfo> {
         const timestamp = BigInt(Date.now()) * BigInt(1_000_000);
         const nonce = pow(timestamp);
-        notify('Creating canister...');
+        notify('Creating new canister...');
         const info: CanisterInfo = await playground.call(
             'getCanisterId',
             nonce,
