@@ -371,10 +371,15 @@ function getDfxPath(): string {
     }
 }
 
+const deployingSet = new Set<string>();
 const deployPanelMap = new Map<string, vscode.WebviewPanel>();
 
 async function deployPlayground(_context: ExtensionContext, uri: string) {
     try {
+        if (deployingSet.has(uri)) {
+            throw new Error('Already deploying this file');
+        }
+        deployingSet.add(uri);
         const result = await window.withProgress(
             { location: vscode.ProgressLocation.Notification },
             async (progress) => {
@@ -416,4 +421,5 @@ async function deployPlayground(_context: ExtensionContext, uri: string) {
                 : 'Unexpected error while deploying canister',
         );
     }
+    deployingSet.delete(uri);
 }
