@@ -373,6 +373,7 @@ function getDfxPath(): string {
 
 const deployingSet = new Set<string>();
 const deployPanelMap = new Map<string, vscode.WebviewPanel>();
+let tag = Math.floor(Math.random() * 1e12);
 
 async function deployPlayground(_context: ExtensionContext, uri: string) {
     try {
@@ -411,7 +412,9 @@ async function deployPlayground(_context: ExtensionContext, uri: string) {
         }
         panel.webview.html = `
             <iframe
-                src="https://a4gq6-oaaaa-aaaab-qaa4q-cai.raw.ic0.app/?id=${result.canisterId}"
+                src="https://a4gq6-oaaaa-aaaab-qaa4q-cai.raw.ic0.app/?id=${
+                    result.canisterId
+                }&tag=${tag++}"
                 style="width:100vw; height:100vh; border:none"
             />`;
     } catch (err: any) {
