@@ -37,6 +37,9 @@ export async function deployPlayground(
 ): Promise<DeployResult> {
     const name = chooseCanisterName(uri);
 
+    // Compile WebAssembly
+    const { wasm } = await compile(uri);
+
     // Reuse or create a canister
     const canister = currentCanisterMap.get(uri) || (await createCanister());
     clearTimeout(currentCanisterTimeoutMap.get(uri)!);
@@ -44,9 +47,6 @@ export async function deployPlayground(
         uri,
         setTimeout(() => currentCanisterMap.delete(uri), 20 * 60 * 1000),
     );
-
-    // Compile WebAssembly
-    const { wasm } = await compile(uri);
 
     // TODO: custom init args?
     const arg = IDL.encode([], []);
