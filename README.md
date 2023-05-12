@@ -31,8 +31,11 @@ Below are the default key bindings for commonly used features supported in the e
 
 [![Snippets](https://github.com/dfinity/vscode-motoko/raw/master/guide/assets/snippets.png)](https://marketplace.visualstudio.com/items?itemName=dfinity-foundation.vscode-motoko)
 
+[![Motoko Playground deployment](https://github.com/dfinity/vscode-motoko/raw/master/guide/assets/deploy.png)](https://marketplace.visualstudio.com/items?itemName=dfinity-foundation.vscode-motoko)
+
 ## Other Features
 
+- Deploy to the Internet Computer mainnet using a right-click context menu action.
 - [Vessel](https://github.com/dfinity/vessel) and [MOPS](https://mops.one/) (the two most popular Motoko package managers) are supported out-of-the-box in this extension. 
 - Quickly convert between Motoko types using code snippets such as `array-2-buffer` or `principal-2-text`.
 - In case you're hoping to learn Motoko without installing `dfx`, the Motoko VS Code extension works standalone on all major operating systems (including Windows). 
