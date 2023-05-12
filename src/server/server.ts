@@ -152,10 +152,10 @@ async function getPackageSources(
                 //     return Object.entries(sources);
                 // } catch (fallbackError) {
                 //     console.error(
-                //         `Error in fallback MOPS implementation:`,
+                //         `Error in fallback Mops implementation:`,
                 //         fallbackError,
                 //     );
-                //     // Provide a verbose error message for MOPS command
+                //     // Provide a verbose error message for Mops command
                 //     throw new Error(
                 //         `Error while running \`${command}\`: ${
                 //             err?.message || err
@@ -164,7 +164,7 @@ async function getPackageSources(
                 // }
 
                 throw new Error(
-                    `Error while finding MOPS packages.\nMake sure MOPS is installed locally or globally (https://mops.one/docs/install).\n${
+                    `Error while finding Mops packages.\nMake sure Mops is installed locally or globally (https://mops.one/docs/install).\n${
                         err?.message || err
                     }`,
                 );
