@@ -1178,41 +1178,9 @@ connection.onRequest(TEST_FILE_REQUEST, async (event): Promise<TestResult> => {
 
         // TODO: optimize @testmode check
         const source = getFileText(uri);
-
-        // const path = resolveFilePath(uri);
-        // const cwd = dirname(path);
-        // let command = `$(dfx cache show)/moc -r ${JSON.stringify(path)}`;
-        // context.packages?.forEach(
-        //     ([name, path]) =>
-        //         (command += ` --package ${JSON.stringify(
-        //             name,
-        //         )} ${JSON.stringify(
-        //             join(resolveFilePath(context.uri), path),
-        //         )}`),
-        // );
-        // return new Promise((resolve, reject) => {
-        //     const testProcess: ReturnType<typeof exec> = exec(
-        //         command, // TODO: windows
-        //         {
-        //             cwd,
-        //             encoding: 'utf8',
-        //         },
-        //         (err, stdout, stderr) => {
-        //             err
-        //                 ? reject(err)
-        //                 : resolve({
-        //                       passed: testProcess.exitCode === 0,
-        //                       stdout: stdout || '',
-        //                       stderr: stderr || '',
-        //                   });
-        //         },
-        //     );
-        // });
-
         const mode =
             /\/\/[^\S\n]*@testmode[^\S\n]*([a-zA-Z]+)/.exec(source)?.[1] ||
             'interpreter';
-
         const virtualPath = resolveVirtualPath(uri);
 
         console.log('Running test:', uri, `(${mode})`);
