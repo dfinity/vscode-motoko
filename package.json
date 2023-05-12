@@ -2,7 +2,7 @@
     "name": "vscode-motoko",
     "displayName": "Motoko",
     "description": "Motoko language support",
-    "version": "0.11.4",
+    "version": "0.12.0",
     "publisher": "dfinity-foundation",
     "repository": "https://github.com/dfinity/vscode-motoko",
     "engines": {
@@ -123,6 +123,10 @@
             {
                 "command": "motoko.startService",
                 "title": "Motoko: Restart language server"
+            },
+            {
+                "command": "motoko.deployPlayground",
+                "title": "Motoko: Deploy (20 minutes)"
             }
         ],
         "jsonValidation": [
@@ -136,7 +140,23 @@
                 "language": "motoko",
                 "path": "./snippets.json"
             }
-        ]
+        ],
+        "menus": {
+            "explorer/context": [
+                {
+                    "when": "resourceLangId == motoko",
+                    "command": "motoko.deployPlayground",
+                    "group": "navigation"
+                }
+            ],
+            "editor/context": [
+                {
+                    "when": "resourceLangId == motoko",
+                    "command": "motoko.deployPlayground",
+                    "group": "navigation"
+                }
+            ]
+        }
     },
     "activationEvents": [],
     "main": "./out/extension",
@@ -145,6 +165,7 @@
         "@wasmer/wasi": "1.2.2",
         "change-case": "4.1.2",
         "fast-glob": "3.2.12",
+        "ic0": "^0.2.7",
         "mnemonist": "0.39.5",
         "motoko": "3.5.6",
         "prettier": "2.8.0",

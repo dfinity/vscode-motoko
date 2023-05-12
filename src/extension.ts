@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import { Package } from 'motoko/lib/package';
 import * as baseLibrary from 'motoko/packages/latest/base.json';
 import * as path from 'path';
+import * as vscode from 'vscode';
 import {
     ExtensionContext,
     FormattingOptions,
@@ -13,6 +14,7 @@ import {
     TextDocument,
     TextEdit,
     Uri,
+    ViewColumn,
     commands,
     languages,
     tests,
@@ -26,7 +28,13 @@ import {
     TransportKind,
 } from 'vscode-languageclient/node';
 import * as which from 'which';
-import { TEST_FILE_REQUEST, TestParams, TestResult } from './common/testConfig';
+import {
+    DEPLOY_PLAYGROUND,
+    DEPLOY_PLAYGROUND_MESSAGE,
+    TEST_FILE_REQUEST,
+    TestParams,
+    TestResult,
+} from './common/connectionTypes';
 import { watchGlob } from './common/watchConfig';
 import { formatDocument } from './formatter';
 
@@ -38,6 +46,24 @@ export function activate(context: ExtensionContext) {
     context.subscriptions.push(
         commands.registerCommand('motoko.startService', () =>
             startServer(context),
+        ),
+    );
+    context.subscriptions.push(
+        commands.registerCommand(
+            'motoko.deployPlayground',
+            async (relevantUri?: Uri) => {
+                const uri =
+                    relevantUri?.toString() ||
+                    window.activeTextEditor?.document?.uri.toString();
+                if (!uri || !uri.endsWith('.mo')) {
+                    window.showErrorMessage(
+                        'Invalid deploy URI:',
+                        uri ?? `(${uri})`,
+                    );
+                    return;
+                }
+                await deployPlayground(context, uri);
+            },
         ),
     );
     context.subscriptions.push(
@@ -343,4 +369,57 @@ function getDfxPath(): string {
     } catch {
         return dfx;
     }
+}
+
+const deployingSet = new Set<string>();
+const deployPanelMap = new Map<string, vscode.WebviewPanel>();
+
+async function deployPlayground(_context: ExtensionContext, uri: string) {
+    try {
+        if (deployingSet.has(uri)) {
+            throw new Error('Already deploying this file');
+        }
+        deployingSet.add(uri);
+        const result = await window.withProgress(
+            { location: vscode.ProgressLocation.Notification },
+            async (progress) => {
+                progress.report({
+                    message: 'Deploying to Motoko Playground...',
+                });
+                const listener = client.onNotification(
+                    DEPLOY_PLAYGROUND_MESSAGE,
+                    ({ message }) => progress.report({ message }),
+                );
+                const result = await client.sendRequest(DEPLOY_PLAYGROUND, {
+                    uri,
+                });
+                listener.dispose();
+                return result;
+            },
+        );
+        const key = result.canisterId;
+        let panel = deployPanelMap.get(key);
+        if (!panel) {
+            panel = window.createWebviewPanel(
+                'candid-ui',
+                'Candid UI',
+                ViewColumn.Beside,
+                { enableScripts: true },
+            );
+            deployPanelMap.set(key, panel);
+            panel.onDidDispose(() => deployPanelMap.delete(key));
+        }
+        panel.webview.html = `
+            <iframe
+                src="https://a4gq6-oaaaa-aaaab-qaa4q-cai.raw.ic0.app/?id=${result.canisterId}"
+                style="width:100vw; height:100vh; border:none"
+            />`;
+    } catch (err: any) {
+        window.showErrorMessage(
+            err?.message
+                ? String(err.message)
+                : 'Unexpected error while deploying canister',
+        );
+    }
+    deployingSet.delete(uri);
 }
