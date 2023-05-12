@@ -68,7 +68,8 @@ export async function deployPlayground(
     };
     async function compile(uri: string): Promise<CompileResult> {
         notify('Compiling...');
-        const { motoko } = getContext(uri);
+        const context = getContext(uri);
+        const { motoko } = context;
         const result = motoko.wasm(resolveVirtualPath(uri), 'ic');
         // if (!result.code ) {
         //     throw new Error('Syntax error');

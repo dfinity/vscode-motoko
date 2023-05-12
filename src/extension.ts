@@ -53,8 +53,8 @@ export function activate(context: ExtensionContext) {
             'motoko.deployPlayground',
             async (relevantUri?: Uri) => {
                 const uri =
-                    relevantUri?.path ||
-                    window.activeTextEditor?.document?.uri.path;
+                    relevantUri?.toString() ||
+                    window.activeTextEditor?.document?.uri.toString();
                 if (!uri || !uri.endsWith('.mo')) {
                     window.showErrorMessage(
                         'Invalid deploy URI:',
