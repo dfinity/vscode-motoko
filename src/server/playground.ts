@@ -128,8 +128,7 @@ export async function deployPlayground(
     }
 
     async function createCanister(): Promise<CanisterInfo> {
-        const timestamp = BigInt(Date.now()) * BigInt(1_000_000);
-        const nonce = pow(timestamp);
+        const nonce = pow();
         notify('Creating new canister...');
         const info: CanisterInfo = await playground.call(
             'getCanisterId',
@@ -181,28 +180,27 @@ export async function deployPlayground(
         }
     }
 
-    function pow(timestamp: bigint) {
+    // Proof-of-work algorithm
+    function pow() {
         'use strict';
         const domain = 'motoko-playground';
-        function motokoHash(message: string): number {
-            const base = 2 ** 32;
-            let x = 5381;
-            for (let i = 0; i < message.length; i++) {
-                const c = message.charCodeAt(i);
-                x = ((((x << 5) + x) % base) + c) % base;
-            }
-            return x;
-        }
+        const timestamp = BigInt(Date.now()) * BigInt(1_000_000);
         notify('Running proof of work...');
         console.time('PoW');
-        let nonce = BigInt(Math.floor(Math.random() * Number.MAX_SAFE_INTEGER));
         const prefix = domain + timestamp;
+        const base = 2 ** 32;
+        let nonce = Math.floor((Math.random() * Number.MAX_SAFE_INTEGER) / 2);
         while (true) {
-            const hash = motokoHash(prefix + nonce);
+            const message = prefix + nonce;
+            let hash = 5381;
+            for (let i = 0; i < message.length; i++) {
+                const c = message.charCodeAt(i);
+                hash = ((((hash << 5) + hash) % base) + c) % base;
+            }
             if ((hash & 0xc0000000) === 0) {
                 break;
             }
-            nonce += BigInt(1);
+            nonce++;
         }
         console.timeEnd('PoW');
         return {
