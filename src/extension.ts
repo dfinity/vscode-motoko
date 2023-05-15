@@ -405,7 +405,10 @@ async function deployPlayground(_context: ExtensionContext, uri: string) {
                 'candid-ui',
                 'Candid UI',
                 ViewColumn.Beside,
-                { enableScripts: true },
+                {
+                    enableScripts: true,
+                    retainContextWhenHidden: true,
+                },
             );
             deployPanelMap.set(key, panel);
             panel.onDidDispose(() => deployPanelMap.delete(key));

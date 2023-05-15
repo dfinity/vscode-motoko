@@ -49,6 +49,8 @@ Below are the default key bindings for commonly used features supported in the e
 - `Motoko: Restart language server`: Starts (or restarts) the language server
 - `Motoko: Deploy (20 minutes)`: Temporarily deploys the currently open file to the Internet Computer via [Motoko Playground](https://m7sm4-2iaaa-aaaab-qabra-cai.raw.ic0.app/)
 
+[![Motoko Playground deployment](https://github.com/dfinity/vscode-motoko/raw/master/guide/assets/deploy.png)](https://marketplace.visualstudio.com/items?itemName=dfinity-foundation.vscode-motoko)
+
 ## Settings
 
 - `motoko.dfx`: The location of the `dfx` binary
