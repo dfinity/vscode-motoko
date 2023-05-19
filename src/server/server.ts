@@ -476,7 +476,7 @@ connection.onDidChangeWatchedFiles((event) => {
                 const path = resolveVirtualPath(change.uri);
                 deleteVirtual(path);
                 notifyDeleteUri(change.uri);
-                connection.sendDiagnostics({
+                sendDiagnostics({
                     uri: change.uri,
                     diagnostics: [],
                 });
@@ -645,7 +645,7 @@ function checkWorkspace() {
             }
             previousCheckedFiles.forEach((uri) => {
                 if (!checkedFiles.includes(uri)) {
-                    connection.sendDiagnostics({ uri, diagnostics: [] });
+                    sendDiagnostics({ uri, diagnostics: [] });
                 }
             });
             checkedFiles.forEach((uri) => notify(uri));
@@ -695,7 +695,7 @@ function checkImmediate(uri: string | TextDocument): boolean {
         const skipExtension = '.mo_'; // Skip type checking `*.mo_` files
         const resolvedUri = typeof uri === 'string' ? uri : uri?.uri;
         if (resolvedUri?.endsWith(skipExtension)) {
-            connection.sendDiagnostics({
+            sendDiagnostics({
                 uri: resolvedUri,
                 diagnostics: [],
             });
@@ -770,7 +770,7 @@ function checkImmediate(uri: string | TextDocument): boolean {
         });
 
         Object.entries(diagnosticMap).forEach(([path, diagnostics]) => {
-            connection.sendDiagnostics({
+            sendDiagnostics({
                 uri: URI.file(path).toString(),
                 diagnostics,
             });
@@ -778,7 +778,7 @@ function checkImmediate(uri: string | TextDocument): boolean {
         return true;
     } catch (err) {
         console.error(`Error while compiling Motoko file: ${err}`);
-        connection.sendDiagnostics({
+        sendDiagnostics({
             uri: typeof uri === 'string' ? uri : uri.uri,
             diagnostics: [
                 {
@@ -1275,6 +1275,16 @@ connection.onRequest(DEPLOY_PLAYGROUND, (params) =>
     ),
 );
 
+const diagnosticMap = new Map<string, Diagnostic[]>();
+async function sendDiagnostics(params: {
+    uri: string;
+    diagnostics: Diagnostic[];
+}) {
+    const { uri, diagnostics } = params;
+    diagnosticMap.set(uri, diagnostics);
+    return connection.sendDiagnostics(params);
+}
+
 let validatingTimeout: ReturnType<typeof setTimeout>;
 let validatingUri: string | undefined;
 documents.onDidChangeContent((event) => {
@@ -1296,7 +1306,7 @@ documents.onDidChangeContent((event) => {
 
 documents.onDidOpen((event) => scheduleCheck(event.document.uri));
 documents.onDidClose(async (event) => {
-    await connection.sendDiagnostics({
+    await sendDiagnostics({
         uri: event.document.uri,
         diagnostics: [],
     });
