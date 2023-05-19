@@ -59,9 +59,15 @@ import { Program, asNode, findNodes } from './syntax';
 import {
     formatMotoko,
     getFileText,
+    rangeContainsPosition,
     resolveFilePath,
     resolveVirtualPath,
 } from './utils';
+
+const errorCodes: Record<
+    string,
+    string
+> = require('motoko/contrib/generated/errorCodes.json');
 
 interface Settings {
     motoko: MotokoSettings;
@@ -475,7 +481,7 @@ connection.onDidChangeWatchedFiles((event) => {
                 const path = resolveVirtualPath(change.uri);
                 deleteVirtual(path);
                 notifyDeleteUri(change.uri);
-                connection.sendDiagnostics({
+                sendDiagnostics({
                     uri: change.uri,
                     diagnostics: [],
                 });
@@ -644,7 +650,7 @@ function checkWorkspace() {
             }
             previousCheckedFiles.forEach((uri) => {
                 if (!checkedFiles.includes(uri)) {
-                    connection.sendDiagnostics({ uri, diagnostics: [] });
+                    sendDiagnostics({ uri, diagnostics: [] });
                 }
             });
             checkedFiles.forEach((uri) => notify(uri));
@@ -694,7 +700,7 @@ function checkImmediate(uri: string | TextDocument): boolean {
         const skipExtension = '.mo_'; // Skip type checking `*.mo_` files
         const resolvedUri = typeof uri === 'string' ? uri : uri?.uri;
         if (resolvedUri?.endsWith(skipExtension)) {
-            connection.sendDiagnostics({
+            sendDiagnostics({
                 uri: resolvedUri,
                 diagnostics: [],
             });
@@ -713,7 +719,7 @@ function checkImmediate(uri: string | TextDocument): boolean {
 
         const { uri: contextUri, motoko, error } = getContext(resolvedUri);
         console.log('~', virtualPath, `(${contextUri || 'default'})`);
-        let diagnostics = motoko.check(virtualPath) as any as Diagnostic[];
+        let diagnostics = motoko.check(virtualPath) as Diagnostic[];
         if (error) {
             // Context initialization error
             // diagnostics.length = 0;
@@ -739,8 +745,7 @@ function checkImmediate(uri: string | TextDocument): boolean {
                 diagnostics = diagnostics.filter(
                     ({ message, severity }) =>
                         severity === DiagnosticSeverity.Error ||
-                        // @ts-ignore
-                        !new RegExp(settings.hideWarningRegex).test(message),
+                        !new RegExp(settings!.hideWarningRegex).test(message),
                 );
             }
         }
@@ -770,7 +775,7 @@ function checkImmediate(uri: string | TextDocument): boolean {
         });
 
         Object.entries(diagnosticMap).forEach(([path, diagnostics]) => {
-            connection.sendDiagnostics({
+            sendDiagnostics({
                 uri: URI.file(path).toString(),
                 diagnostics,
             });
@@ -778,7 +783,7 @@ function checkImmediate(uri: string | TextDocument): boolean {
         return true;
     } catch (err) {
         console.error(`Error while compiling Motoko file: ${err}`);
-        connection.sendDiagnostics({
+        sendDiagnostics({
             uri: typeof uri === 'string' ? uri : uri.uri,
             diagnostics: [
                 {
@@ -1045,81 +1050,110 @@ connection.onHover((event) => {
     const { position } = event;
     const { uri } = event.textDocument;
     const { astResolver } = getContext(uri);
-    const status = astResolver.requestTyped(uri);
-    if (!status || status.outdated || !status.ast) {
-        return;
-    }
-    // Find AST nodes which include the cursor position
-    const node = findMostSpecificNodeForPosition(
-        status.ast,
-        position,
-        (node) => !!node.type,
-        true, // Mouse cursor
-    );
-    if (!node) {
-        return;
-    }
 
     const text = getFileText(uri);
     const lines = text.split(/\r?\n/g);
-
-    const startLine = lines[node.start[0] - 1];
-    const isSameLine = node.start[0] === node.end[0];
-
-    const codeSnippet = (source: string) => `\`\`\`motoko\n${source}\n\`\`\``;
     const docs: string[] = [];
-    const source = (
-        isSameLine ? startLine.substring(node.start[1], node.end[1]) : startLine
-    ).trim();
-    const doc = findDocComment(node);
-    if (doc) {
-        const typeInfo = node.type ? formatMotoko(node.type).trim() : '';
-        const lineIndex = typeInfo.indexOf('\n');
-        if (typeInfo) {
-            if (lineIndex === -1) {
-                docs.push(codeSnippet(typeInfo));
+    let range: Range | undefined;
+
+    // Error code explanations
+    const codes: string[] = [];
+    diagnosticMap.get(uri)?.forEach((diagnostic) => {
+        if (rangeContainsPosition(diagnostic.range, position)) {
+            const code = diagnostic.code;
+            if (typeof code === 'string' && !codes.includes(code)) {
+                codes.push(code);
+                if (errorCodes.hasOwnProperty(code)) {
+                    // Show explanation without Markdown heading
+                    docs.push(errorCodes[code].replace(/^# M[0-9]+\s+/, ''));
+                }
             }
-        } else if (!isSameLine) {
-            docs.push(codeSnippet(source));
         }
-        docs.push(doc);
-        if (lineIndex !== -1) {
-            docs.push(`*Type definition:*\n${codeSnippet(typeInfo)}`);
+    });
+
+    const status = astResolver.requestTyped(uri);
+    if (status && !status.outdated && status.ast) {
+        // Find AST nodes which include the cursor position
+        const node = findMostSpecificNodeForPosition(
+            status.ast,
+            position,
+            (node) => !!node.type,
+            true, // Mouse cursor
+        );
+        if (node) {
+            range = rangeFromNode(node, true);
+
+            const startLine = lines[node.start[0] - 1];
+            const isSameLine = node.start[0] === node.end[0];
+
+            const codeSnippet = (source: string) =>
+                `\`\`\`motoko\n${source}\n\`\`\``;
+            const source = (
+                isSameLine
+                    ? startLine.substring(node.start[1], node.end[1])
+                    : startLine
+            ).trim();
+
+            // Doc comments
+            const doc = findDocComment(node);
+            if (doc) {
+                const typeInfo = node.type
+                    ? formatMotoko(node.type).trim()
+                    : '';
+                const lineIndex = typeInfo.indexOf('\n');
+                if (typeInfo) {
+                    if (lineIndex === -1) {
+                        docs.push(codeSnippet(typeInfo));
+                    }
+                } else if (!isSameLine) {
+                    docs.push(codeSnippet(source));
+                }
+                docs.push(doc);
+                if (lineIndex !== -1) {
+                    docs.push(`*Type definition:*\n${codeSnippet(typeInfo)}`);
+                }
+            } else if (node.type) {
+                docs.push(codeSnippet(formatMotoko(node.type)));
+            } else if (!isSameLine) {
+                docs.push(codeSnippet(source));
+            }
+
+            // Syntax explanations
+            const info = getAstInformation(node /* , source */);
+            if (info) {
+                docs.push(info);
+            }
+            if (settings?.debugHover) {
+                let debugText = `\n${node.name}`;
+                if (node.args?.length) {
+                    // Show AST debug information
+                    debugText += ` [${node.args
+                        .map(
+                            (arg) =>
+                                `\n  ${
+                                    typeof arg === 'object'
+                                        ? Array.isArray(arg)
+                                            ? '[...]'
+                                            : arg?.name
+                                        : JSON.stringify(arg)
+                                }`,
+                        )
+                        .join('')}\n]`;
+                }
+                docs.push(codeSnippet(debugText));
+            }
         }
-    } else if (node.type) {
-        docs.push(codeSnippet(formatMotoko(node.type)));
-    } else if (!isSameLine) {
-        docs.push(codeSnippet(source));
     }
-    const info = getAstInformation(node /* , source */);
-    if (info) {
-        docs.push(info);
-    }
-    if (settings?.debugHover) {
-        let debugText = `\n${node.name}`;
-        if (node.args?.length) {
-            // Show AST debug information
-            debugText += ` [${node.args
-                .map(
-                    (arg) =>
-                        `\n  ${
-                            typeof arg === 'object'
-                                ? Array.isArray(arg)
-                                    ? '[...]'
-                                    : arg?.name
-                                : JSON.stringify(arg)
-                        }`,
-                )
-                .join('')}\n]`;
-        }
-        docs.push(codeSnippet(debugText));
+
+    if (!docs.length) {
+        return;
     }
     return {
         contents: {
             kind: MarkupKind.Markdown,
             value: docs.join('\n\n---\n\n'),
         },
-        range: rangeFromNode(node, true),
+        range,
     };
 });
 
@@ -1275,6 +1309,16 @@ connection.onRequest(DEPLOY_PLAYGROUND, (params) =>
     ),
 );
 
+const diagnosticMap = new Map<string, Diagnostic[]>();
+async function sendDiagnostics(params: {
+    uri: string;
+    diagnostics: Diagnostic[];
+}) {
+    const { uri, diagnostics } = params;
+    diagnosticMap.set(uri, diagnostics);
+    return connection.sendDiagnostics(params);
+}
+
 let validatingTimeout: ReturnType<typeof setTimeout>;
 let validatingUri: string | undefined;
 documents.onDidChangeContent((event) => {
@@ -1296,7 +1340,7 @@ documents.onDidChangeContent((event) => {
 
 documents.onDidOpen((event) => scheduleCheck(event.document.uri));
 documents.onDidClose(async (event) => {
-    await connection.sendDiagnostics({
+    await sendDiagnostics({
         uri: event.document.uri,
         diagnostics: [],
     });

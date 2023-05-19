@@ -2,6 +2,7 @@ import { readFileSync } from 'fs';
 import { join, sep } from 'path';
 import * as motokoPlugin from 'prettier-plugin-motoko';
 import * as prettier from 'prettier/standalone';
+import { Position, Range } from 'vscode-languageserver/node';
 import { URI, Utils } from 'vscode-uri';
 
 const fileSeparatorPattern = new RegExp(sep.replace(/[/\\]/g, '\\$&'), 'g');
@@ -47,6 +48,9 @@ export function tryGetFileText(uri: string): string | null {
     }
 }
 
+/**
+ * Formats a Motoko code snippet.
+ */
 export function formatMotoko(source: string): string {
     try {
         return prettier.format(source, {
@@ -59,6 +63,9 @@ export function formatMotoko(source: string): string {
     }
 }
 
+/**
+ * Gets the relative path from one URI to another.
+ */
 export function getRelativeUri(from: string, to: string): string {
     if (from === to) {
         // Fix vulnerability with `url-relative` package (https://security.snyk.io/vuln/SNYK-JS-URLRELATIVE-173691)
@@ -67,9 +74,37 @@ export function getRelativeUri(from: string, to: string): string {
     return require('url-relative')(from, to);
 }
 
+/**
+ * Gets the absolute URI from the given input paths (similar to `path.resolve()`).
+ */
 export function getAbsoluteUri(base: string, ...paths: string[]): string {
     // if (/^[a-z]+:/i.test(path)) {
     //     return path;
     // }
     return Utils.joinPath(URI.parse(base), ...paths).toString();
+}
+
+/**
+ * Checks whether a VS Code `Range` contains the given `Position`.
+ */
+export function rangeContainsPosition(
+    range: Range,
+    position: Position,
+): boolean {
+    if (position.line < range.start.line || position.line > range.end.line) {
+        return false;
+    }
+    if (
+        position.line === range.start.line &&
+        position.character < range.start.character
+    ) {
+        return false;
+    }
+    if (
+        position.line === range.end.line &&
+        position.character >= range.end.character
+    ) {
+        return false;
+    }
+    return true;
 }
