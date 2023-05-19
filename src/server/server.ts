@@ -62,7 +62,8 @@ import {
     resolveFilePath,
     resolveVirtualPath,
 } from './utils';
-import errorCodes from 'motoko/contrib/generated/errorCodes.json';
+
+const errorCodes = require('motoko/contrib/generated/errorCodes.json');
 
 interface Settings {
     motoko: MotokoSettings;
