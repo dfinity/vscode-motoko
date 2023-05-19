@@ -1050,10 +1050,6 @@ connection.onHover((event) => {
     const { position } = event;
     const { uri } = event.textDocument;
     const { astResolver } = getContext(uri);
-    const status = astResolver.requestTyped(uri);
-    if (!status || status.outdated || !status.ast) {
-        return;
-    }
 
     const text = getFileText(uri);
     const lines = text.split(/\r?\n/g);
@@ -1070,70 +1066,75 @@ connection.onHover((event) => {
         }
     });
 
-    // Find AST nodes which include the cursor position
-    const node = findMostSpecificNodeForPosition(
-        status.ast,
-        position,
-        (node) => !!node.type,
-        true, // Mouse cursor
-    );
-    if (node) {
-        const startLine = lines[node.start[0] - 1];
-        const isSameLine = node.start[0] === node.end[0];
+    const status = astResolver.requestTyped(uri);
+    if (status && !status.outdated && status.ast) {
+        // Find AST nodes which include the cursor position
+        const node = findMostSpecificNodeForPosition(
+            status.ast,
+            position,
+            (node) => !!node.type,
+            true, // Mouse cursor
+        );
+        if (node) {
+            const startLine = lines[node.start[0] - 1];
+            const isSameLine = node.start[0] === node.end[0];
 
-        const codeSnippet = (source: string) =>
-            `\`\`\`motoko\n${source}\n\`\`\``;
-        const source = (
-            isSameLine
-                ? startLine.substring(node.start[1], node.end[1])
-                : startLine
-        ).trim();
+            const codeSnippet = (source: string) =>
+                `\`\`\`motoko\n${source}\n\`\`\``;
+            const source = (
+                isSameLine
+                    ? startLine.substring(node.start[1], node.end[1])
+                    : startLine
+            ).trim();
 
-        // Doc comments
-        const doc = findDocComment(node);
-        if (doc) {
-            const typeInfo = node.type ? formatMotoko(node.type).trim() : '';
-            const lineIndex = typeInfo.indexOf('\n');
-            if (typeInfo) {
-                if (lineIndex === -1) {
-                    docs.push(codeSnippet(typeInfo));
+            // Doc comments
+            const doc = findDocComment(node);
+            if (doc) {
+                const typeInfo = node.type
+                    ? formatMotoko(node.type).trim()
+                    : '';
+                const lineIndex = typeInfo.indexOf('\n');
+                if (typeInfo) {
+                    if (lineIndex === -1) {
+                        docs.push(codeSnippet(typeInfo));
+                    }
+                } else if (!isSameLine) {
+                    docs.push(codeSnippet(source));
                 }
+                docs.push(doc);
+                if (lineIndex !== -1) {
+                    docs.push(`*Type definition:*\n${codeSnippet(typeInfo)}`);
+                }
+            } else if (node.type) {
+                docs.push(codeSnippet(formatMotoko(node.type)));
             } else if (!isSameLine) {
                 docs.push(codeSnippet(source));
             }
-            docs.push(doc);
-            if (lineIndex !== -1) {
-                docs.push(`*Type definition:*\n${codeSnippet(typeInfo)}`);
-            }
-        } else if (node.type) {
-            docs.push(codeSnippet(formatMotoko(node.type)));
-        } else if (!isSameLine) {
-            docs.push(codeSnippet(source));
-        }
 
-        // Syntax explanations
-        const info = getAstInformation(node /* , source */);
-        if (info) {
-            docs.push(info);
-        }
-        if (settings?.debugHover) {
-            let debugText = `\n${node.name}`;
-            if (node.args?.length) {
-                // Show AST debug information
-                debugText += ` [${node.args
-                    .map(
-                        (arg) =>
-                            `\n  ${
-                                typeof arg === 'object'
-                                    ? Array.isArray(arg)
-                                        ? '[...]'
-                                        : arg?.name
-                                    : JSON.stringify(arg)
-                            }`,
-                    )
-                    .join('')}\n]`;
+            // Syntax explanations
+            const info = getAstInformation(node /* , source */);
+            if (info) {
+                docs.push(info);
             }
-            docs.push(codeSnippet(debugText));
+            if (settings?.debugHover) {
+                let debugText = `\n${node.name}`;
+                if (node.args?.length) {
+                    // Show AST debug information
+                    debugText += ` [${node.args
+                        .map(
+                            (arg) =>
+                                `\n  ${
+                                    typeof arg === 'object'
+                                        ? Array.isArray(arg)
+                                            ? '[...]'
+                                            : arg?.name
+                                        : JSON.stringify(arg)
+                                }`,
+                        )
+                        .join('')}\n]`;
+                }
+                docs.push(codeSnippet(debugText));
+            }
         }
     }
 
