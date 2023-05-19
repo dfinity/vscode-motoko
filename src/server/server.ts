@@ -62,6 +62,7 @@ import {
     resolveFilePath,
     resolveVirtualPath,
 } from './utils';
+import errorCodes from 'motoko/contrib/generated/errorCodes.json';
 
 interface Settings {
     motoko: MotokoSettings;
@@ -713,7 +714,7 @@ function checkImmediate(uri: string | TextDocument): boolean {
 
         const { uri: contextUri, motoko, error } = getContext(resolvedUri);
         console.log('~', virtualPath, `(${contextUri || 'default'})`);
-        let diagnostics = motoko.check(virtualPath) as any as Diagnostic[];
+        let diagnostics = motoko.check(virtualPath) as Diagnostic[];
         if (error) {
             // Context initialization error
             // diagnostics.length = 0;
@@ -739,8 +740,7 @@ function checkImmediate(uri: string | TextDocument): boolean {
                 diagnostics = diagnostics.filter(
                     ({ message, severity }) =>
                         severity === DiagnosticSeverity.Error ||
-                        // @ts-ignore
-                        !new RegExp(settings.hideWarningRegex).test(message),
+                        !new RegExp(settings!.hideWarningRegex).test(message),
                 );
             }
         }
