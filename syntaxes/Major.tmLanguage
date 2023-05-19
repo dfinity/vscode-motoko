@@ -242,15 +242,6 @@
 				</dict>
 			</array>
 		</dict>
-		<key>catch-statement-keyword</key>
-		<dict>
-			<key>comment</key>
-			<string>catch-statement</string>
-			<key>match</key>
-			<string>\b(catch|do)\b</string>
-			<key>name</key>
-			<string>kewyord.control.catch.motoko</string>
-		</dict>
 		<key>code-block</key>
 		<dict>
 			<key>begin</key>
