@@ -1057,12 +1057,16 @@ connection.onHover((event) => {
     let range: Range | undefined;
 
     // Error code explanations
+    const codes: string[] = [];
     diagnosticMap.get(uri)?.forEach((diagnostic) => {
         if (rangeContainsPosition(diagnostic.range, position)) {
-            const code = diagnostic.code as any;
-            if (errorCodes.hasOwnProperty(code)) {
-                // Show explanation without Markdown heading
-                docs.push(errorCodes[code].replace(/^# M[0-9]+\s+/, ''));
+            const code = diagnostic.code;
+            if (typeof code === 'string' && !codes.includes(code)) {
+                codes.push(code);
+                if (errorCodes.hasOwnProperty(code)) {
+                    // Show explanation without Markdown heading
+                    docs.push(errorCodes[code].replace(/^# M[0-9]+\s+/, ''));
+                }
             }
         }
     });
