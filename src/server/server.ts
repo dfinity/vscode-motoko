@@ -1054,6 +1054,7 @@ connection.onHover((event) => {
     const text = getFileText(uri);
     const lines = text.split(/\r?\n/g);
     const docs: string[] = [];
+    let range: Range | undefined;
 
     // Error code explanations
     console.log('>>>', diagnosticMap.get(uri)); ///
@@ -1076,6 +1077,8 @@ connection.onHover((event) => {
             true, // Mouse cursor
         );
         if (node) {
+            range = rangeFromNode(node, true);
+
             const startLine = lines[node.start[0] - 1];
             const isSameLine = node.start[0] === node.end[0];
 
@@ -1146,7 +1149,7 @@ connection.onHover((event) => {
             kind: MarkupKind.Markdown,
             value: docs.join('\n\n---\n\n'),
         },
-        range: rangeFromNode(node, true),
+        range,
     };
 });
 
