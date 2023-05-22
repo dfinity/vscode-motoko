@@ -146,14 +146,14 @@
                 {
                     "when": "resourceLangId == motoko",
                     "command": "motoko.deployPlayground",
-                    "group": "navigation"
+                    "group": "2_main"
                 }
             ],
             "editor/context": [
                 {
                     "when": "resourceLangId == motoko",
                     "command": "motoko.deployPlayground",
-                    "group": "navigation"
+                    "group": "2_main"
                 }
             ]
         }
