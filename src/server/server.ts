@@ -763,7 +763,7 @@ function checkImmediate(uri: string | TextDocument): boolean {
                     // Extra debugging information for `canister:` import errors
                     diagnostic = {
                         ...diagnostic,
-                        message: `${diagnostic.message}. This is usually fixed by running \`dfx deploy\``,
+                        message: `${diagnostic.message}. This is usually fixed by running \`dfx deploy\` or adding \`dependencies\` in your dfx.json file`,
                     };
                 }
 
