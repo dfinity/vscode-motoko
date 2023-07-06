@@ -217,6 +217,7 @@ function notifyPackageConfigChange(reuseCached = false) {
                         cwd,
                         ignore: ignoreGlobs,
                         dot: false,
+                        followSymbolicLinks: false,
                     });
                     paths.forEach((path) => {
                         path = join(cwd, path);
@@ -529,6 +530,7 @@ function notifyWorkspace() {
             cwd: folderPath,
             dot: true,
             ignore: ignoreGlobs,
+            followSymbolicLinks: false,
         }).forEach((relativePath) => {
             const path = join(folderPath, relativePath);
             try {
@@ -610,6 +612,7 @@ function checkWorkspace() {
             //         cwd: folderPath,
             //         dot: false, // exclude directories such as `.vessel`
             //         ignore: ignoreGlobs,
+            //         followSymbolicLinks: false,
             //     }).forEach((relativePath) => {
             //         const path = join(folderPath, relativePath);
             //         try {
