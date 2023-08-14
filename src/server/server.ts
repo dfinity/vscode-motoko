@@ -1196,6 +1196,9 @@ connection.onDefinition(
 // );
 
 connection.onWorkspaceSymbol((event) => {
+    if (!event.query.length) {
+        return [];
+    }
     const results: WorkspaceSymbol[] = [];
     const visitDocumentSymbol = (
         uri: string,
@@ -1211,17 +1214,13 @@ connection.onWorkspaceSymbol((event) => {
         symbol.children?.forEach((s) => visitDocumentSymbol(uri, s, symbol));
     };
     globalASTCache.forEach((status) => {
-        if (
-            event.query.length &&
-            status.uri.toLowerCase().includes(event.query.toLowerCase()) &&
-            status.program
-        ) {
-            status.program.namedExports.forEach((field) => {
-                visitDocumentSymbol(status.uri, getDocumentSymbol(field));
-            });
-        }
+        status.program?.namedExports.forEach((field) => {
+            visitDocumentSymbol(status.uri, getDocumentSymbol(field));
+        });
     });
-    return results;
+    return results.filter((s) =>
+        s.name.toLowerCase().includes(event.query.toLowerCase()),
+    );
 });
 
 connection.onDocumentSymbol((event) => {
