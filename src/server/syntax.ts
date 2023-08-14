@@ -81,7 +81,7 @@ export function fromAST(ast: AST): Syntax {
                 const export_ = ast.args[ast.args.length - 1];
                 if (export_) {
                     prog.export = export_;
-                    prog.namedExports.push(...getFieldsFromAST(export_));
+                    prog.exportFields.push(...getFieldsFromAST(export_));
                 }
             }
         }
@@ -112,13 +112,18 @@ export function fromAST(ast: AST): Syntax {
 }
 
 function getFieldsFromAST(ast: AST): Field[] {
+    const parts: [Node | undefined, Node] | undefined =
+        matchNode(ast, 'LetD', (pat: Node, exp: Node) => [pat, exp]) || // Named
+        matchNode(ast, 'ExpD', (exp: Node) => [undefined, exp]); // Unnamed
+    if (!parts) {
+        return [];
+    }
+    const [pat, exp] = parts;
     const fields: [string, Node, Node][] =
-        matchNode(ast, 'LetD', (pat: Node, exp: Node) => {
-            const name = matchNode(pat, 'VarP', (field: string) => field);
-            return name ? [[name, pat, exp]] : undefined;
-        }) || [];
+        matchNode(pat, 'VarP', (name: string) => [[name, pat!, exp]]) || [];
     return fields.map(([name, pat, exp]) => {
-        const field = new Field(ast, name);
+        const field = new Field(ast);
+        field.name = name;
         field.pat = fromAST(pat);
         field.exp = fromAST(exp);
         return field;
@@ -158,8 +163,8 @@ export class Syntax {
 
 export class Program extends Syntax {
     imports: Import[] = [];
-    namedExports: Field[] = [];
     export: AST | undefined;
+    exportFields: Field[] = [];
 }
 
 export type ObjSort = 'Object' | 'Actor' | 'Module' | 'Memory';
@@ -173,10 +178,11 @@ export class ObjBlock extends Syntax {
 }
 
 export class Field extends Syntax {
+    name: string | undefined;
     pat: Syntax | undefined;
     exp: Syntax | undefined;
 
-    constructor(ast: AST, public name: string) {
+    constructor(ast: AST) {
         super(ast);
     }
 }

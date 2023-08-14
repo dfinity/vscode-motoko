@@ -1214,8 +1214,10 @@ connection.onWorkspaceSymbol((event) => {
         symbol.children?.forEach((s) => visitDocumentSymbol(uri, s, symbol));
     };
     globalASTCache.forEach((status) => {
-        status.program?.namedExports.forEach((field) => {
-            visitDocumentSymbol(status.uri, getDocumentSymbol(field));
+        status.program?.exportFields.forEach((field) => {
+            getDocumentSymbols(field).forEach((symbol) =>
+                visitDocumentSymbol(status.uri, symbol),
+            );
         });
     });
     return results;
@@ -1225,29 +1227,35 @@ connection.onDocumentSymbol((event) => {
     const { uri } = event.textDocument;
     const results: DocumentSymbol[] = [];
     const status = getContext(uri).astResolver.request(uri);
-    status?.program?.namedExports.forEach((field) => {
-        results.push(getDocumentSymbol(field));
+    status?.program?.exportFields.forEach((field) => {
+        results.push(...getDocumentSymbols(field));
     });
     return results;
 });
 
-function getDocumentSymbol(field: Field): DocumentSymbol {
+function getDocumentSymbols(field: Field): DocumentSymbol[] {
     const range = rangeFromNode(asNode(field.ast)) || defaultRange();
     const kind =
         field.exp instanceof ObjBlock ? SymbolKind.Module : SymbolKind.Field;
     const children: DocumentSymbol[] = [];
     if (field.exp instanceof ObjBlock) {
         field.exp.fields.forEach((field) => {
-            children.push(getDocumentSymbol(field));
+            children.push(...getDocumentSymbols(field));
         });
     }
-    return {
-        name: field.name,
-        kind,
-        range,
-        selectionRange: rangeFromNode(asNode(field.pat?.ast)) || range,
-        children,
-    };
+    if (field.name) {
+        return [
+            {
+                name: field.name,
+                kind,
+                range,
+                selectionRange: rangeFromNode(asNode(field.pat?.ast)) || range,
+                children,
+            },
+        ];
+    } else {
+        return children;
+    }
 }
 
 connection.onReferences(
