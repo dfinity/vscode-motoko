@@ -1218,9 +1218,7 @@ connection.onWorkspaceSymbol((event) => {
             visitDocumentSymbol(status.uri, getDocumentSymbol(field));
         });
     });
-    return results.filter((s) =>
-        s.name.toLowerCase().includes(event.query.toLowerCase()),
-    );
+    return results;
 });
 
 connection.onDocumentSymbol((event) => {
