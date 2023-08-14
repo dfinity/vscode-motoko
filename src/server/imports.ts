@@ -35,7 +35,7 @@ export default class ImportResolver {
         this._fileSystemMap.set(importUri, uri);
         if (program?.export) {
             // Resolve field names
-            const ast = program.export;
+            const { ast } = program.export;
             const node =
                 matchNode(ast, 'LetD', (_pat: Node, exp: Node) => exp) || // Named
                 matchNode(ast, 'ExpD', (exp: Node) => exp); // Unnamed

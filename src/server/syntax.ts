@@ -80,7 +80,7 @@ export function fromAST(ast: AST): Syntax {
             if (ast.args.length) {
                 const export_ = ast.args[ast.args.length - 1];
                 if (export_) {
-                    prog.export = export_;
+                    prog.export = fromAST(export_);
                     prog.exportFields.push(...getFieldsFromAST(export_));
                 }
             }
@@ -107,15 +107,18 @@ export function fromAST(ast: AST): Syntax {
         });
         return obj;
     }
-    // let dec =
-    //     matchNode(ast, 'LetD', (pat: Node, exp: Node) => exp) || // Named
-    //     matchNode(ast, 'ExpD', (exp: Node) => exp); // Unnamed
-    // if (dec) {
-    // }
     return new Syntax(ast);
 }
 
 function getFieldsFromAST(ast: AST): Field[] {
+    const typeFields = matchNode(ast, 'TypD', (name: string, type: Node) => {
+        const field = new Field(ast, new Type(type));
+        field.name = name;
+        return [field];
+    });
+    if (typeFields) {
+        return typeFields;
+    }
     const parts: [Node | undefined, Node] | undefined =
         matchNode(ast, 'LetD', (pat: Node, exp: Node) => [pat, exp]) || // Named
         matchNode(ast, 'ExpD', (exp: Node) => [undefined, exp]); // Unnamed
@@ -128,15 +131,13 @@ function getFieldsFromAST(ast: AST): Field[] {
         const fields: [string, Node, Node][] =
             matchNode(pat, 'VarP', (name: string) => [[name, pat, exp]]) || [];
         return fields.map(([name, pat, exp]) => {
-            const field = new Field(ast);
+            const field = new Field(ast, fromAST(exp));
             field.name = name;
             field.pat = fromAST(pat);
-            field.exp = fromAST(exp);
             return field;
         });
     } else {
-        const field = new Field(ast);
-        field.exp = fromAST(exp);
+        const field = new Field(ast, fromAST(exp));
         return [field];
     }
 }
@@ -174,7 +175,7 @@ export class Syntax {
 
 export class Program extends Syntax {
     imports: Import[] = [];
-    export: AST | undefined;
+    export: Syntax | undefined;
     exportFields: Field[] = [];
 }
 
@@ -191,9 +192,8 @@ export class ObjBlock extends Syntax {
 export class Field extends Syntax {
     name: string | undefined;
     pat: Syntax | undefined;
-    exp: Syntax | undefined;
 
-    constructor(ast: AST) {
+    constructor(ast: AST, public exp: Syntax) {
         super(ast);
     }
 }
@@ -206,7 +206,5 @@ export class Import extends Syntax {
         super(ast);
     }
 }
-
-export class Expression extends Syntax {}
 
 export class Type extends Syntax {}

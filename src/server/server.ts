@@ -60,7 +60,7 @@ import {
     rangeFromNode,
 } from './navigation';
 import { deployPlayground } from './playground';
-import { Field, ObjBlock, Program, asNode, findNodes } from './syntax';
+import { Field, ObjBlock, Program, Type, asNode, findNodes } from './syntax';
 import {
     formatMotoko,
     getFileText,
@@ -1236,7 +1236,11 @@ connection.onDocumentSymbol((event) => {
 function getDocumentSymbols(field: Field): DocumentSymbol[] {
     const range = rangeFromNode(asNode(field.ast)) || defaultRange();
     const kind =
-        field.exp instanceof ObjBlock ? SymbolKind.Module : SymbolKind.Field;
+        field.exp instanceof ObjBlock
+            ? SymbolKind.Module
+            : field.exp instanceof Type
+            ? SymbolKind.Interface
+            : SymbolKind.Field;
     const children: DocumentSymbol[] = [];
     if (field.exp instanceof ObjBlock) {
         field.exp.fields.forEach((field) => {
