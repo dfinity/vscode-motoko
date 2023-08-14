@@ -1203,7 +1203,6 @@ connection.onWorkspaceSymbol((event) => {
             status.uri.toLowerCase().includes(event.query.toLowerCase()) &&
             status.program
         ) {
-            console.log('STATUS:', status); /////
             if (status.program.export?.name) {
                 results.push({
                     name: status.program.export.name,
