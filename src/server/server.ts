@@ -1216,7 +1216,7 @@ connection.onWorkspaceSymbol((event) => {
             status.uri.toLowerCase().includes(event.query.toLowerCase()) &&
             status.program
         ) {
-            status.program.exportFields.forEach((field) => {
+            status.program.namedExports.forEach((field) => {
                 visitDocumentSymbol(status.uri, getDocumentSymbol(field));
             });
         }
@@ -1228,7 +1228,7 @@ connection.onDocumentSymbol((event) => {
     const { uri } = event.textDocument;
     const results: DocumentSymbol[] = [];
     const status = getContext(uri).astResolver.request(uri);
-    status?.program?.exportFields.forEach((field) => {
+    status?.program?.namedExports.forEach((field) => {
         results.push(getDocumentSymbol(field));
     });
     return results;
