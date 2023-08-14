@@ -58,7 +58,6 @@ export default class ImportResolver {
                                 return;
                             }
                             const [dec, visibility] = field.args!;
-                            // TODO: `system` visibility
                             if (visibility !== 'Public') {
                                 return;
                             }

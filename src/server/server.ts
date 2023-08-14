@@ -59,7 +59,7 @@ import {
     rangeFromNode,
 } from './navigation';
 import { deployPlayground } from './playground';
-import { Program, asNode, findNodes } from './syntax';
+import { Field, ObjBlock, Program, asNode, findNodes } from './syntax';
 import {
     formatMotoko,
     getFileText,
@@ -1224,19 +1224,28 @@ connection.onDocumentSymbol((event) => {
     const { uri } = event.textDocument;
     const results: DocumentSymbol[] = [];
     const status = getContext(uri).astResolver.request(uri);
-    if (status?.program && status.program.export?.name) {
-        const range =
-            rangeFromNode(asNode(status.program.export.ast)) || defaultRange();
-        results.push({
-            name: status.program.export?.name,
-            kind: SymbolKind.Module,
-            range,
-            selectionRange:
-                rangeFromNode(asNode(status.program.export.pat?.ast)) || range,
-        });
+    if (status?.program?.export) {
+        results.push(getDocumentSymbol(status.program.export));
     }
     return results;
 });
+
+function getDocumentSymbol(field: Field): DocumentSymbol {
+    const range = rangeFromNode(asNode(field.ast)) || defaultRange();
+    const children: DocumentSymbol[] = [];
+    if (field.exp instanceof ObjBlock) {
+        field.exp.fields.forEach((field) => {
+            children.push(getDocumentSymbol(field));
+        });
+    }
+    return {
+        name: field.name,
+        kind: SymbolKind.Module,
+        range,
+        selectionRange: rangeFromNode(asNode(field.pat?.ast)) || range,
+        children,
+    };
+}
 
 connection.onReferences(
     async (_event: ReferenceParams): Promise<Location[]> => {

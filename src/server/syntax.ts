@@ -92,8 +92,7 @@ export function fromAST(ast: AST): Syntax {
         const type: string = ast.args[0] as string;
         const fields: Node[] = ast.args.slice(1) as Node[];
 
-        const obj = new ObjBlock(ast);
-        obj.type = type;
+        const obj = new ObjBlock(ast, type);
         fields.forEach((field) => {
             if (field.name !== 'DecField') {
                 console.error(
@@ -102,11 +101,10 @@ export function fromAST(ast: AST): Syntax {
                 );
                 return;
             }
-            const [dec, visibility] = field.args!;
-            // TODO: `system` visibility
-            if (visibility !== 'Public') {
-                return;
-            }
+            const [dec, _visibility] = field.args!;
+            // if (visibility !== 'Public') {
+            //     return;
+            // }
             obj.fields.push(...getFieldsFromAST(dec));
         });
         return obj;
@@ -122,8 +120,7 @@ function getFieldsFromAST(ast: AST): Field[] {
             return name ? [[name, pat, exp]] : undefined;
         }) || [];
     return fields.map(([name, pat, exp]) => {
-        const field = new Field(ast);
-        field.name = name;
+        const field = new Field(ast, name);
         field.pat = fromAST(pat);
         field.exp = fromAST(exp);
         return field;
@@ -167,24 +164,28 @@ export class Program extends Syntax {
 }
 
 export class ObjBlock extends Syntax {
-    type: string | undefined;
     fields: Field[] = [];
+
+    constructor(ast: AST, public type: string) {
+        super(ast);
+    }
 }
 
 export class Field extends Syntax {
-    name: string | undefined;
     pat: Syntax | undefined;
     exp: Syntax | undefined;
+
+    constructor(ast: AST, public name: string) {
+        super(ast);
+    }
 }
 
 export class Import extends Syntax {
     name: string | undefined;
     fields: [string, string][] = []; // [name, alias]
-    path: string;
 
-    constructor(ast: AST, path: string) {
+    constructor(ast: AST, public path: string) {
         super(ast);
-        this.path = path;
     }
 }
 
