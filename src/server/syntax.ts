@@ -111,13 +111,45 @@ export function fromAST(ast: AST): Syntax {
 }
 
 function getFieldsFromAST(ast: AST): Field[] {
-    const typeFields = matchNode(ast, 'TypD', (name: string, type: Node) => {
-        const field = new Field(ast, new Type(type));
-        field.name = name;
-        return [field];
-    });
-    if (typeFields) {
-        return typeFields;
+    const simplyNamedFields =
+        matchNode(ast, 'TypD', (name: string, type: Node) => {
+            const field = new Field(ast, new Type(type));
+            field.name = name;
+            return [field];
+        }) ||
+        matchNode(ast, 'VarD', (name: string, exp: Node) => {
+            const field = new Field(ast, new Type(exp));
+            field.name = name;
+            return [field];
+        }) ||
+        // sort_pat * typ_id * typ_bind list * pat * typ option * obj_sort * id * dec_field list
+        matchNode(
+            ast,
+            'ClassD',
+            (
+                _sortPat: any,
+                name: any,
+                _typBind: any,
+                _pat: any,
+                _typ: any,
+                _sort: ObjSort,
+                _id: string,
+                decs: Node[],
+            ) => {
+                const field = new Field(
+                    ast,
+                    new Syntax({
+                        ...asNode(ast),
+                        name: 'ClassDecs',
+                        args: decs,
+                    }),
+                );
+                field.name = name;
+                return [field];
+            },
+        );
+    if (simplyNamedFields) {
+        return simplyNamedFields;
     }
     const parts: [Node | undefined, Node] | undefined =
         matchNode(ast, 'LetD', (pat: Node, exp: Node) => [pat, exp]) || // Named

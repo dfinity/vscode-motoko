@@ -1,97 +1,93 @@
 import motoko from './motoko';
-import { ObjBlock, Program, fromAST } from './syntax';
+import { Field, ObjBlock, Program, Syntax, fromAST } from './syntax';
+
+/* eslint jest/expect-expect: ["off", { "assertFunctionNames": ["expect"] }] */
+
+const parse = (source: string): Program => {
+    const ast = motoko.parseMotoko(source);
+    const prog = fromAST(ast) as Program;
+    expect(prog).toBeInstanceOf(Program);
+    return prog;
+};
+
+const expectFields = (
+    fields: Field[],
+    expected: (string | undefined)[],
+): void => {
+    expect(fields.map((f) => f.name)).toStrictEqual(expected);
+};
+
+const expectObjFields = (
+    syntax: Syntax,
+    expected: (string | undefined)[],
+): ObjBlock => {
+    const obj = syntax as ObjBlock;
+    expect(obj).toBeInstanceOf(ObjBlock);
+    expectFields(obj.fields, expected);
+    return obj;
+};
 
 describe('syntax', () => {
     test('let field', () => {
-        const ast = motoko.parseMotoko('module { let x = 0; }');
-        const prog = fromAST(ast) as Program;
-        expect(prog).toBeInstanceOf(Program);
-        expect(prog.exportFields).toHaveLength(1);
-        expect(prog.exportFields[0].name).toStrictEqual('x');
+        const prog = parse('module { let x = 0; }');
+        expectObjFields(prog.exportFields[0].exp, ['x']);
     });
     test('public let field', () => {
-        const ast = motoko.parseMotoko('module { public let x = 0; }');
-        const prog = fromAST(ast) as Program;
-        expect(prog).toBeInstanceOf(Program);
-        expect(prog.exportFields).toHaveLength(1);
-        expect(prog.exportFields[0].name).toStrictEqual('x');
+        const prog = parse('module { public let x = 0; }');
+        expectObjFields(prog.exportFields[0].exp, ['x']);
     });
     test('var field', () => {
-        const ast = motoko.parseMotoko('module { var y = 1; }');
-        const prog = fromAST(ast) as Program;
-        expect(prog).toBeInstanceOf(Program);
-        expect(prog.exportFields).toHaveLength(1);
-        expect(prog.exportFields[0].name).toStrictEqual('y');
+        const prog = parse('module { var y = 1; }');
+        expectObjFields(prog.exportFields[0].exp, ['y']);
     });
     test('type field', () => {
-        const ast = motoko.parseMotoko('module { type T = Nat; }');
-        const prog = fromAST(ast) as Program;
-        expect(prog).toBeInstanceOf(Program);
-        expect(prog.exportFields).toHaveLength(1);
-        expect(prog.exportFields[0].name).toStrictEqual('T');
+        const prog = parse('module { type T = Nat; }');
+        expectObjFields(prog.exportFields[0].exp, ['T']);
     });
     test('multiple fields', () => {
-        const ast = motoko.parseMotoko(
-            'module { let x = 0; var y = 1; type T = Nat }',
-        );
-        const prog = fromAST(ast) as Program;
-        expect(prog).toBeInstanceOf(Program);
-        expect(prog.exportFields).toHaveLength(3);
-        expect(prog.exportFields[0].name).toStrictEqual('x');
-        expect(prog.exportFields[1].name).toStrictEqual('y');
-        expect(prog.exportFields[2].name).toStrictEqual('T');
+        const prog = parse('module { let x = 0; var y = 1; type T = Nat; }');
+        expectObjFields(prog.exportFields[0].exp, ['x', 'y', 'T']);
     });
     test('named actor', () => {
-        const ast = motoko.parseMotoko('actor A { let x = 0; }');
-        const prog = fromAST(ast) as Program;
-        expect(prog).toBeInstanceOf(Program);
-        expect(prog.exportFields).toHaveLength(1);
-        expect(prog.exportFields[0].name).toStrictEqual('x');
+        const prog = parse('actor A { let x = 0; }');
+        expectFields(prog.exportFields, ['A']);
+        expectObjFields(prog.exportFields[0].exp, ['x']);
     });
     test('unnamed actor', () => {
-        const ast = motoko.parseMotoko('actor { let x = 0; }');
-        const prog = fromAST(ast) as Program;
-        expect(prog).toBeInstanceOf(Program);
-        expect(prog.exportFields).toHaveLength(1);
-        expect(prog.exportFields[0].name).toStrictEqual('x');
+        const prog = parse('actor { let x = 0; }');
+        expectFields(prog.exportFields, [undefined]);
+        expectObjFields(prog.exportFields[0].exp, ['x']);
     });
     test('named class', () => {
-        const ast = motoko.parseMotoko('class A() { let x = 0; }');
-        const prog = fromAST(ast) as Program;
-        expect(prog).toBeInstanceOf(Program);
-        expect(prog.exportFields).toHaveLength(1);
-        expect(prog.exportFields[0].name).toStrictEqual('x');
+        const prog = parse('class C() { let x = 0; }');
+        expectFields(prog.exportFields, ['C']);
+        expectObjFields(prog.exportFields[0].exp, ['x']);
     });
     test('named actor class', () => {
-        const ast = motoko.parseMotoko('actor class A() { stable var y = 1; }');
-        const prog = fromAST(ast) as Program;
-        expect(prog).toBeInstanceOf(Program);
-        expect(prog.exportFields).toHaveLength(1);
-        expect(prog.exportFields[0].name).toStrictEqual('x');
+        const prog = parse('actor class C() { stable var y = 1; }');
+        expectFields(prog.exportFields, ['C']);
+        expectObjFields(prog.exportFields[0].exp, ['y']);
     });
     test('named module', () => {
-        const ast = motoko.parseMotoko('module M { let x = 0; }');
-        const prog = fromAST(ast) as Program;
-        expect(prog).toBeInstanceOf(Program);
-        expect(prog.exportFields).toHaveLength(1);
-        expect(prog.exportFields[0].name).toStrictEqual('x');
+        const prog = parse('module M { let x = 0; }');
+        expectFields(prog.exportFields, ['M']);
+        expectObjFields(prog.exportFields[0].exp, ['x']);
     });
     test('unnamed module', () => {
-        const ast = motoko.parseMotoko('module { let x = 0; }');
-        const prog = fromAST(ast) as Program;
-        expect(prog).toBeInstanceOf(Program);
-        expect(prog.exportFields).toHaveLength(1);
-        expect(prog.exportFields[0].name).toStrictEqual('x');
+        const prog = parse('module { let x = 0; }');
+        expectFields(prog.exportFields, [undefined]);
+        expectObjFields(prog.exportFields[0].exp, ['x']);
     });
-    test('nested modules', () => {
-        const ast = motoko.parseMotoko('module { module M { let x = 0; } }');
-        const prog = fromAST(ast) as Program;
-        expect(prog).toBeInstanceOf(Program);
-        expect(prog.exportFields).toHaveLength(1);
-        expect(prog.exportFields[0].name).toStrictEqual('M');
-        const obj = prog.exportFields[0].exp as ObjBlock;
-        expect(obj).toBeInstanceOf(ObjBlock);
-        expect(obj.fields).toHaveLength(1);
-        expect(obj.fields[0].name).toStrictEqual('x');
+    test('nested module', () => {
+        const prog = parse('module M { module N { let x = 0; } }');
+        expectFields(prog.exportFields, ['M']);
+        const mod = expectObjFields(prog.exportFields[0].exp, ['N']);
+        expectObjFields(mod.fields[0].exp, ['x']);
+    });
+    test('nested unnamed module', () => {
+        const prog = parse('module { module { let x = 0; } }');
+        expectFields(prog.exportFields, [undefined]);
+        const mod = expectObjFields(prog.exportFields[0].exp, [undefined]);
+        expectObjFields(mod.fields[0].exp, ['x']);
     });
 });
