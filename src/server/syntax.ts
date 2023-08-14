@@ -89,10 +89,10 @@ export function fromAST(ast: AST): Syntax {
         }
         return prog;
     } else if (ast.name === 'ObjBlockE' && ast.args) {
-        const type: string = ast.args[0] as string;
-        const fields: Node[] = ast.args.slice(1) as Node[];
+        const sort = ast.args[0] as ObjSort;
+        const fields = ast.args.slice(1) as Node[];
 
-        const obj = new ObjBlock(ast, type);
+        const obj = new ObjBlock(ast, sort);
         fields.forEach((field) => {
             if (field.name !== 'DecField') {
                 console.error(
@@ -163,10 +163,12 @@ export class Program extends Syntax {
     export: Field | undefined;
 }
 
+export type ObjSort = 'Object' | 'Actor' | 'Module' | 'Memory';
+
 export class ObjBlock extends Syntax {
     fields: Field[] = [];
 
-    constructor(ast: AST, public type: string) {
+    constructor(ast: AST, public sort: ObjSort) {
         super(ast);
     }
 }
