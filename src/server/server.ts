@@ -1259,7 +1259,7 @@ function getDocumentSymbols(
                 field.name ||
                 (field.exp instanceof ObjBlock
                     ? field.exp.sort.toLowerCase()
-                    : 'value'), // Default field name
+                    : '(unknown)'), // Default field name
             kind,
             range,
             selectionRange: rangeFromNode(asNode(field.pat?.ast)) || range,
