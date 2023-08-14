@@ -1215,7 +1215,7 @@ connection.onWorkspaceSymbol((event) => {
     };
     globalASTCache.forEach((status) => {
         status.program?.exportFields.forEach((field) => {
-            getDocumentSymbols(field).forEach((symbol) =>
+            getDocumentSymbols(field, true).forEach((symbol) =>
                 visitDocumentSymbol(status.uri, symbol),
             );
         });
@@ -1228,38 +1228,44 @@ connection.onDocumentSymbol((event) => {
     const results: DocumentSymbol[] = [];
     const status = getContext(uri).astResolver.request(uri);
     status?.program?.exportFields.forEach((field) => {
-        results.push(...getDocumentSymbols(field));
+        results.push(...getDocumentSymbols(field, false));
     });
     return results;
 });
 
-function getDocumentSymbols(field: Field): DocumentSymbol[] {
+function getDocumentSymbols(
+    field: Field,
+    skipUnnamed: boolean,
+): DocumentSymbol[] {
     const range = rangeFromNode(asNode(field.ast)) || defaultRange();
     const kind =
         field.exp instanceof ObjBlock
             ? SymbolKind.Module
             : field.exp instanceof Type
             ? SymbolKind.Interface
-            : SymbolKind.Field;
+            : SymbolKind.Variable;
     const children: DocumentSymbol[] = [];
     if (field.exp instanceof ObjBlock) {
         field.exp.fields.forEach((field) => {
-            children.push(...getDocumentSymbols(field));
+            children.push(...getDocumentSymbols(field, skipUnnamed));
         });
     }
-    if (field.name) {
-        return [
-            {
-                name: field.name,
-                kind,
-                range,
-                selectionRange: rangeFromNode(asNode(field.pat?.ast)) || range,
-                children,
-            },
-        ];
-    } else {
+    if (skipUnnamed && !field.name) {
         return children;
     }
+    return [
+        {
+            name:
+                field.name ||
+                (field.exp instanceof ObjBlock
+                    ? field.exp.sort.toLowerCase()
+                    : 'value'), // Default field name
+            kind,
+            range,
+            selectionRange: rangeFromNode(asNode(field.pat?.ast)) || range,
+            children,
+        },
+    ];
 }
 
 connection.onReferences(
