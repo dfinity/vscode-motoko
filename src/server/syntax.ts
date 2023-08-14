@@ -80,10 +80,8 @@ export function fromAST(ast: AST): Syntax {
             if (ast.args.length) {
                 const export_ = ast.args[ast.args.length - 1];
                 if (export_) {
-                    const fields = getFieldsFromAST(export_);
-                    if (fields.length === 1) {
-                        prog.export = fields[0];
-                    }
+                    prog.export = export_;
+                    prog.exportFields.push(...getFieldsFromAST(export_));
                 }
             }
         }
@@ -160,7 +158,8 @@ export class Syntax {
 
 export class Program extends Syntax {
     imports: Import[] = [];
-    export: Field | undefined;
+    export: AST | undefined;
+    exportFields: Field[] = [];
 }
 
 export type ObjSort = 'Object' | 'Actor' | 'Module' | 'Memory';

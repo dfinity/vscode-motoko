@@ -1197,23 +1197,28 @@ connection.onDefinition(
 
 connection.onWorkspaceSymbol((event) => {
     const results: WorkspaceSymbol[] = [];
+    const visitDocumentSymbol = (
+        uri: string,
+        symbol: DocumentSymbol,
+        parent?: DocumentSymbol,
+    ) => {
+        results.push({
+            name: symbol.name,
+            kind: symbol.kind,
+            location: Location.create(uri, symbol.range),
+            containerName: parent?.name,
+        });
+        symbol.children?.forEach((s) => visitDocumentSymbol(uri, s, symbol));
+    };
     globalASTCache.forEach((status) => {
         if (
             event.query.length &&
             status.uri.toLowerCase().includes(event.query.toLowerCase()) &&
             status.program
         ) {
-            if (status.program.export?.name) {
-                results.push({
-                    name: status.program.export.name,
-                    kind: SymbolKind.Module,
-                    location: Location.create(
-                        status.uri,
-                        rangeFromNode(asNode(status.program.ast)) ||
-                            defaultRange(),
-                    ),
-                });
-            }
+            status.program.exportFields.forEach((field) => {
+                visitDocumentSymbol(status.uri, getDocumentSymbol(field));
+            });
         }
     });
     return results;
@@ -1223,9 +1228,9 @@ connection.onDocumentSymbol((event) => {
     const { uri } = event.textDocument;
     const results: DocumentSymbol[] = [];
     const status = getContext(uri).astResolver.request(uri);
-    if (status?.program?.export) {
-        results.push(getDocumentSymbol(status.program.export));
-    }
+    status?.program?.exportFields.forEach((field) => {
+        results.push(getDocumentSymbol(field));
+    });
     return results;
 });
 
