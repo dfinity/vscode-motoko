@@ -16,10 +16,10 @@ export interface AstImport {
     field?: string;
 }
 
-const globalCache = new Map<string, AstStatus>(); // Share non-typed ASTs across all contexts
+export const globalAstCache = new Map<string, AstStatus>(); // Share non-typed ASTs across all contexts
 
 export default class AstResolver {
-    private readonly _cache = globalCache;
+    private readonly _cache = globalAstCache;
     private readonly _typedCache = new Map<string, AstStatus>();
 
     clear() {

@@ -79,13 +79,68 @@ export function fromAST(ast: AST): Syntax {
             });
             if (ast.args.length) {
                 const export_ = ast.args[ast.args.length - 1];
-                prog.export = fromAST(export_);
+                if (export_) {
+                    const fields = getFieldsFromAST(export_);
+                    if (fields.length === 1) {
+                        prog.export = fields[0];
+                    }
+                }
             }
         }
         return prog;
     } else {
         return new Syntax(ast);
     }
+}
+
+function getFieldsFromAST(ast: AST): Field[] {
+    const fields: [string, Node, Node][] =
+        matchNode(ast, 'LetD', (pat: Node, exp: Node) => {
+            const name = matchNode(pat, 'VarP', (field: string) => field);
+            return name ? [[name, pat, exp]] : undefined;
+        }) || [];
+    return fields.map(([name, pat, exp]) => {
+        const field = new Field(ast);
+        field.name = name;
+        field.pat = fromAST(pat);
+        field.exp = fromAST(exp);
+        return field;
+        // matchNode(
+        //     exp,
+        //     'ObjBlockE',
+        //     (_type: string, ...fields: Node[]) => {
+        //         this._fieldMap.delete(uri);
+        //         fields.forEach((field) => {
+        //             if (field.name !== 'DecField') {
+        //                 console.error(
+        //                     'Error: expected `DecField`, received',
+        //                     field.name,
+        //                 );
+        //                 return;
+        //             }
+        //             const [dec, visibility] = field.args!;
+        //             // TODO: `system` visibility
+        //             if (visibility !== 'Public') {
+        //                 return;
+        //             }
+        //             matchNode(dec, 'LetD', (pat: Node, exp: Node) => {
+        //                 const name = matchNode(
+        //                     pat,
+        //                     'VarP',
+        //                     (field: string) => field,
+        //                 );
+        //                 if (name) {
+        //                     this._fieldMap.set(uri, {
+        //                         name,
+        //                         visibility,
+        //                         ast: exp,
+        //                     });
+        //                 }
+        //             });
+        //         });
+        //     },
+        // );
+    });
 }
 
 export function asNode(ast: AST | undefined): Node | undefined {
@@ -121,7 +176,13 @@ export class Syntax {
 
 export class Program extends Syntax {
     imports: Import[] = [];
-    export: Syntax | undefined;
+    export: Field | undefined;
+}
+
+export class Field extends Syntax {
+    name: string | undefined;
+    pat: Syntax | undefined;
+    exp: Syntax | undefined;
 }
 
 export class Import extends Syntax {
