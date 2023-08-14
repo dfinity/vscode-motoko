@@ -106,9 +106,13 @@ export function fromAST(ast: AST): Syntax {
             obj.fields.push(...getFieldsFromAST(dec));
         });
         return obj;
-    } else {
-        return new Syntax(ast);
     }
+    // let dec =
+    //     matchNode(ast, 'LetD', (pat: Node, exp: Node) => exp) || // Named
+    //     matchNode(ast, 'ExpD', (exp: Node) => exp); // Unnamed
+    // if (dec) {
+    // }
+    return new Syntax(ast);
 }
 
 function getFieldsFromAST(ast: AST): Field[] {
@@ -119,15 +123,22 @@ function getFieldsFromAST(ast: AST): Field[] {
         return [];
     }
     const [pat, exp] = parts;
-    const fields: [string, Node, Node][] =
-        matchNode(pat, 'VarP', (name: string) => [[name, pat!, exp]]) || [];
-    return fields.map(([name, pat, exp]) => {
+    if (pat) {
+        // TODO: object patterns
+        const fields: [string, Node, Node][] =
+            matchNode(pat, 'VarP', (name: string) => [[name, pat, exp]]) || [];
+        return fields.map(([name, pat, exp]) => {
+            const field = new Field(ast);
+            field.name = name;
+            field.pat = fromAST(pat);
+            field.exp = fromAST(exp);
+            return field;
+        });
+    } else {
         const field = new Field(ast);
-        field.name = name;
-        field.pat = fromAST(pat);
         field.exp = fromAST(exp);
-        return field;
-    });
+        return [field];
+    }
 }
 
 export function asNode(ast: AST | undefined): Node | undefined {
