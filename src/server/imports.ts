@@ -12,8 +12,6 @@ interface ResolvedField {
 }
 
 export default class ImportResolver {
-    public readonly context: Context;
-
     // module name -> uri
     private readonly _moduleNameUriMap = new MultiMap<string, string>(Set);
     // uri -> resolved field
@@ -21,9 +19,7 @@ export default class ImportResolver {
     // import path -> file system uri
     private readonly _fileSystemMap = new Map<string, string>();
 
-    constructor(context: Context) {
-        this.context = context;
-    }
+    constructor(private readonly context: Context) {}
 
     clear() {
         this._moduleNameUriMap.clear();
