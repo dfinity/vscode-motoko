@@ -41,6 +41,7 @@ import {
     TestResult,
 } from '../common/connectionTypes';
 import { watchGlob as virtualFilePattern } from '../common/watchConfig';
+import { globalASTCache } from './ast';
 import {
     Context,
     addContext,
@@ -67,7 +68,6 @@ import {
     resolveFilePath,
     resolveVirtualPath,
 } from './utils';
-import { globalASTCache } from './ast';
 
 const errorCodes: Record<
     string,
@@ -1231,6 +1231,8 @@ connection.onDocumentSymbol((event) => {
 
 function getDocumentSymbol(field: Field): DocumentSymbol {
     const range = rangeFromNode(asNode(field.ast)) || defaultRange();
+    const kind =
+        field.exp instanceof ObjBlock ? SymbolKind.Module : SymbolKind.Field;
     const children: DocumentSymbol[] = [];
     if (field.exp instanceof ObjBlock) {
         field.exp.fields.forEach((field) => {
@@ -1239,7 +1241,7 @@ function getDocumentSymbol(field: Field): DocumentSymbol {
     }
     return {
         name: field.name,
-        kind: SymbolKind.Module,
+        kind,
         range,
         selectionRange: rangeFromNode(asNode(field.pat?.ast)) || range,
         children,
