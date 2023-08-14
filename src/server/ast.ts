@@ -1,5 +1,5 @@
 import { AST } from 'motoko/lib/ast';
-import { getContext } from './context';
+import { Context } from './context';
 import { Program, fromAST } from './syntax';
 import { resolveVirtualPath, tryGetFileText } from './utils';
 
@@ -16,11 +16,13 @@ export interface AstImport {
     field?: string;
 }
 
-const globalCache = new Map<string, AstStatus>(); // Share non-typed ASTs across all contexts
+export const globalASTCache = new Map<string, AstStatus>(); // Share non-typed ASTs across all contexts
 
 export default class AstResolver {
-    private readonly _cache = globalCache;
+    private readonly _cache = globalASTCache;
     private readonly _typedCache = new Map<string, AstStatus>();
+
+    constructor(private readonly context: Context) {}
 
     clear() {
         this._cache.clear();
@@ -55,7 +57,7 @@ export default class AstResolver {
             status.text = text;
         }
         try {
-            const { motoko } = getContext(uri);
+            const { motoko } = this.context;
             const virtualPath = resolveVirtualPath(uri);
             let ast: AST;
             try {

@@ -14,6 +14,7 @@ import {
     CompletionList,
     Diagnostic,
     DiagnosticSeverity,
+    DocumentSymbol,
     FileChangeType,
     InitializeResult,
     Location,
@@ -23,11 +24,13 @@ import {
     Range,
     ReferenceParams,
     SignatureHelp,
+    SymbolKind,
     TextDocumentPositionParams,
     TextDocumentSyncKind,
     TextDocuments,
     TextEdit,
     WorkspaceFolder,
+    WorkspaceSymbol,
     createConnection,
 } from 'vscode-languageserver/node';
 import { URI } from 'vscode-uri';
@@ -38,6 +41,7 @@ import {
     TestResult,
 } from '../common/connectionTypes';
 import { watchGlob as virtualFilePattern } from '../common/watchConfig';
+import { globalASTCache } from './ast';
 import {
     Context,
     addContext,
@@ -49,13 +53,14 @@ import DfxResolver from './dfx';
 import { organizeImports } from './imports';
 import { getAstInformation } from './information';
 import {
+    defaultRange,
     findDefinition,
     findMostSpecificNodeForPosition,
     locationFromDefinition,
     rangeFromNode,
 } from './navigation';
 import { deployPlayground } from './playground';
-import { Program, asNode, findNodes } from './syntax';
+import { Field, ObjBlock, Program, asNode, findNodes } from './syntax';
 import {
     formatMotoko,
     getFileText,
@@ -434,7 +439,8 @@ connection.onInitialize((event): InitializeResult => {
             },
             hoverProvider: true,
             // executeCommandProvider: { commands: [] },
-            // workspaceSymbolProvider: true,
+            workspaceSymbolProvider: true,
+            documentSymbolProvider: true,
             // diagnosticProvider: {
             //     documentSelector: ['motoko'],
             //     interFileDependencies: true,
@@ -1189,9 +1195,60 @@ connection.onDefinition(
 //     },
 // );
 
-// connection.onWorkspaceSymbol((_event) => {
-//     return [];
-// });
+connection.onWorkspaceSymbol((event) => {
+    if (!event.query.length) {
+        return [];
+    }
+    const results: WorkspaceSymbol[] = [];
+    const visitDocumentSymbol = (
+        uri: string,
+        symbol: DocumentSymbol,
+        parent?: DocumentSymbol,
+    ) => {
+        results.push({
+            name: symbol.name,
+            kind: symbol.kind,
+            location: Location.create(uri, symbol.range),
+            containerName: parent?.name,
+        });
+        symbol.children?.forEach((s) => visitDocumentSymbol(uri, s, symbol));
+    };
+    globalASTCache.forEach((status) => {
+        status.program?.namedExports.forEach((field) => {
+            visitDocumentSymbol(status.uri, getDocumentSymbol(field));
+        });
+    });
+    return results;
+});
+
+connection.onDocumentSymbol((event) => {
+    const { uri } = event.textDocument;
+    const results: DocumentSymbol[] = [];
+    const status = getContext(uri).astResolver.request(uri);
+    status?.program?.namedExports.forEach((field) => {
+        results.push(getDocumentSymbol(field));
+    });
+    return results;
+});
+
+function getDocumentSymbol(field: Field): DocumentSymbol {
+    const range = rangeFromNode(asNode(field.ast)) || defaultRange();
+    const kind =
+        field.exp instanceof ObjBlock ? SymbolKind.Module : SymbolKind.Field;
+    const children: DocumentSymbol[] = [];
+    if (field.exp instanceof ObjBlock) {
+        field.exp.fields.forEach((field) => {
+            children.push(getDocumentSymbol(field));
+        });
+    }
+    return {
+        name: field.name,
+        kind,
+        range,
+        selectionRange: rangeFromNode(asNode(field.pat?.ast)) || range,
+        children,
+    };
+}
 
 connection.onReferences(
     async (_event: ReferenceParams): Promise<Location[]> => {

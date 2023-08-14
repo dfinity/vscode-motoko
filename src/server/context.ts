@@ -18,7 +18,7 @@ export class Context {
     constructor(uri: string, motoko: Motoko) {
         this.uri = uri;
         this.motoko = motoko;
-        this.astResolver = new AstResolver();
+        this.astResolver = new AstResolver(this);
         this.importResolver = new ImportResolver(this);
     }
 }

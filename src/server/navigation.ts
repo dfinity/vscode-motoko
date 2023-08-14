@@ -65,6 +65,11 @@ export function findMostSpecificNodeForPosition(
     return node as (Node & { start: Span; end: Span }) | undefined;
 }
 
+export function defaultRange(): Range {
+    const pos = Position.create(0, 0);
+    return Range.create(pos, pos);
+}
+
 export function rangeFromNode(
     node: Node | undefined,
     multiLineFromBeginning = false,

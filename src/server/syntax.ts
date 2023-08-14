@@ -79,13 +79,50 @@ export function fromAST(ast: AST): Syntax {
             });
             if (ast.args.length) {
                 const export_ = ast.args[ast.args.length - 1];
-                prog.export = fromAST(export_);
+                if (export_) {
+                    prog.export = export_;
+                    prog.namedExports.push(...getFieldsFromAST(export_));
+                }
             }
         }
         return prog;
+    } else if (ast.name === 'ObjBlockE' && ast.args) {
+        const sort = ast.args[0] as ObjSort;
+        const fields = ast.args.slice(1) as Node[];
+
+        const obj = new ObjBlock(ast, sort);
+        fields.forEach((field) => {
+            if (field.name !== 'DecField') {
+                console.error(
+                    'Error: expected `DecField`, received',
+                    field.name,
+                );
+                return;
+            }
+            const [dec, _visibility] = field.args!;
+            // if (visibility !== 'Public') {
+            //     return;
+            // }
+            obj.fields.push(...getFieldsFromAST(dec));
+        });
+        return obj;
     } else {
         return new Syntax(ast);
     }
+}
+
+function getFieldsFromAST(ast: AST): Field[] {
+    const fields: [string, Node, Node][] =
+        matchNode(ast, 'LetD', (pat: Node, exp: Node) => {
+            const name = matchNode(pat, 'VarP', (field: string) => field);
+            return name ? [[name, pat, exp]] : undefined;
+        }) || [];
+    return fields.map(([name, pat, exp]) => {
+        const field = new Field(ast, name);
+        field.pat = fromAST(pat);
+        field.exp = fromAST(exp);
+        return field;
+    });
 }
 
 export function asNode(ast: AST | undefined): Node | undefined {
@@ -121,17 +158,35 @@ export class Syntax {
 
 export class Program extends Syntax {
     imports: Import[] = [];
-    export: Syntax | undefined;
+    namedExports: Field[] = [];
+    export: AST | undefined;
+}
+
+export type ObjSort = 'Object' | 'Actor' | 'Module' | 'Memory';
+
+export class ObjBlock extends Syntax {
+    fields: Field[] = [];
+
+    constructor(ast: AST, public sort: ObjSort) {
+        super(ast);
+    }
+}
+
+export class Field extends Syntax {
+    pat: Syntax | undefined;
+    exp: Syntax | undefined;
+
+    constructor(ast: AST, public name: string) {
+        super(ast);
+    }
 }
 
 export class Import extends Syntax {
     name: string | undefined;
     fields: [string, string][] = []; // [name, alias]
-    path: string;
 
-    constructor(ast: AST, path: string) {
+    constructor(ast: AST, public path: string) {
         super(ast);
-        this.path = path;
     }
 }
 

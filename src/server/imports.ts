@@ -12,8 +12,6 @@ interface ResolvedField {
 }
 
 export default class ImportResolver {
-    public readonly context: Context;
-
     // module name -> uri
     private readonly _moduleNameUriMap = new MultiMap<string, string>(Set);
     // uri -> resolved field
@@ -21,9 +19,7 @@ export default class ImportResolver {
     // import path -> file system uri
     private readonly _fileSystemMap = new Map<string, string>();
 
-    constructor(context: Context) {
-        this.context = context;
-    }
+    constructor(private readonly context: Context) {}
 
     clear() {
         this._moduleNameUriMap.clear();
@@ -39,7 +35,7 @@ export default class ImportResolver {
         this._fileSystemMap.set(importUri, uri);
         if (program?.export) {
             // Resolve field names
-            const { ast } = program.export;
+            const ast = program.export;
             const node =
                 matchNode(ast, 'LetD', (_pat: Node, exp: Node) => exp) || // Named
                 matchNode(ast, 'ExpD', (exp: Node) => exp); // Unnamed
@@ -58,7 +54,6 @@ export default class ImportResolver {
                                 return;
                             }
                             const [dec, visibility] = field.args!;
-                            // TODO: `system` visibility
                             if (visibility !== 'Public') {
                                 return;
                             }
