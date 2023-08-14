@@ -67,7 +67,7 @@ import {
     resolveFilePath,
     resolveVirtualPath,
 } from './utils';
-import { globalAstCache } from './ast';
+import { globalASTCache } from './ast';
 
 const errorCodes: Record<
     string,
@@ -1197,7 +1197,7 @@ connection.onDefinition(
 
 connection.onWorkspaceSymbol((event) => {
     const results: WorkspaceSymbol[] = [];
-    globalAstCache.forEach((status) => {
+    globalASTCache.forEach((status) => {
         if (
             event.query.length &&
             status.uri.toLowerCase().includes(event.query.toLowerCase()) &&
