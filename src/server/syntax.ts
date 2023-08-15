@@ -128,7 +128,6 @@ function getFieldsFromAST(ast: AST): Field[] {
             field.name = name;
             return [field];
         }) ||
-        // sort_pat * typ_id * typ_bind list * pat * typ option * obj_sort * id * dec_field list
         matchNode(
             ast,
             'ClassD',
