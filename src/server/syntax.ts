@@ -47,6 +47,12 @@ export function fromAST(ast: AST): Syntax {
         typeof ast === 'number'
     ) {
         return new Syntax(ast);
+    } else if (ast.name === 'AwaitE') {
+        const exp = ast.args![0];
+        return (
+            matchNode(exp, 'AsyncE', (node: Node) => fromAST(node)) ||
+            new Syntax(exp)
+        );
     } else if (ast.name === 'Prog') {
         const prog = new Program(ast);
         if (ast.args) {
@@ -136,14 +142,18 @@ function getFieldsFromAST(ast: AST): Field[] {
                 _id: string,
                 decs: Node[],
             ) => {
-                const field = new Field(
-                    ast,
-                    new Syntax({
+                const cls = new Class(
+                    {
                         ...asNode(ast),
                         name: 'ClassDecs',
                         args: decs,
-                    }),
+                    },
+                    name,
                 );
+                decs.forEach((ast) =>
+                    cls.fields.push(...getFieldsFromAST(ast)),
+                );
+                const field = new Field(ast, cls);
                 field.name = name;
                 return [field];
             },
@@ -211,12 +221,20 @@ export class Program extends Syntax {
     exportFields: Field[] = [];
 }
 
+export abstract class SyntaxWithFields extends Syntax {
+    fields: Field[] = [];
+}
+
 export type ObjSort = 'Object' | 'Actor' | 'Module' | 'Memory';
 
-export class ObjBlock extends Syntax {
-    fields: Field[] = [];
-
+export class ObjBlock extends SyntaxWithFields {
     constructor(ast: AST, public sort: ObjSort) {
+        super(ast);
+    }
+}
+
+export class Class extends SyntaxWithFields {
+    constructor(ast: AST, public name: string) {
         super(ast);
     }
 }
