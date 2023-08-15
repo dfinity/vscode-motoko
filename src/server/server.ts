@@ -65,6 +65,7 @@ import {
     Field,
     ObjBlock,
     Program,
+    SyntaxWithFields,
     Type,
     asNode,
     findNodes,
@@ -1255,7 +1256,7 @@ function getDocumentSymbols(
             ? SymbolKind.Interface
             : SymbolKind.Variable;
     const children: DocumentSymbol[] = [];
-    if (field.exp instanceof ObjBlock) {
+    if (field.exp instanceof SyntaxWithFields) {
         field.exp.fields.forEach((field) => {
             children.push(...getDocumentSymbols(field, skipUnnamed));
         });

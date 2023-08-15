@@ -141,19 +141,12 @@ function getFieldsFromAST(ast: AST): Field[] {
                     console.warn('Unexpected `ClassD` AST format');
                     return [];
                 }
-                const typeBinds = args.slice(0, index) as Node[];
+                // const typeBinds = args.slice(0, index) as Node[];
                 const [_pat, _returnType, sort, _id, ...decs] = args.slice(
                     index,
                 ) as [Node, Node, ObjSort, string, ...Node[]];
 
                 const cls = new Class(ast, name, sort);
-                console.log(
-                    '>>>',
-                    index,
-                    name,
-                    typeBinds.map((t) => t.name),
-                    decs.map((dec) => dec?.name),
-                ); /////
                 decs.forEach((ast) => {
                     matchNode(ast, 'DecField', (dec: Node) => {
                         cls.fields.push(...getFieldsFromAST(dec));
