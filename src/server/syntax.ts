@@ -50,7 +50,7 @@ export function fromAST(ast: AST): Syntax {
     } else if (ast.name === 'AwaitE') {
         const exp = ast.args![0];
         return (
-            matchNode(exp, 'AsyncE', (node: Node) => fromAST(node)) ||
+            matchNode(exp, 'AsyncE', (_id: Node, exp: Node) => fromAST(exp)) ||
             new Syntax(exp)
         );
     } else if (ast.name === 'Prog') {
