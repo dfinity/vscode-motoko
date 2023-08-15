@@ -60,7 +60,15 @@ import {
     rangeFromNode,
 } from './navigation';
 import { deployPlayground } from './playground';
-import { Field, ObjBlock, Program, Type, asNode, findNodes } from './syntax';
+import {
+    Class,
+    Field,
+    ObjBlock,
+    Program,
+    Type,
+    asNode,
+    findNodes,
+} from './syntax';
 import {
     formatMotoko,
     getFileText,
@@ -1241,6 +1249,8 @@ function getDocumentSymbols(
     const kind =
         field.exp instanceof ObjBlock
             ? SymbolKind.Module
+            : field.exp instanceof Class
+            ? SymbolKind.Class
             : field.exp instanceof Type
             ? SymbolKind.Interface
             : SymbolKind.Variable;
