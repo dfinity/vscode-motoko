@@ -140,7 +140,7 @@ function getFieldsFromAST(ast: AST): Field[] {
                 _typ: any,
                 _sort: ObjSort,
                 _id: string,
-                decs: Node[],
+                ...decs: Node[]
             ) => {
                 const cls = new Class(
                     {
