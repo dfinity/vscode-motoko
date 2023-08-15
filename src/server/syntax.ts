@@ -137,7 +137,6 @@ function getFieldsFromAST(ast: AST): Field[] {
                 name: any,
                 _typBind: any,
                 _pat: any,
-                _typ: any,
                 _sort: ObjSort,
                 _id: string,
                 ...decs: Node[]
@@ -151,7 +150,9 @@ function getFieldsFromAST(ast: AST): Field[] {
                     name,
                 );
                 decs.forEach((ast) =>
-                    cls.fields.push(...getFieldsFromAST(ast)),
+                    matchNode(ast, 'DecField', (dec: Node) =>
+                        cls.fields.push(...getFieldsFromAST(dec)),
+                    ),
                 );
                 const field = new Field(ast, cls);
                 field.name = name;
