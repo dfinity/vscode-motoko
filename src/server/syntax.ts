@@ -137,23 +137,16 @@ function getFieldsFromAST(ast: AST): Field[] {
                 name: any,
                 _typBind: any,
                 _pat: any,
-                _sort: ObjSort,
+                sort: ObjSort,
                 _id: string,
                 ...decs: Node[]
             ) => {
-                const cls = new Class(
-                    {
-                        ...asNode(ast),
-                        name: 'ClassDecs',
-                        args: decs,
-                    },
-                    name,
-                );
-                decs.forEach((ast) =>
-                    matchNode(ast, 'DecField', (dec: Node) =>
-                        cls.fields.push(...getFieldsFromAST(dec)),
-                    ),
-                );
+                const cls = new Class(ast, name, sort);
+                decs.forEach((ast) => {
+                    matchNode(ast, 'DecField', (dec: Node) => {
+                        cls.fields.push(...getFieldsFromAST(dec));
+                    });
+                });
                 const field = new Field(ast, cls);
                 field.name = name;
                 return [field];
@@ -235,7 +228,7 @@ export class ObjBlock extends SyntaxWithFields {
 }
 
 export class Class extends SyntaxWithFields {
-    constructor(ast: AST, public name: string) {
+    constructor(ast: AST, public name: string, public sort: ObjSort) {
         super(ast);
     }
 }
