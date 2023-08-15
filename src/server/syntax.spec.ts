@@ -90,4 +90,14 @@ describe('syntax', () => {
         const fields = expectWithFields(prog.exportFields[0].exp, [undefined]);
         expectWithFields(fields[0].exp, ['x']);
     });
+    test('tuple pattern', () => {
+        const prog = parse('module { let (a, b) = ("a", "b"); }');
+        expectFields(prog.exportFields, [undefined]);
+        expectWithFields(prog.exportFields[0].exp, ['a', 'b']);
+    });
+    test('object pattern', () => {
+        const prog = parse('module { let { a; b } = { a = "a"; b = "b" }; }');
+        expectFields(prog.exportFields, [undefined]);
+        expectWithFields(prog.exportFields[0].exp, ['a', 'b']);
+    });
 });
