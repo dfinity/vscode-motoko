@@ -168,9 +168,10 @@ function getFieldsFromAST(ast: AST): Field[] {
     }
     const [pat, exp] = parts;
     if (pat) {
-        // TODO: object patterns
-        const fields: [string, Node, Node][] =
-            matchNode(pat, 'VarP', (name: string) => [[name, pat, exp]]) || [];
+        const fields: [string, Node, Node][] = [];
+        findInPattern(pat, (name, pat) => {
+            fields.push([name, pat, exp]);
+        });
         return fields.map(([name, pat, exp]) => {
             const field = new Field(ast, fromAST(exp));
             field.name = name;
@@ -183,12 +184,64 @@ function getFieldsFromAST(ast: AST): Field[] {
     }
 }
 
+export function findInPattern<T>(
+    pat: Node,
+    fn: (name: string, pat: Node) => T | undefined,
+): T | undefined {
+    const matchAny = (...args: Node[]) => {
+        for (const field of args) {
+            const result = findInPattern(field, fn);
+            if (result !== undefined) {
+                return result;
+            }
+        }
+        return;
+    };
+    const match = (arg: Node) => findInPattern(arg, fn);
+    return (
+        matchNode(pat, 'VarP', (name: string) => fn(name, pat)) ||
+        matchNode(pat, 'ObjP', (...args: Node[]) => {
+            for (const field of args) {
+                const aliasNode = field.args![0] as Node;
+                const alias = matchNode(
+                    aliasNode,
+                    'VarP',
+                    (alias) => alias,
+                    field.name,
+                );
+                const result = fn(alias, pat);
+                if (result !== undefined) {
+                    return result;
+                }
+            }
+            return;
+        }) ||
+        matchNode(pat, 'TupP', matchAny) ||
+        matchNode(pat, 'AltP', matchAny) ||
+        matchNode(pat, 'AnnotP', match) ||
+        matchNode(pat, 'ParP', match) ||
+        matchNode(pat, 'OptP', match) ||
+        matchNode(pat, 'TagP', (_tag, arg: Node) => match(arg))
+    );
+}
+
 export function asNode(ast: AST | undefined): Node | undefined {
     return ast && typeof ast === 'object' && !Array.isArray(ast)
         ? ast
         : undefined;
 }
 
+export function matchNode<T>(
+    ast: AST | undefined,
+    name: string,
+    fn: (...args: any) => T,
+): T | undefined;
+export function matchNode<T>(
+    ast: AST | undefined,
+    name: string,
+    fn: (...args: any) => T,
+    defaultValue: T,
+): T;
 export function matchNode<T>(
     ast: AST | undefined,
     name: string,
