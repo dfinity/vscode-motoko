@@ -47,6 +47,12 @@ export function fromAST(ast: AST): Syntax {
         typeof ast === 'number'
     ) {
         return new Syntax(ast);
+    } else if (ast.name === 'AwaitE') {
+        const exp = ast.args![0];
+        return (
+            matchNode(exp, 'AsyncE', (_id: Node, exp: Node) => fromAST(exp)) ||
+            new Syntax(exp)
+        );
     } else if (ast.name === 'Prog') {
         const prog = new Program(ast);
         if (ast.args) {
@@ -80,8 +86,8 @@ export function fromAST(ast: AST): Syntax {
             if (ast.args.length) {
                 const export_ = ast.args[ast.args.length - 1];
                 if (export_) {
-                    prog.export = export_;
-                    prog.namedExports.push(...getFieldsFromAST(export_));
+                    prog.export = fromAST(export_);
+                    prog.exportFields.push(...getFieldsFromAST(export_));
                 }
             }
         }
@@ -106,23 +112,75 @@ export function fromAST(ast: AST): Syntax {
             obj.fields.push(...getFieldsFromAST(dec));
         });
         return obj;
-    } else {
-        return new Syntax(ast);
     }
+    return new Syntax(ast);
 }
 
 function getFieldsFromAST(ast: AST): Field[] {
-    const fields: [string, Node, Node][] =
-        matchNode(ast, 'LetD', (pat: Node, exp: Node) => {
-            const name = matchNode(pat, 'VarP', (field: string) => field);
-            return name ? [[name, pat, exp]] : undefined;
-        }) || [];
-    return fields.map(([name, pat, exp]) => {
-        const field = new Field(ast, name);
-        field.pat = fromAST(pat);
-        field.exp = fromAST(exp);
-        return field;
-    });
+    const simplyNamedFields =
+        matchNode(ast, 'TypD', (name: string, type: Node) => {
+            const field = new Field(ast, new Type(type));
+            field.name = name;
+            return [field];
+        }) ||
+        matchNode(ast, 'VarD', (name: string, exp: Node) => {
+            const field = new Field(ast, new Type(exp));
+            field.name = name;
+            return [field];
+        }) ||
+        matchNode(
+            ast,
+            'ClassD',
+            (_sharedPat: any, name: string, ...args: any[]) => {
+                let index = args.length - 1;
+                while (index >= 0 && typeof args[index] !== 'string') {
+                    index--;
+                }
+                index -= 3; // [pat, returnType, sort]
+                if (index < 0) {
+                    console.warn('Unexpected `ClassD` AST format');
+                    return [];
+                }
+                // const typeBinds = args.slice(0, index) as Node[];
+                const [_pat, _returnType, sort, _id, ...decs] = args.slice(
+                    index,
+                ) as [Node, Node, ObjSort, string, ...Node[]];
+
+                const cls = new Class(ast, name, sort);
+                decs.forEach((ast) => {
+                    matchNode(ast, 'DecField', (dec: Node) => {
+                        cls.fields.push(...getFieldsFromAST(dec));
+                    });
+                });
+                const field = new Field(ast, cls);
+                field.name = name;
+                return [field];
+            },
+        );
+    if (simplyNamedFields) {
+        return simplyNamedFields;
+    }
+    const parts: [Node | undefined, Node] | undefined =
+        matchNode(ast, 'LetD', (pat: Node, exp: Node) => [pat, exp]) || // Named
+        matchNode(ast, 'ExpD', (exp: Node) => [undefined, exp]); // Unnamed
+    if (!parts) {
+        return [];
+    }
+    const [pat, exp] = parts;
+    if (pat) {
+        // TODO: object patterns
+        const fields: [string, Node, Node][] =
+            matchNode(pat, 'VarP', (name: string) => [[name, pat, exp]]) || [];
+        return fields.map(([name, pat, exp]) => {
+            const field = new Field(ast, fromAST(exp));
+            field.name = name;
+            field.pat = fromAST(pat);
+            return field;
+        });
+    } else {
+        const field = new Field(ast, fromAST(exp));
+        return [field];
+    }
 }
 
 export function asNode(ast: AST | undefined): Node | undefined {
@@ -158,25 +216,33 @@ export class Syntax {
 
 export class Program extends Syntax {
     imports: Import[] = [];
-    namedExports: Field[] = [];
-    export: AST | undefined;
+    export: Syntax | undefined;
+    exportFields: Field[] = [];
+}
+
+export abstract class SyntaxWithFields extends Syntax {
+    fields: Field[] = [];
 }
 
 export type ObjSort = 'Object' | 'Actor' | 'Module' | 'Memory';
 
-export class ObjBlock extends Syntax {
-    fields: Field[] = [];
-
+export class ObjBlock extends SyntaxWithFields {
     constructor(ast: AST, public sort: ObjSort) {
         super(ast);
     }
 }
 
-export class Field extends Syntax {
-    pat: Syntax | undefined;
-    exp: Syntax | undefined;
+export class Class extends SyntaxWithFields {
+    constructor(ast: AST, public name: string, public sort: ObjSort) {
+        super(ast);
+    }
+}
 
-    constructor(ast: AST, public name: string) {
+export class Field extends Syntax {
+    name: string | undefined;
+    pat: Syntax | undefined;
+
+    constructor(ast: AST, public exp: Syntax) {
         super(ast);
     }
 }
@@ -189,7 +255,5 @@ export class Import extends Syntax {
         super(ast);
     }
 }
-
-export class Expression extends Syntax {}
 
 export class Type extends Syntax {}

@@ -60,7 +60,16 @@ import {
     rangeFromNode,
 } from './navigation';
 import { deployPlayground } from './playground';
-import { Field, ObjBlock, Program, asNode, findNodes } from './syntax';
+import {
+    Class,
+    Field,
+    ObjBlock,
+    Program,
+    SyntaxWithFields,
+    Type,
+    asNode,
+    findNodes,
+} from './syntax';
 import {
     formatMotoko,
     getFileText,
@@ -1214,8 +1223,10 @@ connection.onWorkspaceSymbol((event) => {
         symbol.children?.forEach((s) => visitDocumentSymbol(uri, s, symbol));
     };
     globalASTCache.forEach((status) => {
-        status.program?.namedExports.forEach((field) => {
-            visitDocumentSymbol(status.uri, getDocumentSymbol(field));
+        status.program?.exportFields.forEach((field) => {
+            getDocumentSymbols(field, true).forEach((symbol) =>
+                visitDocumentSymbol(status.uri, symbol),
+            );
         });
     });
     return results;
@@ -1225,29 +1236,47 @@ connection.onDocumentSymbol((event) => {
     const { uri } = event.textDocument;
     const results: DocumentSymbol[] = [];
     const status = getContext(uri).astResolver.request(uri);
-    status?.program?.namedExports.forEach((field) => {
-        results.push(getDocumentSymbol(field));
+    status?.program?.exportFields.forEach((field) => {
+        results.push(...getDocumentSymbols(field, false));
     });
     return results;
 });
 
-function getDocumentSymbol(field: Field): DocumentSymbol {
+function getDocumentSymbols(
+    field: Field,
+    skipUnnamed: boolean,
+): DocumentSymbol[] {
     const range = rangeFromNode(asNode(field.ast)) || defaultRange();
     const kind =
-        field.exp instanceof ObjBlock ? SymbolKind.Module : SymbolKind.Field;
+        field.exp instanceof ObjBlock
+            ? SymbolKind.Module
+            : field.exp instanceof Class
+            ? SymbolKind.Class
+            : field.exp instanceof Type
+            ? SymbolKind.Interface
+            : SymbolKind.Variable;
     const children: DocumentSymbol[] = [];
-    if (field.exp instanceof ObjBlock) {
+    if (field.exp instanceof SyntaxWithFields) {
         field.exp.fields.forEach((field) => {
-            children.push(getDocumentSymbol(field));
+            children.push(...getDocumentSymbols(field, skipUnnamed));
         });
     }
-    return {
-        name: field.name,
-        kind,
-        range,
-        selectionRange: rangeFromNode(asNode(field.pat?.ast)) || range,
-        children,
-    };
+    if (skipUnnamed && !field.name) {
+        return children;
+    }
+    return [
+        {
+            name:
+                field.name ||
+                (field.exp instanceof ObjBlock
+                    ? field.exp.sort.toLowerCase()
+                    : '(unknown)'), // Default field name
+            kind,
+            range,
+            selectionRange: rangeFromNode(asNode(field.pat?.ast)) || range,
+            children,
+        },
+    ];
 }
 
 connection.onReferences(
