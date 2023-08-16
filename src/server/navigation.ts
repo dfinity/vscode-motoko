@@ -341,7 +341,7 @@ function searchInScope(
     return;
 }
 
-function searchVariableBinding(
+function searchDeclaration(
     reference: Reference,
     search: Search,
     dec: Node,
@@ -363,6 +363,15 @@ function searchVariableBinding(
                       uri: reference.uri,
                       cursor: dec, // TODO: cursor on variable name
                       body,
+                  }
+                : undefined,
+        ) ||
+        matchNode(dec, 'ClassD', (_sharedPat: any, name: string) =>
+            name === search.name
+                ? {
+                      uri: reference.uri,
+                      cursor: dec, // TODO: cursor on variable name
+                      body: dec,
                   }
                 : undefined,
         )
@@ -400,7 +409,7 @@ function searchObject(
             let definition: Definition | undefined;
             if (search.type === 'variable') {
                 definition =
-                    searchVariableBinding(reference, search, arg) ||
+                    searchDeclaration(reference, search, arg) ||
                     matchNode(
                         arg,
                         'ExpField',
@@ -412,7 +421,7 @@ function searchObject(
                             },
                     ) ||
                     matchNode(arg, 'DecField', (dec: Node) =>
-                        searchVariableBinding(reference, search, dec),
+                        searchDeclaration(reference, search, dec),
                     ) ||
                     matchNode(
                         arg,
@@ -423,7 +432,7 @@ function searchObject(
                                     field,
                                     'DecField',
                                     (dec: Node) =>
-                                        searchVariableBinding(
+                                        searchDeclaration(
                                             reference,
                                             search,
                                             dec,
