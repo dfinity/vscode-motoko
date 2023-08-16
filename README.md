@@ -72,20 +72,6 @@ If you want VS Code to automatically format Motoko files on save, consider addin
 }
 ```
 
-## Recent Changes
-
-Projects using `dfx >= 0.11.1` use a new, experimental language server.
-
-To continue using the original language server, you can modify your `dfx.json` file to use version `0.11.0` or earlier:
-
-```json
-{
-  "dfx": "0.11.0"
-}
-```
-
-If you encounter any bugs, please [open a GitHub issue](https://github.com/dfinity/vscode-motoko/issues) with steps to reproduce so that we can fix the problem for everyone. 
-
 ## Contributing
 
 ### Set up your local development environment:
