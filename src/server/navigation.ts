@@ -383,14 +383,25 @@ function searchTypeBinding(
     search: Search,
     dec: Node,
 ): Definition | undefined {
-    return matchNode(dec, 'TypD', (name: string, typ: Node) =>
-        name === search.name
-            ? {
-                  uri: reference.uri,
-                  cursor: typ, // TODO: source location from `name`
-                  body: typ,
-              }
-            : undefined,
+    return (
+        matchNode(dec, 'TypD', (name: string, typ: Node) =>
+            name === search.name
+                ? {
+                      uri: reference.uri,
+                      cursor: typ, // TODO: source location from `name`
+                      body: typ,
+                  }
+                : undefined,
+        ) ||
+        matchNode(dec, 'ClassD', (_sharedPat: any, name: string) =>
+            name === search.name
+                ? {
+                      uri: reference.uri,
+                      cursor: dec, // TODO: cursor on variable name
+                      body: dec,
+                  }
+                : undefined,
+        )
     );
 }
 
