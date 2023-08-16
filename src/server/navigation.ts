@@ -198,9 +198,9 @@ function getTypeSearchPath(node: Node): Search[] {
                 },
             ]) ||
             matchNode(node, 'DotH', (qual: Node, name: string) => [
-                ...getTypeSearchPath(qual),
+                ...getQualifierSearchPath(qual),
                 {
-                    type: 'type',
+                    type: 'variable',
                     name,
                 },
             ]) ||
