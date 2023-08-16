@@ -417,7 +417,7 @@ function searchObject(
                 // Skip everything except `Node` values
                 continue;
             }
-            console.log('Searching:', search.name, scope.name, arg.name); ////
+            // console.log('Searching:', search.name, scope.name, arg.name);
             let definition: Definition | undefined;
             if (search.type === 'variable') {
                 definition =
