@@ -107,6 +107,7 @@ export function locationFromDefinition(definition: Definition) {
     return location;
 }
 
+// TODO: refactor to use `findInPattern()`
 function findNameInPattern(search: Search, pat: Node): Node | undefined {
     return findInPattern(pat, (name, node) =>
         name === search.name ? node : undefined,
