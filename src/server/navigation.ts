@@ -1,7 +1,7 @@
 import { AST, Node, Span } from 'motoko/lib/ast';
 import { Location, Position, Range } from 'vscode-languageserver';
 import { Context, getContext } from './context';
-import { findNodes, matchNode, asNode } from './syntax';
+import { findNodes, matchNode, asNode, findInPattern } from './syntax';
 import { getAbsoluteUri } from './utils';
 
 interface Reference {
@@ -109,41 +109,8 @@ export function locationFromDefinition(definition: Definition) {
 
 // TODO: refactor to use `findInPattern()`
 function findNameInPattern(search: Search, pat: Node): Node | undefined {
-    const matchAny = (...args: Node[]) => {
-        for (const field of args) {
-            const result = findNameInPattern(search, field);
-            if (result) {
-                return result;
-            }
-        }
-        return;
-    };
-    const match = (arg: Node) => findNameInPattern(search, arg);
-    return (
-        matchNode(pat, 'VarP', (name: string) =>
-            name === search.name ? pat : undefined,
-        ) ||
-        matchNode(pat, 'ObjP', (...args: Node[]) => {
-            for (const field of args) {
-                const aliasNode = field.args![0] as Node;
-                const alias = matchNode(
-                    aliasNode,
-                    'VarP',
-                    (alias) => alias,
-                    field.name,
-                );
-                if (alias === search.name) {
-                    return aliasNode || field;
-                }
-            }
-            return;
-        }) ||
-        matchNode(pat, 'TupP', matchAny) ||
-        matchNode(pat, 'AltP', matchAny) ||
-        matchNode(pat, 'AnnotP', match) ||
-        matchNode(pat, 'ParP', match) ||
-        matchNode(pat, 'OptP', match) ||
-        matchNode(pat, 'TagP', (_tag, arg: Node) => match(arg))
+    return findInPattern(pat, (name, node) =>
+        name === search.name ? node : undefined,
     );
 }
 
@@ -232,9 +199,9 @@ function getTypeSearchPath(node: Node): Search[] {
                 },
             ]) ||
             matchNode(node, 'DotH', (qual: Node, name: string) => [
-                ...getTypeSearchPath(qual),
+                ...getQualifierSearchPath(qual),
                 {
-                    type: 'type',
+                    type: 'variable',
                     name,
                 },
             ]) ||
