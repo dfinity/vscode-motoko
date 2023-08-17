@@ -40,13 +40,11 @@ export async function formatDocument(
                 }
                 const prettierOptions: prettier.Options = {
                     filepath: document.fileName,
-                    // pluginSearchDirs: [join(rootPath, 'node_modules')],
                     plugins: [motokoPlugin],
                     tabWidth: options.tabSize,
                     useTabs: !options.insertSpaces,
                     ...(config || {}),
                 };
-                // Object.assign(options, config);
                 const firstLine = document.lineAt(0);
                 const lastLine = document.lineAt(document.lineCount - 1);
                 const fullTextRange = new Range(
