@@ -168,7 +168,7 @@
         "ic0": "0.2.7",
         "mnemonist": "0.39.5",
         "motoko": "3.6.6",
-        "prettier": "2.8.0",
+        "prettier": "3.0.0",
         "prettier-plugin-motoko": "0.8.0",
         "url-relative": "1.0.0",
         "vscode-languageclient": "8.0.2",
@@ -180,7 +180,7 @@
     "devDependencies": {
         "@types/jest": "^29.1.1",
         "@types/node": "^14",
-        "@types/prettier": "^2.7.0",
+        "@types/prettier": "^3.0.0",
         "@types/vscode": "^1.53.0",
         "@types/which": "^2.0.1",
         "@typescript-eslint/eslint-plugin": "^5.46.1",

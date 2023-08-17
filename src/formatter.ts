@@ -11,11 +11,11 @@ import { join } from 'path';
 import { getCurrentWorkspaceRootFsPath } from './utils';
 import * as motokoPlugin from 'prettier-plugin-motoko';
 
-export function formatDocument(
+export async function formatDocument(
     document: TextDocument,
     _context: ExtensionContext,
     options: FormattingOptions,
-): TextEdit[] {
+): Promise<TextEdit[]> {
     const formatter = workspace
         .getConfiguration('motoko')
         .get<string>('formatter');
@@ -25,14 +25,14 @@ export function formatDocument(
             const ignoreOptions = {
                 ignorePath: join(rootPath, '.prettierignore'),
             };
-            const fileInfo = prettier.getFileInfo.sync(
+            const fileInfo = await prettier.getFileInfo(
                 document.uri.fsPath,
                 ignoreOptions,
             );
             if (!fileInfo.ignored) {
                 const source = document.getText();
 
-                const config = prettier.resolveConfig.sync(
+                const config = await prettier.resolveConfig(
                     document.uri.fsPath /* , options */,
                 );
                 if (config !== null) {
@@ -53,7 +53,10 @@ export function formatDocument(
                     firstLine.range.start,
                     lastLine.range.end,
                 );
-                const formatted = prettier.format(source, prettierOptions);
+                const formatted = await prettier.format(
+                    source,
+                    prettierOptions,
+                );
                 if (!formatted) {
                     return [];
                 }

@@ -12,7 +12,6 @@ import {
     TestItem,
     TestRunProfileKind,
     TextDocument,
-    TextEdit,
     Uri,
     ViewColumn,
     commands,
@@ -68,10 +67,10 @@ export function activate(context: ExtensionContext) {
     );
     context.subscriptions.push(
         languages.registerDocumentFormattingEditProvider(['motoko', 'candid'], {
-            provideDocumentFormattingEdits(
+            async provideDocumentFormattingEdits(
                 document: TextDocument,
                 options: FormattingOptions,
-            ): TextEdit[] {
+            ) {
                 return formatDocument(document, context, options);
             },
         }),
