@@ -1406,17 +1406,6 @@ async function sendDiagnostics(params: {
     const { uri, diagnostics } = params;
     diagnosticMap.set(uri, diagnostics);
     return connection.sendDiagnostics(params);
-    // await new Promise((resolve, reject) => {
-    //     setTimeout(() => {
-    //         connection
-    //             .sendDiagnostics(
-    //                 checkQueue.includes(uri)
-    //                     ? { uri, diagnostics: [] }
-    //                     : params,
-    //             )
-    //             .then(resolve, reject);
-    //     });
-    // });
 }
 
 let validatingTimeout: ReturnType<typeof setTimeout>;
@@ -1427,6 +1416,7 @@ documents.onDidChangeContent((event) => {
     if (uri === validatingUri) {
         clearTimeout(validatingTimeout);
     }
+    notify(document);
     validatingUri = uri;
     validatingTimeout = setTimeout(() => {
         validate(document);
