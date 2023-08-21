@@ -1422,9 +1422,6 @@ async function sendDiagnostics(params: {
 let validatingTimeout: ReturnType<typeof setTimeout>;
 let validatingUri: string | undefined;
 documents.onDidChangeContent((event) => {
-    if (packageConfigError) {
-        // notifyPackageConfigChange(true);
-    }
     const document = event.document;
     const { uri } = document;
     if (uri === validatingUri) {
@@ -1433,8 +1430,8 @@ documents.onDidChangeContent((event) => {
     validatingUri = uri;
     validatingTimeout = setTimeout(() => {
         validate(document);
-        const { astResolver } = getContext(uri);
-        astResolver.update(uri, true); /// TODO: also use for type checking?
+        // const { astResolver } = getContext(uri);
+        // astResolver.update(uri, true); // TODO: also use for type checking?
     }, 100);
 });
 
