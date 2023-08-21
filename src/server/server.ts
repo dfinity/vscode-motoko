@@ -574,11 +574,11 @@ function processQueue() {
     clearTimeout(checkTimeout);
     checkTimeout = setTimeout(() => {
         const uri = checkQueue.shift();
-        if (checkQueue.length) {
-            processQueue();
-        }
         if (uri) {
             checkImmediate(uri);
+        }
+        if (checkQueue.length) {
+            processQueue();
         }
     }, 0);
 }
@@ -1406,6 +1406,17 @@ async function sendDiagnostics(params: {
     const { uri, diagnostics } = params;
     diagnosticMap.set(uri, diagnostics);
     return connection.sendDiagnostics(params);
+    // await new Promise((resolve, reject) => {
+    //     setTimeout(() => {
+    //         connection
+    //             .sendDiagnostics(
+    //                 checkQueue.includes(uri)
+    //                     ? { uri, diagnostics: [] }
+    //                     : params,
+    //             )
+    //             .then(resolve, reject);
+    //     });
+    // });
 }
 
 let validatingTimeout: ReturnType<typeof setTimeout>;
