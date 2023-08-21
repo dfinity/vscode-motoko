@@ -36,7 +36,7 @@ export async function formatDocument(
                     document.uri.fsPath /* , options */,
                 );
                 if (config !== null) {
-                    prettier.clearConfigCache();
+                    await prettier.clearConfigCache();
                 }
                 const prettierOptions: prettier.Options = {
                     filepath: document.fileName,
