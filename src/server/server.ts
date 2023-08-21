@@ -1432,7 +1432,7 @@ documents.onDidChangeContent((event) => {
         validate(document);
         // const { astResolver } = getContext(uri);
         // astResolver.update(uri, true); // TODO: also use for type checking?
-    }, 100);
+    }, 500);
 });
 
 documents.onDidOpen((event) => scheduleCheck(event.document.uri));
