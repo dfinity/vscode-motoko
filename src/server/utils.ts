@@ -51,7 +51,7 @@ export function tryGetFileText(uri: string): string | null {
 /**
  * Formats a Motoko code snippet.
  */
-export function formatMotoko(source: string): string {
+export async function formatMotoko(source: string): Promise<string> {
     try {
         return prettier.format(source, {
             plugins: [motokoPlugin],

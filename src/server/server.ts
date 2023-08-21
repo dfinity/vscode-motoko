@@ -854,7 +854,7 @@ function deleteVirtual(path: string) {
     allContexts().forEach(({ motoko }) => motoko.delete(path));
 }
 
-connection.onCodeAction((event) => {
+connection.onCodeAction(async (event) => {
     const uri = event.textDocument.uri;
     const results: CodeAction[] = [];
 
@@ -872,7 +872,7 @@ connection.onCodeAction((event) => {
             Position.create(start.line, 0),
             Position.create(end.line + 1, 0),
         );
-        const source = organizeImports(imports).trim() + '\n';
+        const source = (await organizeImports(imports)).trim() + '\n';
         results.push({
             title: 'Organize imports',
             kind: CodeActionKind.SourceOrganizeImports,
@@ -1040,7 +1040,7 @@ connection.onCompletion((event) => {
     return list;
 });
 
-connection.onHover((event) => {
+connection.onHover(async (event) => {
     function findDocComment(node: Node): string | undefined {
         const definition = findDefinition(uri, event.position, true);
         let docNode: Node | undefined = definition?.cursor || node;
@@ -1116,7 +1116,7 @@ connection.onHover((event) => {
             const doc = findDocComment(node);
             if (doc) {
                 const typeInfo = node.type
-                    ? formatMotoko(node.type).trim()
+                    ? (await formatMotoko(node.type)).trim()
                     : '';
                 const lineIndex = typeInfo.indexOf('\n');
                 if (typeInfo) {
@@ -1131,7 +1131,7 @@ connection.onHover((event) => {
                     docs.push(`*Type definition:*\n${codeSnippet(typeInfo)}`);
                 }
             } else if (node.type) {
-                docs.push(codeSnippet(formatMotoko(node.type)));
+                docs.push(codeSnippet(await formatMotoko(node.type)));
             } else if (!isSameLine) {
                 docs.push(codeSnippet(source));
             }

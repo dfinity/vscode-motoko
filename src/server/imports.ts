@@ -207,7 +207,7 @@ const importGroups: {
     { prefix: '' },
 ];
 
-export function organizeImports(imports: Import[]): string {
+export async function organizeImports(imports: Import[]): Promise<string> {
     const groupParts: string[][] = importGroups.map(() => []);
 
     // Combine imports with the same path
