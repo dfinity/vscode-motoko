@@ -681,11 +681,6 @@ function checkWorkspace() {
     }, 1000);
 }
 
-function validate(uri: string | TextDocument) {
-    notify(uri);
-    scheduleCheck(uri);
-}
-
 /**
  * Registers or updates the URI or document in the compiler's virtual file system.
  */
@@ -1419,7 +1414,8 @@ documents.onDidChangeContent((event) => {
     notify(document);
     validatingUri = uri;
     validatingTimeout = setTimeout(() => {
-        validate(document);
+        notify(document);
+        scheduleCheck(document);
         // const { astResolver } = getContext(uri);
         // astResolver.update(uri, true); // TODO: also use for type checking?
     }, 500);
