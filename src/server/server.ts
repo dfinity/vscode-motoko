@@ -37,6 +37,7 @@ import { URI } from 'vscode-uri';
 import {
     DEPLOY_PLAYGROUND,
     DEPLOY_PLAYGROUND_MESSAGE,
+    ERROR_MESSAGE,
     TEST_FILE_REQUEST,
     TestResult,
 } from '../common/connectionTypes';
@@ -209,7 +210,6 @@ async function getPackageSources(
 }
 
 let loadingPackages = false;
-let packageConfigError = false;
 let packageConfigChangeTimeout: ReturnType<typeof setTimeout>;
 function notifyPackageConfigChange(reuseCached = false) {
     if (!reuseCached) {
@@ -218,7 +218,6 @@ function notifyPackageConfigChange(reuseCached = false) {
     loadingPackages = true;
     clearTimeout(packageConfigChangeTimeout);
     packageConfigChangeTimeout = setTimeout(async () => {
-        packageConfigError = false;
         try {
             resetContexts();
 
@@ -278,16 +277,23 @@ function notifyPackageConfigChange(reuseCached = false) {
                                 context.motoko.usePackage(name, path);
                             });
                         } catch (err) {
-                            packageConfigError = true;
+                            connection.sendNotification(ERROR_MESSAGE, {
+                                message: `Error while resolving Motoko packages:`,
+                                detail: String(err).replace(/^Error: /, ''),
+                            });
                             context.error = String(err);
                             console.warn(err);
                             return;
                         }
-                    } catch (err) {
-                        packageConfigError = true;
+                    } catch (err: any) {
+                        connection.sendNotification(ERROR_MESSAGE, {
+                            message: `Error while loading Motoko packages:`,
+                            detail: String(err).replace(/^Error: /, ''),
+                        });
                         console.error(
                             `Error while reading packages for directory (${dir}): ${err}`,
                         );
+                        return;
                     }
                 }),
             );
@@ -303,10 +309,11 @@ function notifyPackageConfigChange(reuseCached = false) {
             loadingPackages = false;
             notifyWorkspace(); // Update virtual file system
             notifyDfxChange(); // Reload dfx.json
-        } catch (err) {
+        } catch (err: any) {
             loadingPackages = false;
-            packageConfigError = true;
-            console.error(`Error while loading packages: ${err}`);
+            console.error(
+                `Error while loading packages: ${err?.message || err}`,
+            );
         }
     }, 1000);
 }
