@@ -329,8 +329,7 @@ function restartLanguageServer(
     );
     client.onNotification(ERROR_MESSAGE, async ({ message, detail }) => {
         const item = await window.showErrorMessage(
-            message,
-            { detail },
+            detail ? `${message}\n${detail}` : message,
             'View logs',
         );
         if (item === 'View logs') {
