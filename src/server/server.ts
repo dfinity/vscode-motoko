@@ -572,6 +572,7 @@ const checkQueue: string[] = [];
 let checkTimeout: ReturnType<typeof setTimeout>;
 function processQueue() {
     clearTimeout(checkTimeout);
+    clearTimeout(checkWorkspaceTimeout);
     checkTimeout = setTimeout(() => {
         const uri = checkQueue.shift();
         if (checkQueue.length) {
@@ -679,11 +680,6 @@ function checkWorkspace() {
             console.error(err);
         }
     }, 1000);
-}
-
-function validate(uri: string | TextDocument) {
-    notify(uri);
-    scheduleCheck(uri);
 }
 
 /**
@@ -1411,20 +1407,19 @@ async function sendDiagnostics(params: {
 let validatingTimeout: ReturnType<typeof setTimeout>;
 let validatingUri: string | undefined;
 documents.onDidChangeContent((event) => {
-    if (packageConfigError) {
-        // notifyPackageConfigChange(true);
-    }
     const document = event.document;
     const { uri } = document;
     if (uri === validatingUri) {
         clearTimeout(validatingTimeout);
     }
+    notify(document);
     validatingUri = uri;
     validatingTimeout = setTimeout(() => {
-        validate(document);
-        const { astResolver } = getContext(uri);
-        astResolver.update(uri, true); /// TODO: also use for type checking?
-    }, 100);
+        notify(document);
+        scheduleCheck(document);
+        // const { astResolver } = getContext(uri);
+        // astResolver.update(uri, true); // TODO: also use for type checking?
+    }, 500);
 });
 
 documents.onDidOpen((event) => scheduleCheck(event.document.uri));
