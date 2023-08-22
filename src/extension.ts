@@ -31,6 +31,7 @@ import * as which from 'which';
 import {
     DEPLOY_PLAYGROUND,
     DEPLOY_PLAYGROUND_MESSAGE,
+    ERROR_MESSAGE,
     TEST_FILE_REQUEST,
     TestParams,
     TestResult,
@@ -326,6 +327,15 @@ function restartLanguageServer(
         serverOptions,
         clientOptions,
     );
+    client.onNotification(ERROR_MESSAGE, async ({ message, detail }) => {
+        const item = await window.showErrorMessage(
+            detail ? `${message}\n${detail}` : message,
+            'View logs',
+        );
+        if (item === 'View logs') {
+            client.outputChannel.show();
+        }
+    });
     client.start().catch((err) => console.error(err.stack || err));
     context.subscriptions.push(client);
 }
