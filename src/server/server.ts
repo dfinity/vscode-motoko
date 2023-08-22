@@ -278,9 +278,8 @@ function notifyPackageConfigChange(reuseCached = false) {
                             });
                         } catch (err) {
                             connection.sendNotification(ERROR_MESSAGE, {
-                                message: `Error while resolving Motoko packages: ${String(
-                                    err,
-                                ).replace(/^Error: /, '')}`,
+                                message: `Error while resolving Motoko packages!`,
+                                detail: String(err).replace(/^Error: /, ''),
                             });
                             context.error = String(err);
                             console.warn(err);
@@ -288,9 +287,8 @@ function notifyPackageConfigChange(reuseCached = false) {
                         }
                     } catch (err: any) {
                         connection.sendNotification(ERROR_MESSAGE, {
-                            message: `Error while loading Motoko packages: ${String(
-                                err,
-                            ).replace(/^Error: /, '')}`,
+                            message: `Error while loading Motoko packages!`,
+                            detail: String(err).replace(/^Error: /, ''),
                         });
                         console.error(
                             `Error while reading packages for directory (${dir}): ${err}`,

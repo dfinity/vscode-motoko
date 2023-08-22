@@ -327,8 +327,15 @@ function restartLanguageServer(
         serverOptions,
         clientOptions,
     );
-    client.onNotification(ERROR_MESSAGE, ({ message, detail }) => {
-        window.showErrorMessage(message, { detail });
+    client.onNotification(ERROR_MESSAGE, async ({ message, detail }) => {
+        const item = await window.showErrorMessage(
+            message,
+            { detail },
+            'View logs',
+        );
+        if (item === 'View logs') {
+            client.outputChannel.show();
+        }
     });
     client.start().catch((err) => console.error(err.stack || err));
     context.subscriptions.push(client);
