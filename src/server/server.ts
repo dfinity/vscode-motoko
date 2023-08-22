@@ -572,13 +572,14 @@ const checkQueue: string[] = [];
 let checkTimeout: ReturnType<typeof setTimeout>;
 function processQueue() {
     clearTimeout(checkTimeout);
+    clearTimeout(checkWorkspaceTimeout);
     checkTimeout = setTimeout(() => {
         const uri = checkQueue.shift();
-        if (uri) {
-            checkImmediate(uri);
-        }
         if (checkQueue.length) {
             processQueue();
+        }
+        if (uri) {
+            checkImmediate(uri);
         }
     }, 0);
 }
