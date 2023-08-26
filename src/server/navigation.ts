@@ -35,7 +35,6 @@ export function findMostSpecificNodeForPosition(
             node.end &&
             position.line >= node.start[0] - 1 &&
             position.line <= node.end[0] - 1 &&
-            // position.line == node.start[0] - 1 &&
             (position.line !== node.start[0] - 1 ||
                 position.character >= node.start[1]) &&
             (position.line !== node.end[0] - 1 ||
@@ -47,9 +46,6 @@ export function findMostSpecificNodeForPosition(
     let nodeLines: number;
     let nodeChars: number;
     nodes.forEach((n: Node) => {
-        // if (ignoredAstNodes.includes(n.name)) {
-        //     return;
-        // }
         const nLines = n.end![0] - n.start![0];
         const nChars = n.end![1] - n.start![1];
         if (
