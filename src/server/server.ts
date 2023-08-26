@@ -1028,8 +1028,8 @@ connection.onCompletion((event) => {
                     true,
                 );
                 if (definition) {
+                    // TODO: find a workaround for outdated ASTs
                     console.log('>>>>>', definition.body); ////
-                    // targetFields = [];
                 } else if (!preDot) {
                     context.importResolver
                         .getNameEntries()
