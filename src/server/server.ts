@@ -65,7 +65,6 @@ import {
     Class,
     Field,
     ObjBlock,
-    Program,
     SyntaxWithFields,
     Type,
     asNode,
@@ -74,6 +73,7 @@ import {
 import {
     formatMotoko,
     getFileText,
+    getRelativeUri,
     rangeContainsPosition,
     resolveFilePath,
     resolveVirtualPath,
@@ -829,14 +829,12 @@ function notifyWriteUri(uri: string, content: string) {
 
         contexts.forEach((context) => {
             const { astResolver, importResolver } = context;
-            let program: Program | undefined;
             try {
                 astResolver.notify(uri, content);
-                // program = astResolver.request(uri)?.program; // TODO: re-enable for field imports
             } catch (err) {
                 console.error(`Error while parsing (${uri}): ${err}`);
             }
-            importResolver.update(uri, program);
+            importResolver.update(uri);
         });
     }
 }
@@ -923,6 +921,16 @@ connection.onSignatureHelp((): SignatureHelp | null => {
     return null;
 });
 
+function getCompletionItemKind(field: Field): CompletionItemKind {
+    if (field.exp instanceof Class) {
+        return CompletionItemKind.Class;
+    }
+    if (field.exp instanceof ObjBlock) {
+        return CompletionItemKind.Module;
+    }
+    return CompletionItemKind.Variable;
+}
+
 connection.onCompletion((event) => {
     const { position } = event;
     const { uri } = event.textDocument;
@@ -939,37 +947,36 @@ connection.onCompletion((event) => {
             ?.slice(1) ?? ['', ''];
 
         if (!dot) {
-            context.importResolver
-                .getNameEntries(uri)
-                .forEach(([name, path]) => {
-                    if (name.startsWith(identStart)) {
-                        const status = context.astResolver.request(uri);
-                        const existingImport = status?.program?.imports.find(
-                            (i) =>
-                                i.name === name ||
-                                i.fields.some(([, alias]) => alias === name),
-                        );
-                        if (existingImport || !status?.program) {
-                            // Skip alternatives with already imported name
-                            return;
-                        }
-                        const edits: TextEdit[] = [
-                            TextEdit.insert(
-                                findNewImportPosition(uri, context),
-                                `import ${name} "${path}";\n`,
-                            ),
-                        ];
-                        list.items.push({
-                            label: name,
-                            detail: path,
-                            insertText: name,
-                            kind: path.startsWith('mo:')
-                                ? CompletionItemKind.Module
-                                : CompletionItemKind.Class, // TODO: resolve actors, classes, etc.
-                            additionalTextEdits: edits,
-                        });
+            context.importResolver.getNameEntries().forEach(([name, path]) => {
+                path = getRelativeUri(uri, path);
+                if (name.startsWith(identStart)) {
+                    const status = context.astResolver.request(uri);
+                    const existingImport = status?.program?.imports.find(
+                        (i) =>
+                            i.name === name ||
+                            i.fields.some(([, alias]) => alias === name),
+                    );
+                    if (existingImport || !status?.program) {
+                        // Skip alternatives with already imported name
+                        return;
                     }
-                });
+                    const edits: TextEdit[] = [
+                        TextEdit.insert(
+                            findNewImportPosition(uri, context),
+                            `import ${name} "${path}";\n`,
+                        ),
+                    ];
+                    list.items.push({
+                        label: name,
+                        detail: path,
+                        insertText: name,
+                        kind: path.startsWith('mo:')
+                            ? CompletionItemKind.Module
+                            : CompletionItemKind.Class, // TODO: resolve actors, classes, etc.
+                        additionalTextEdits: edits,
+                    });
+                }
+            });
 
             if (identStart) {
                 keywords.forEach((keyword) => {
@@ -1003,39 +1010,85 @@ connection.onCompletion((event) => {
                     });
                 });
             }
+        } else {
+            // Check for an identifier before the dot (e.g. `Module.abc`)
+            const end = position.character - dot.length - identStart.length;
+            const preMatch = /(\s*\.\s*)?([a-zA-Z_][a-zA-Z0-9_]*)$/.exec(
+                lines[position.line].substring(0, end),
+            );
+            if (preMatch) {
+                const [, preDot, preIdent] = preMatch;
+                const targetFields: Field[] = [];
+                const definition = findDefinition(
+                    uri,
+                    {
+                        line: position.line,
+                        character: position.character - identStart.length - 1,
+                    },
+                    true,
+                );
+                if (definition) {
+                    // TODO: find a workaround for outdated ASTs
+                    console.log('>>>>>', definition.body); ////
+                } else if (!preDot) {
+                    context.importResolver
+                        .getNameEntries()
+                        .forEach(([name, path]) => {
+                            const importUri =
+                                context.importResolver.getFileSystemURI(path);
+                            if (!importUri) {
+                                console.warn(
+                                    'File system URI not found for path:',
+                                    path,
+                                );
+                                return;
+                            }
+                            // TODO: check if imported with a different name
+                            if (name !== preIdent) {
+                                return;
+                            }
+                            const status =
+                                context.astResolver.request(importUri);
+                            if (!status) {
+                                return;
+                            }
+                            const exportFields = status.program?.exportFields;
+                            if (!exportFields?.length) {
+                                return;
+                            }
+                            exportFields.forEach((exportField) => {
+                                if (exportField.exp instanceof ObjBlock) {
+                                    targetFields.push(
+                                        ...exportField.exp.fields,
+                                    );
+                                }
+                            });
+                        });
+                }
+
+                // Display resolved fields
+                targetFields.forEach((field) => {
+                    const { name, visibility, ast } = field;
+                    if (visibility !== 'public') {
+                        return;
+                    }
+                    if (name?.startsWith(identStart)) {
+                        const docComment = findDocComment(asNode(ast));
+                        list.items.push({
+                            label: name,
+                            detail: docComment,
+                            insertText: name,
+                            kind: getCompletionItemKind(field), // TODO: resolve actors, classes, etc.
+                            documentation: docComment && {
+                                kind: 'markdown',
+                                value: docComment,
+                            },
+                            // additionalTextEdits: import
+                        });
+                    }
+                });
+            }
         }
-        // else {
-        //     // Check for an identifier before the dot (e.g. `Module.abc`)
-        //     const end = position.character - dot.length - identStart.length;
-        //     const preMatch = /(\s*\.\s*)?([a-zA-Z_][a-zA-Z0-9_]*)$/.exec(
-        //         lines[position.line].substring(0, end),
-        //     );
-        //     if (preMatch) {
-        //         const [, preDot, preIdent] = preMatch;
-        //         if (!preDot) {
-        //             importResolver
-        //                 .getNameEntries(preIdent)
-        //                 .forEach(([name, uri]) => {
-        //                     const importUri = program?.imports.find()?.path;
-        //                     importResolver
-        //                         .getFields(uri)
-        //                         .forEach(([{ name }, path]) => {
-        //                             if (name.startsWith(identStart)) {
-        //                                 list.items.push({
-        //                                     label: name,
-        //                                     detail: path,
-        //                                     insertText: name,
-        //                                     kind: path.startsWith('mo:')
-        //                                         ? CompletionItemKind.Module
-        //                                         : CompletionItemKind.Class, // TODO: resolve actors, classes, etc.
-        //                                     // additionalTextEdits: import
-        //                                 });
-        //                             }
-        //                         });
-        //                 });
-        //         }
-        //     }
-        // }
     } catch (err) {
         console.error('Error during autocompletion:');
         console.error(err);
@@ -1043,34 +1096,29 @@ connection.onCompletion((event) => {
     return list;
 });
 
-connection.onHover((event) => {
-    function findDocComment(node: Node): string | undefined {
-        const definition = findDefinition(uri, event.position, true);
-        let docNode: Node | undefined = definition?.cursor || node;
-        let depth = 0; // Max AST depth to display doc comment
-        while (
-            !docNode.doc &&
-            docNode.parent &&
-            // Unresolved import
-            !(
-                docNode.name === 'LetD' &&
-                asNode(docNode.args?.[1])?.name === 'ImportE'
-            ) &&
-            depth < 2
-        ) {
-            docNode = docNode.parent;
-            depth++;
-        }
-        if (docNode.name === 'Prog' && !docNode.doc) {
-            // Get doc comment at top of file
-            const doc = asNode(docNode.args?.[0])?.doc;
-            if (doc) {
-                return doc;
-            }
-        }
-        return docNode.doc;
+function findDocComment(node: Node | undefined): string | undefined {
+    if (!node) {
+        return;
     }
+    let depth = 0; // Max AST depth to display doc comment
+    while (
+        !node.doc &&
+        node.parent &&
+        // Unresolved import
+        !(node.name === 'LetD' && asNode(node.args?.[1])?.name === 'ImportE') &&
+        depth < 2
+    ) {
+        node = node.parent;
+        depth++;
+    }
+    if (node.name === 'Prog' && !node.doc) {
+        // Get doc comment at top of file
+        return asNode(node.args?.[0])?.doc;
+    }
+    return node.doc;
+}
 
+connection.onHover((event) => {
     const { position } = event;
     const { uri } = event.textDocument;
     const { astResolver } = getContext(uri);
@@ -1119,7 +1167,8 @@ connection.onHover((event) => {
             ).trim();
 
             // Doc comments
-            const doc = findDocComment(node);
+            const definition = findDefinition(uri, position, true);
+            const doc = findDocComment(definition?.cursor || node);
             if (doc) {
                 const typeInfo = node.type
                     ? formatMotoko(node.type).trim()

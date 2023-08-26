@@ -25,7 +25,7 @@ export function findMostSpecificNodeForPosition(
     ast: AST,
     position: Position,
     scoreFn: (node: Node) => number | boolean,
-    isMouseCursor = false,
+    deep = false,
 ): (Node & { start: Span; end: Span }) | undefined {
     const nodes = findNodes(
         ast,
@@ -38,7 +38,7 @@ export function findMostSpecificNodeForPosition(
             (position.line !== node.start[0] - 1 ||
                 position.character >= node.start[1]) &&
             (position.line !== node.end[0] - 1 ||
-                position.character < node.end[1] + (isMouseCursor ? 0 : 1)),
+                position.character < node.end[1] + (deep ? 0 : 1)),
     );
 
     // Find the most specific AST node for the cursor position
@@ -124,7 +124,7 @@ const nodePriorities: Record<string, number> = {
 export function findDefinition(
     uri: string,
     position: Position,
-    isMouseCursor = false,
+    deep = false,
 ): Definition | undefined {
     // Get relevant AST node
     const context = getContext(uri);
@@ -141,7 +141,7 @@ export function findDefinition(
         status.ast,
         position,
         (node) => nodePriorities[node.name] || 0,
-        isMouseCursor,
+        deep,
     );
     if (!node) {
         return;
@@ -266,7 +266,7 @@ function followImport(
             console.log('Missing export for', uri);
             return;
         }
-        if (status?.outdated) {
+        if (status.outdated) {
             console.log('Outdated AST for', uri);
             return;
         }
