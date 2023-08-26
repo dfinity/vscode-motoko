@@ -108,8 +108,8 @@ function findNameInPattern(
     search: Search,
     pat: Node,
 ): [string, Node] | undefined {
-    return findInPattern(pat, (name, alias, node) =>
-        alias === search.name ? [name, node] : undefined,
+    return findInPattern(pat, (name, node) =>
+        name === search.name ? [name, node] : undefined,
     );
 }
 
