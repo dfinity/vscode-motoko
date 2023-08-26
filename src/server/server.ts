@@ -72,7 +72,9 @@ import {
 } from './syntax';
 import {
     formatMotoko,
+    getAbsoluteUri,
     getFileText,
+    getRelativeUri,
     rangeContainsPosition,
     resolveFilePath,
     resolveVirtualPath,
@@ -936,37 +938,36 @@ connection.onCompletion((event) => {
             ?.slice(1) ?? ['', ''];
 
         if (!dot) {
-            context.importResolver
-                .getNameEntries(uri)
-                .forEach(([name, path]) => {
-                    if (name.startsWith(identStart)) {
-                        const status = context.astResolver.request(uri);
-                        const existingImport = status?.program?.imports.find(
-                            (i) =>
-                                i.name === name ||
-                                i.fields.some(([, alias]) => alias === name),
-                        );
-                        if (existingImport || !status?.program) {
-                            // Skip alternatives with already imported name
-                            return;
-                        }
-                        const edits: TextEdit[] = [
-                            TextEdit.insert(
-                                findNewImportPosition(uri, context),
-                                `import ${name} "${path}";\n`,
-                            ),
-                        ];
-                        list.items.push({
-                            label: name,
-                            detail: path,
-                            insertText: name,
-                            kind: path.startsWith('mo:')
-                                ? CompletionItemKind.Module
-                                : CompletionItemKind.Class, // TODO: resolve actors, classes, etc.
-                            additionalTextEdits: edits,
-                        });
+            context.importResolver.getNameEntries().forEach(([name, path]) => {
+                path = getRelativeUri(uri, path);
+                if (name.startsWith(identStart)) {
+                    const status = context.astResolver.request(uri);
+                    const existingImport = status?.program?.imports.find(
+                        (i) =>
+                            i.name === name ||
+                            i.fields.some(([, alias]) => alias === name),
+                    );
+                    if (existingImport || !status?.program) {
+                        // Skip alternatives with already imported name
+                        return;
                     }
-                });
+                    const edits: TextEdit[] = [
+                        TextEdit.insert(
+                            findNewImportPosition(uri, context),
+                            `import ${name} "${path}";\n`,
+                        ),
+                    ];
+                    list.items.push({
+                        label: name,
+                        detail: path,
+                        insertText: name,
+                        kind: path.startsWith('mo:')
+                            ? CompletionItemKind.Module
+                            : CompletionItemKind.Class, // TODO: resolve actors, classes, etc.
+                        additionalTextEdits: edits,
+                    });
+                }
+            });
 
             if (identStart) {
                 keywords.forEach((keyword) => {
@@ -1010,8 +1011,18 @@ connection.onCompletion((event) => {
                 const [, preDot, preIdent] = preMatch;
                 if (!preDot) {
                     context.importResolver
-                        .getNameEntries(uri)
-                        .forEach(([name, uri]) => {
+                        .getNameEntries()
+                        .forEach(([name, path]) => {
+                            const importUri =
+                                context.importResolver.getFileSystemURI(path);
+                            if (!importUri) {
+                                console.warn(
+                                    'File system URI not found for path:',
+                                    path,
+                                );
+                                return;
+                            }
+                            path = getRelativeUri(uri, path);
                             // const import_ = program?.imports.find(
                             //     (import_) => uri === (import_.path),
                             // )?.path;
@@ -1022,8 +1033,9 @@ connection.onCompletion((event) => {
                             ) {
                                 return;
                             }
-                            const status = context.astResolver.request(uri);
-                            console.log('status:', status); ////
+                            const status =
+                                context.astResolver.request(importUri);
+                            console.log('status:', status, name, importUri); ////
                             if (!status) {
                                 return;
                             }
@@ -1032,15 +1044,15 @@ connection.onCompletion((event) => {
                                 return;
                             }
                             const { fields } = program.export;
-                            console.log(name, uri, fields);
+                            console.log(name, importUri, fields);
                             fields.forEach(({ name /* , visibility */ }) => {
                                 console.log('>>>>', name, identStart); /////
                                 if (name?.startsWith(identStart)) {
                                     list.items.push({
                                         label: name,
-                                        detail: uri,
+                                        detail: importUri,
                                         insertText: name,
-                                        kind: uri.startsWith('mo:')
+                                        kind: importUri.startsWith('mo:')
                                             ? CompletionItemKind.Module
                                             : CompletionItemKind.Class, // TODO: resolve actors, classes, etc.
                                         // additionalTextEdits: import
