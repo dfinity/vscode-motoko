@@ -1018,7 +1018,19 @@ connection.onCompletion((event) => {
             );
             if (preMatch) {
                 const [, preDot, preIdent] = preMatch;
-                if (!preDot) {
+                let targetFields: Field[] | undefined;
+                const definition = findDefinition(
+                    uri,
+                    {
+                        line: position.line,
+                        character: position.character - identStart.length - 1,
+                    },
+                    true,
+                );
+                if (definition) {
+                    console.log('>>>>>', definition.body); ////
+                    // targetFields = [];
+                } else if (!preDot) {
                     context.importResolver
                         .getNameEntries()
                         .forEach(([name, path]) => {
@@ -1031,17 +1043,7 @@ connection.onCompletion((event) => {
                                 );
                                 return;
                             }
-                            path = getRelativeUri(uri, path);
-                            // const import_ = program?.imports.find(
-                            //     (import_) => uri === (import_.path),
-                            // )?.path;
-                            // if (
-                            //     !name
-                            //         .toLowerCase()
-                            //         .startsWith(preIdent.toLowerCase())
-                            // ) {
-                            //     return;
-                            // }
+                            // TODO: check if imported with a different name
                             if (name !== preIdent) {
                                 return;
                             }
@@ -1054,35 +1056,38 @@ connection.onCompletion((event) => {
                             if (!exportFields?.length) {
                                 return;
                             }
-                            const fields: Field[] = [];
+                            targetFields = [];
                             exportFields.forEach((exportField) => {
                                 if (exportField.exp instanceof ObjBlock) {
-                                    fields.push(...exportField.exp.fields);
-                                }
-                            });
-                            fields.forEach((field) => {
-                                const { name, visibility, ast } = field;
-                                if (visibility !== 'public') {
-                                    return;
-                                }
-                                if (name?.startsWith(identStart)) {
-                                    const docComment = findDocComment(
-                                        asNode(ast),
+                                    targetFields.push(
+                                        ...exportField.exp.fields,
                                     );
-                                    list.items.push({
-                                        label: name,
-                                        detail: docComment,
-                                        insertText: name,
-                                        kind: getCompletionItemKind(field), // TODO: resolve actors, classes, etc.
-                                        documentation: docComment && {
-                                            kind: 'markdown',
-                                            value: docComment,
-                                        },
-                                        // additionalTextEdits: import
-                                    });
                                 }
                             });
                         });
+                }
+
+                if (targetFields) {
+                    targetFields.forEach((field) => {
+                        const { name, visibility, ast } = field;
+                        if (visibility !== 'public') {
+                            return;
+                        }
+                        if (name?.startsWith(identStart)) {
+                            const docComment = findDocComment(asNode(ast));
+                            list.items.push({
+                                label: name,
+                                detail: docComment,
+                                insertText: name,
+                                kind: getCompletionItemKind(field), // TODO: resolve actors, classes, etc.
+                                documentation: docComment && {
+                                    kind: 'markdown',
+                                    value: docComment,
+                                },
+                                // additionalTextEdits: import
+                            });
+                        }
+                    });
                 }
             }
         }
