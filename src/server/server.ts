@@ -72,7 +72,6 @@ import {
 } from './syntax';
 import {
     formatMotoko,
-    getAbsoluteUri,
     getFileText,
     getRelativeUri,
     rangeContainsPosition,
@@ -1026,39 +1025,54 @@ connection.onCompletion((event) => {
                             // const import_ = program?.imports.find(
                             //     (import_) => uri === (import_.path),
                             // )?.path;
-                            if (
-                                !name
-                                    .toLowerCase()
-                                    .startsWith(preIdent.toLowerCase())
-                            ) {
+                            // if (
+                            //     !name
+                            //         .toLowerCase()
+                            //         .startsWith(preIdent.toLowerCase())
+                            // ) {
+                            //     return;
+                            // }
+                            if (name !== preIdent) {
                                 return;
                             }
                             const status =
                                 context.astResolver.request(importUri);
-                            console.log('status:', status, name, importUri); ////
                             if (!status) {
                                 return;
                             }
-                            const { program } = status;
-                            if (!(program?.export instanceof ObjBlock)) {
+                            const exportFields = status.program?.exportFields;
+                            if (!exportFields?.length) {
                                 return;
                             }
-                            const { fields } = program.export;
-                            console.log(name, importUri, fields);
-                            fields.forEach(({ name /* , visibility */ }) => {
-                                console.log('>>>>', name, identStart); /////
-                                if (name?.startsWith(identStart)) {
-                                    list.items.push({
-                                        label: name,
-                                        detail: importUri,
-                                        insertText: name,
-                                        kind: importUri.startsWith('mo:')
-                                            ? CompletionItemKind.Module
-                                            : CompletionItemKind.Class, // TODO: resolve actors, classes, etc.
-                                        // additionalTextEdits: import
-                                    });
+                            const fields: Field[] = [];
+                            exportFields.forEach((exportField) => {
+                                if (exportField.exp instanceof ObjBlock) {
+                                    fields.push(...exportField.exp.fields);
                                 }
                             });
+                            fields.forEach(
+                                ({ name /* , visibility */, ast }) => {
+                                    if (name?.startsWith(identStart)) {
+                                        const docComment = findDocComment(
+                                            asNode(ast),
+                                        );
+                                        console.log('DOC', name, docComment); ///////
+                                        list.items.push({
+                                            label: name,
+                                            detail: path,
+                                            insertText: name,
+                                            kind: importUri.startsWith('mo:')
+                                                ? CompletionItemKind.Module
+                                                : CompletionItemKind.Class, // TODO: resolve actors, classes, etc.
+                                            documentation: docComment && {
+                                                kind: 'markdown',
+                                                value: docComment,
+                                            },
+                                            // additionalTextEdits: import
+                                        });
+                                    }
+                                },
+                            );
                         });
                 }
             }
@@ -1070,31 +1084,29 @@ connection.onCompletion((event) => {
     return list;
 });
 
-connection.onHover((event) => {
-    function findDocComment(node: Node): string | undefined {
-        const definition = findDefinition(uri, event.position, true);
-        let docNode: Node | undefined = definition?.cursor || node;
-        let depth = 0; // Max AST depth to display doc comment
-        while (
-            !docNode.doc &&
-            docNode.parent &&
-            // Unresolved import
-            !(
-                docNode.name === 'LetD' &&
-                asNode(docNode.args?.[1])?.name === 'ImportE'
-            ) &&
-            depth < 2
-        ) {
-            docNode = docNode.parent;
-            depth++;
-        }
-        if (docNode.name === 'Prog' && !docNode.doc) {
-            // Get doc comment at top of file
-            return asNode(docNode.args?.[0])?.doc;
-        }
-        return docNode.doc;
+function findDocComment(node: Node | undefined): string | undefined {
+    if (!node) {
+        return;
     }
+    let depth = 0; // Max AST depth to display doc comment
+    while (
+        !node.doc &&
+        node.parent &&
+        // Unresolved import
+        !(node.name === 'LetD' && asNode(node.args?.[1])?.name === 'ImportE') &&
+        depth < 2
+    ) {
+        node = node.parent;
+        depth++;
+    }
+    if (node.name === 'Prog' && !node.doc) {
+        // Get doc comment at top of file
+        return asNode(node.args?.[0])?.doc;
+    }
+    return node.doc;
+}
 
+connection.onHover((event) => {
     const { position } = event;
     const { uri } = event.textDocument;
     const { astResolver } = getContext(uri);
@@ -1143,7 +1155,8 @@ connection.onHover((event) => {
             ).trim();
 
             // Doc comments
-            const doc = findDocComment(node);
+            const definition = findDefinition(uri, position, true);
+            const doc = findDocComment(definition?.cursor || node);
             if (doc) {
                 const typeInfo = node.type
                     ? formatMotoko(node.type).trim()
