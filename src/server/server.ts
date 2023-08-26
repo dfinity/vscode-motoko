@@ -1060,7 +1060,10 @@ connection.onHover((event) => {
         }
         if (docNode.name === 'Prog' && !docNode.doc) {
             // Get doc comment at top of file
-            return asNode(docNode.args?.[0])?.doc;
+            const doc = asNode(docNode.args?.[0])?.doc;
+            if (doc) {
+                return doc;
+            }
         }
         return docNode.doc;
     }

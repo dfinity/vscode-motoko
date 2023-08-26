@@ -206,10 +206,10 @@ export function findInPattern<T>(
                 const alias = matchNode(
                     aliasNode,
                     'VarP',
-                    (alias) => alias,
+                    (alias: string) => alias,
                     field.name,
                 );
-                const result = fn(alias, pat);
+                const result = fn(alias, aliasNode);
                 if (result !== undefined) {
                     return result;
                 }
