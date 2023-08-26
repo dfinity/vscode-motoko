@@ -921,6 +921,10 @@ connection.onSignatureHelp((): SignatureHelp | null => {
     return null;
 });
 
+function getCompletionItemKind(field: Field): CompletionItemKind {
+    return CompletionItemKind.Variable;
+}
+
 connection.onCompletion((event) => {
     const { position } = event;
     const { uri } = event.textDocument;
@@ -1050,26 +1054,25 @@ connection.onCompletion((event) => {
                                     fields.push(...exportField.exp.fields);
                                 }
                             });
-                            fields.forEach(
-                                ({ name /* , visibility */, ast }) => {
-                                    if (name?.startsWith(identStart)) {
-                                        const docComment = findDocComment(
-                                            asNode(ast),
-                                        );
-                                        list.items.push({
-                                            label: name,
-                                            detail: docComment,
-                                            insertText: name,
-                                            kind: CompletionItemKind.Variable, // TODO: resolve actors, classes, etc.
-                                            documentation: docComment && {
-                                                kind: 'markdown',
-                                                value: docComment,
-                                            },
-                                            // additionalTextEdits: import
-                                        });
-                                    }
-                                },
-                            );
+                            fields.forEach((field) => {
+                                const { name /* , visibility */, ast } = field;
+                                if (name?.startsWith(identStart)) {
+                                    const docComment = findDocComment(
+                                        asNode(ast),
+                                    );
+                                    list.items.push({
+                                        label: name,
+                                        detail: docComment,
+                                        insertText: name,
+                                        kind: getCompletionItemKind(field), // TODO: resolve actors, classes, etc.
+                                        documentation: docComment && {
+                                            kind: 'markdown',
+                                            value: docComment,
+                                        },
+                                        // additionalTextEdits: import
+                                    });
+                                }
+                            });
                         });
                 }
             }

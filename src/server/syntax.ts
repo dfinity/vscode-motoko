@@ -87,7 +87,9 @@ export function fromAST(ast: AST): Syntax {
                 const export_ = ast.args[ast.args.length - 1];
                 if (export_) {
                     prog.export = fromAST(export_);
-                    prog.exportFields.push(...getFieldsFromAST(export_));
+                    prog.exportFields.push(
+                        ...getFieldsFromAST(export_, 'public'),
+                    );
                 }
             }
         }
@@ -105,26 +107,34 @@ export function fromAST(ast: AST): Syntax {
                 );
                 return;
             }
-            const [dec, _visibility] = field.args!;
-            // if (visibility !== 'Public') {
-            //     return;
-            // }
-            obj.fields.push(...getFieldsFromAST(dec));
+            const [dec, visibilityAst] = field.args!;
+            const visibility: Visibility | undefined = matchNode(
+                visibilityAst,
+                'Public',
+                () => 'public',
+                typeof visibilityAst === 'string'
+                    ? ((visibilityAst as string).toLowerCase() as Visibility)
+                    : undefined,
+            );
+            if (!visibility) {
+                console.warn('Unexpected visibility AST node:', visibilityAst);
+            }
+            obj.fields.push(...getFieldsFromAST(dec, visibility || 'private'));
         });
         return obj;
     }
     return new Syntax(ast);
 }
 
-function getFieldsFromAST(ast: AST): Field[] {
+function getFieldsFromAST(ast: AST, visibility: Visibility): Field[] {
     const simplyNamedFields =
         matchNode(ast, 'TypD', (name: string, type: Node) => {
-            const field = new Field(ast, new Type(type));
+            const field = new Field(ast, new Type(type), visibility);
             field.name = name;
             return [field];
         }) ||
         matchNode(ast, 'VarD', (name: string, exp: Node) => {
-            const field = new Field(ast, new Type(exp));
+            const field = new Field(ast, new Type(exp), visibility);
             field.name = name;
             return [field];
         }) ||
@@ -149,10 +159,10 @@ function getFieldsFromAST(ast: AST): Field[] {
                 const cls = new Class(ast, name, sort);
                 decs.forEach((ast) => {
                     matchNode(ast, 'DecField', (dec: Node) => {
-                        cls.fields.push(...getFieldsFromAST(dec));
+                        cls.fields.push(...getFieldsFromAST(dec, visibility));
                     });
                 });
-                const field = new Field(ast, cls);
+                const field = new Field(ast, cls, visibility);
                 field.name = name;
                 return [field];
             },
@@ -173,13 +183,13 @@ function getFieldsFromAST(ast: AST): Field[] {
             fields.push([name, pat, exp]);
         });
         return fields.map(([name, pat, exp]) => {
-            const field = new Field(ast, fromAST(exp));
+            const field = new Field(ast, fromAST(exp), visibility);
             field.name = name;
             field.pat = fromAST(pat);
             return field;
         });
     } else {
-        const field = new Field(ast, fromAST(exp));
+        const field = new Field(ast, fromAST(exp), visibility);
         return [field];
     }
 }
@@ -259,6 +269,8 @@ export function matchNode<T>(
     return defaultValue;
 }
 
+export type Visibility = 'public' | 'private' | 'system';
+
 export class Syntax {
     ast: AST;
 
@@ -295,7 +307,7 @@ export class Field extends Syntax {
     name: string | undefined;
     pat: Syntax | undefined;
 
-    constructor(ast: AST, public exp: Syntax) {
+    constructor(ast: AST, public exp: Syntax, public visibility: Visibility) {
         super(ast);
     }
 }
