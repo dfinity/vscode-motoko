@@ -1,15 +1,15 @@
+import { join } from 'path';
 import * as prettier from 'prettier';
+import * as motokoPlugin from 'prettier-plugin-motoko';
 import {
-    TextDocument,
     ExtensionContext,
     FormattingOptions,
+    Range,
+    TextDocument,
     TextEdit,
     workspace,
-    Range,
 } from 'vscode';
-import { join } from 'path';
 import { getCurrentWorkspaceRootFsPath } from './utils';
-import * as motokoPlugin from 'prettier-plugin-motoko';
 
 export async function formatDocument(
     document: TextDocument,
