@@ -65,7 +65,6 @@ import {
     Class,
     Field,
     ObjBlock,
-    Program,
     SyntaxWithFields,
     Type,
     asNode,
@@ -829,14 +828,12 @@ function notifyWriteUri(uri: string, content: string) {
 
         contexts.forEach((context) => {
             const { astResolver, importResolver } = context;
-            let program: Program | undefined;
             try {
                 astResolver.notify(uri, content);
-                // program = astResolver.request(uri)?.program; // TODO: re-enable for field imports
             } catch (err) {
                 console.error(`Error while parsing (${uri}): ${err}`);
             }
-            importResolver.update(uri, program);
+            importResolver.update(uri);
         });
     }
 }
@@ -1003,39 +1000,57 @@ connection.onCompletion((event) => {
                     });
                 });
             }
+        } else {
+            // Check for an identifier before the dot (e.g. `Module.abc`)
+            const end = position.character - dot.length - identStart.length;
+            const preMatch = /(\s*\.\s*)?([a-zA-Z_][a-zA-Z0-9_]*)$/.exec(
+                lines[position.line].substring(0, end),
+            );
+            if (preMatch) {
+                const [, preDot, preIdent] = preMatch;
+                if (!preDot) {
+                    context.importResolver
+                        .getNameEntries(uri)
+                        .forEach(([name, uri]) => {
+                            // const import_ = program?.imports.find(
+                            //     (import_) => uri === (import_.path),
+                            // )?.path;
+                            if (
+                                !name
+                                    .toLowerCase()
+                                    .startsWith(preIdent.toLowerCase())
+                            ) {
+                                return;
+                            }
+                            const status = context.astResolver.request(uri);
+                            console.log('status:', status); ////
+                            if (!status) {
+                                return;
+                            }
+                            const { program } = status;
+                            if (!(program?.export instanceof ObjBlock)) {
+                                return;
+                            }
+                            const { fields } = program.export;
+                            console.log(name, uri, fields);
+                            fields.forEach(({ name /* , visibility */ }) => {
+                                console.log('>>>>', name, identStart); /////
+                                if (name?.startsWith(identStart)) {
+                                    list.items.push({
+                                        label: name,
+                                        detail: uri,
+                                        insertText: name,
+                                        kind: uri.startsWith('mo:')
+                                            ? CompletionItemKind.Module
+                                            : CompletionItemKind.Class, // TODO: resolve actors, classes, etc.
+                                        // additionalTextEdits: import
+                                    });
+                                }
+                            });
+                        });
+                }
+            }
         }
-        // else {
-        //     // Check for an identifier before the dot (e.g. `Module.abc`)
-        //     const end = position.character - dot.length - identStart.length;
-        //     const preMatch = /(\s*\.\s*)?([a-zA-Z_][a-zA-Z0-9_]*)$/.exec(
-        //         lines[position.line].substring(0, end),
-        //     );
-        //     if (preMatch) {
-        //         const [, preDot, preIdent] = preMatch;
-        //         if (!preDot) {
-        //             importResolver
-        //                 .getNameEntries(preIdent)
-        //                 .forEach(([name, uri]) => {
-        //                     const importUri = program?.imports.find()?.path;
-        //                     importResolver
-        //                         .getFields(uri)
-        //                         .forEach(([{ name }, path]) => {
-        //                             if (name.startsWith(identStart)) {
-        //                                 list.items.push({
-        //                                     label: name,
-        //                                     detail: path,
-        //                                     insertText: name,
-        //                                     kind: path.startsWith('mo:')
-        //                                         ? CompletionItemKind.Module
-        //                                         : CompletionItemKind.Class, // TODO: resolve actors, classes, etc.
-        //                                     // additionalTextEdits: import
-        //                                 });
-        //                             }
-        //                         });
-        //                 });
-        //         }
-        //     }
-        // }
     } catch (err) {
         console.error('Error during autocompletion:');
         console.error(err);
