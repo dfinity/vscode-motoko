@@ -212,14 +212,8 @@ export function findInPattern<T>(
         matchNode(pat, 'VarP', (name: string) => fn(name, pat)) ||
         matchNode(pat, 'ObjP', (...args: Node[]) => {
             for (const field of args) {
-                const aliasNode = field.args![0] as Node;
-                const alias = matchNode(
-                    aliasNode,
-                    'VarP',
-                    (alias) => alias,
-                    field.name,
-                );
-                const result = fn(alias, pat);
+                const fieldPat = field.args![0] as Node;
+                const result = findInPattern(fieldPat, fn);
                 if (result !== undefined) {
                     return result;
                 }
