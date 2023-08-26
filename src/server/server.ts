@@ -1058,7 +1058,7 @@ connection.onCompletion((event) => {
                                         );
                                         list.items.push({
                                             label: name,
-                                            detail: path,
+                                            detail: docComment,
                                             insertText: name,
                                             kind: CompletionItemKind.Variable, // TODO: resolve actors, classes, etc.
                                             documentation: docComment && {
