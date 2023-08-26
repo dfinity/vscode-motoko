@@ -1018,7 +1018,7 @@ connection.onCompletion((event) => {
             );
             if (preMatch) {
                 const [, preDot, preIdent] = preMatch;
-                let targetFields: Field[] | undefined;
+                const targetFields: Field[] = [];
                 const definition = findDefinition(
                     uri,
                     {
@@ -1056,7 +1056,6 @@ connection.onCompletion((event) => {
                             if (!exportFields?.length) {
                                 return;
                             }
-                            targetFields = [];
                             exportFields.forEach((exportField) => {
                                 if (exportField.exp instanceof ObjBlock) {
                                     targetFields.push(
@@ -1067,28 +1066,27 @@ connection.onCompletion((event) => {
                         });
                 }
 
-                if (targetFields) {
-                    targetFields.forEach((field) => {
-                        const { name, visibility, ast } = field;
-                        if (visibility !== 'public') {
-                            return;
-                        }
-                        if (name?.startsWith(identStart)) {
-                            const docComment = findDocComment(asNode(ast));
-                            list.items.push({
-                                label: name,
-                                detail: docComment,
-                                insertText: name,
-                                kind: getCompletionItemKind(field), // TODO: resolve actors, classes, etc.
-                                documentation: docComment && {
-                                    kind: 'markdown',
-                                    value: docComment,
-                                },
-                                // additionalTextEdits: import
-                            });
-                        }
-                    });
-                }
+                // Display resolved fields
+                targetFields.forEach((field) => {
+                    const { name, visibility, ast } = field;
+                    if (visibility !== 'public') {
+                        return;
+                    }
+                    if (name?.startsWith(identStart)) {
+                        const docComment = findDocComment(asNode(ast));
+                        list.items.push({
+                            label: name,
+                            detail: docComment,
+                            insertText: name,
+                            kind: getCompletionItemKind(field), // TODO: resolve actors, classes, etc.
+                            documentation: docComment && {
+                                kind: 'markdown',
+                                value: docComment,
+                            },
+                            // additionalTextEdits: import
+                        });
+                    }
+                });
             }
         }
     } catch (err) {
