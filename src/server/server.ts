@@ -922,6 +922,12 @@ connection.onSignatureHelp((): SignatureHelp | null => {
 });
 
 function getCompletionItemKind(field: Field): CompletionItemKind {
+    if (field.exp instanceof Class) {
+        return CompletionItemKind.Class;
+    }
+    if (field.exp instanceof ObjBlock) {
+        return CompletionItemKind.Module;
+    }
     return CompletionItemKind.Variable;
 }
 
@@ -1055,7 +1061,10 @@ connection.onCompletion((event) => {
                                 }
                             });
                             fields.forEach((field) => {
-                                const { name /* , visibility */, ast } = field;
+                                const { name, visibility, ast } = field;
+                                if (visibility !== 'public') {
+                                    return;
+                                }
                                 if (name?.startsWith(identStart)) {
                                     const docComment = findDocComment(
                                         asNode(ast),
