@@ -150,7 +150,7 @@ export function findDefinition(
     if (!node) {
         return;
     }
-    const reference = { uri, node };
+    const reference: Reference = { uri, node };
     const importDefinition = followImport(context, reference);
     if (importDefinition) {
         return importDefinition;
@@ -249,8 +249,10 @@ function followImport(
         return;
     }
     // Find the relevant field name
-    const field = matchNode(reference.node.parent?.parent, 'ObjP', () =>
-        matchNode(reference.node, 'VarP', (name: string) => name),
+    const field = matchNode(
+        reference.node.parent?.parent,
+        'ObjP',
+        () => reference.node.parent?.name,
     );
     // Follow the module import
     return matchNode(importNode, 'ImportE', (path: string) => {
