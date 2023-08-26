@@ -1056,14 +1056,11 @@ connection.onCompletion((event) => {
                                         const docComment = findDocComment(
                                             asNode(ast),
                                         );
-                                        console.log('DOC', name, docComment); ///////
                                         list.items.push({
                                             label: name,
                                             detail: path,
                                             insertText: name,
-                                            kind: importUri.startsWith('mo:')
-                                                ? CompletionItemKind.Module
-                                                : CompletionItemKind.Class, // TODO: resolve actors, classes, etc.
+                                            kind: CompletionItemKind.Variable, // TODO: resolve actors, classes, etc.
                                             documentation: docComment && {
                                                 kind: 'markdown',
                                                 value: docComment,
