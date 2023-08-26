@@ -169,8 +169,8 @@ function getFieldsFromAST(ast: AST): Field[] {
     const [pat, exp] = parts;
     if (pat) {
         const fields: [string, Node, Node][] = [];
-        findInPattern(pat, (name, pat) => {
-            fields.push([name, pat, exp]);
+        findInPattern(pat, (_name, alias, pat) => {
+            fields.push([alias, pat, exp]);
         });
         return fields.map(([name, pat, exp]) => {
             const field = new Field(ast, fromAST(exp));
@@ -186,30 +186,28 @@ function getFieldsFromAST(ast: AST): Field[] {
 
 export function findInPattern<T>(
     pat: Node,
-    fn: (name: string, pat: Node) => T | undefined,
+    fn: (name: string, alias: string, pat: Node) => T | undefined,
+    fieldName?: string | undefined,
 ): T | undefined {
     const matchAny = (...args: Node[]) => {
         for (const field of args) {
-            const result = findInPattern(field, fn);
+            const result = findInPattern(field, fn, fieldName);
             if (result !== undefined) {
                 return result;
             }
         }
         return;
     };
-    const match = (arg: Node) => findInPattern(arg, fn);
+    const match = (arg: Node) => findInPattern(arg, fn, fieldName);
     return (
-        matchNode(pat, 'VarP', (name: string) => fn(name, pat)) ||
+        matchNode(pat, 'VarP', (name: string) =>
+            fn(fieldName ?? name, name, pat),
+        ) ||
         matchNode(pat, 'ObjP', (...args: Node[]) => {
             for (const field of args) {
-                const aliasNode = field.args![0] as Node;
-                const alias = matchNode(
-                    aliasNode,
-                    'VarP',
-                    (alias: string) => alias,
-                    field.name,
-                );
-                const result = fn(alias, aliasNode);
+                const fieldName = field.name;
+                const fieldPat = field.args![0] as Node;
+                const result = findInPattern(fieldPat, fn, fieldName);
                 if (result !== undefined) {
                     return result;
                 }

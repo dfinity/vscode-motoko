@@ -100,4 +100,11 @@ describe('syntax', () => {
         expectFields(prog.exportFields, [undefined]);
         expectWithFields(prog.exportFields[0].exp, ['a', 'b']);
     });
+    test('object pattern with alias', () => {
+        const prog = parse(
+            'module { let { a; b = c } = { a = "a"; b = "b" }; }',
+        );
+        expectFields(prog.exportFields, [undefined]);
+        expectWithFields(prog.exportFields[0].exp, ['a', 'c']);
+    });
 });

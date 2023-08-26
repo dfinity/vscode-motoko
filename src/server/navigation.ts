@@ -13,6 +13,7 @@ interface Definition {
     uri: string;
     cursor: Node;
     body: Node;
+    name: string | undefined;
 }
 
 interface Search {
@@ -107,9 +108,12 @@ export function locationFromDefinition(definition: Definition) {
     return location;
 }
 
-function findNameInPattern(search: Search, pat: Node): Node | undefined {
-    return findInPattern(pat, (name, node) =>
-        name === search.name ? node : undefined,
+function findNameInPattern(
+    search: Search,
+    pat: Node,
+): [string, Node] | undefined {
+    return findInPattern(pat, (name, alias, node) =>
+        alias === search.name ? [name, node] : undefined,
     );
 }
 
@@ -274,18 +278,18 @@ function followImport(
             console.log('AST:', status.program.export.ast);
             return;
         }
-        const declaration = {
+        if (field) {
+            return searchObject(
+                { uri, node: exportNode },
+                { type: 'variable', name: field },
+            );
+        }
+        return {
             uri,
             cursor: exportNode,
             body: exportNode,
+            name: undefined,
         };
-        if (field) {
-            return searchObject(
-                { uri: declaration.uri, node: declaration.body },
-                { type: 'variable', name: field },
-            ); // || declaration
-        }
-        return declaration;
     });
 }
 
@@ -348,12 +352,13 @@ function searchDeclaration(
 ): Definition | undefined {
     return (
         matchNode(dec, 'LetD', (pat: Node, body: Node) => {
-            const varNode = findNameInPattern(search, pat);
+            const [name, varNode] = findNameInPattern(search, pat) || [];
             return (
                 varNode && {
                     uri: reference.uri,
                     cursor: varNode,
                     body,
+                    name,
                 }
             );
         }) ||
@@ -363,6 +368,7 @@ function searchDeclaration(
                       uri: reference.uri,
                       cursor: dec, // TODO: cursor on variable name
                       body,
+                      name,
                   }
                 : undefined,
         ) ||
@@ -372,6 +378,7 @@ function searchDeclaration(
                       uri: reference.uri,
                       cursor: dec, // TODO: cursor on variable name
                       body: dec,
+                      name,
                   }
                 : undefined,
         )
@@ -390,6 +397,7 @@ function searchTypeBinding(
                       uri: reference.uri,
                       cursor: typ, // TODO: source location from `name`
                       body: typ,
+                      name,
                   }
                 : undefined,
         ) ||
@@ -399,6 +407,7 @@ function searchTypeBinding(
                       uri: reference.uri,
                       cursor: dec, // TODO: cursor on variable name
                       body: dec,
+                      name,
                   }
                 : undefined,
         )
@@ -429,6 +438,7 @@ function searchObject(
                                 uri: reference.uri,
                                 cursor: arg,
                                 body,
+                                name,
                             },
                     ) ||
                     matchNode(arg, 'DecField', (dec: Node) =>
@@ -457,12 +467,13 @@ function searchObject(
                         },
                     );
                 if (!definition) {
-                    const pat = findNameInPattern(search, arg); // Function parameters
+                    const [name, pat] = findNameInPattern(search, arg) || []; // Function parameters
                     if (pat) {
                         definition = {
                             uri: reference.uri,
                             cursor: pat,
                             body: pat,
+                            name,
                         };
                     }
                 }
