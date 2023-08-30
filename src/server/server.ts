@@ -1065,7 +1065,10 @@ connection.onHover((event) => {
         }
         if (docNode.name === 'Prog' && !docNode.doc) {
             // Get doc comment at top of file
-            return asNode(docNode.args?.[0])?.doc;
+            const doc = asNode(docNode.args?.[0])?.doc;
+            if (doc) {
+                return doc;
+            }
         }
         return docNode.doc;
     }
@@ -1354,38 +1357,6 @@ connection.onRequest(TEST_FILE_REQUEST, async (event): Promise<TestResult> => {
         } else {
             throw new Error(`Invalid test mode: '${mode}'`);
         }
-        // else {
-        //     const start = Date.now();
-        //     const wasiResult = motoko.wasm(virtualPath, 'wasi');
-        //     console.log('Compile time:', Date.now() - start);
-
-        //     const WebAssembly = (global as any).WebAssembly;
-        //     const module = await (
-        //         WebAssembly.compileStreaming || WebAssembly.compile
-        //     )(wasiResult.wasm);
-        //     const WASI = require('wasi');
-        //     const wasi = new WASI({});
-        //     const inst = new WebAssembly.Instance(module, {
-        //         wasi_unstable: wasi.exports,
-        //     });
-        //     wasi.setMemory(inst.exports.memory);
-        //     inst.exports._start();
-
-        //     // if (exitCode !== 0) {
-        //     //     console.log(stdout);
-        //     //     console.error(stderr);
-        //     //     console.log('Exit code:', exitCode);
-        //     // }
-        //     // return {
-        //     //     passed: exitCode === 0,
-        //     //     stdout,
-        //     //     stderr,
-        //     // };
-
-        //     console.log(Object.keys(inst.exports)); ///////
-
-        //     return { passed: true, stdout: '', stderr: '' };
-        // }
     } catch (err) {
         console.error(err);
         return {
