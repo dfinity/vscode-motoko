@@ -46,7 +46,7 @@ export interface NotifyErrorParams {
     detail?: string | undefined;
 }
 
-export const INSTALL_MOPS_PACAKGE = new RequestType<
+export const INSTALL_MOPS_PACKAGE = new RequestType<
     { name: string },
     Promise<void>,
     any

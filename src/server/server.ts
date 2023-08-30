@@ -40,7 +40,7 @@ import {
     DEPLOY_PLAYGROUND_MESSAGE,
     ERROR_MESSAGE,
     TEST_FILE_REQUEST,
-    INSTALL_MOPS_PACAKGE,
+    INSTALL_MOPS_PACKAGE,
     TestResult,
 } from '../common/connectionTypes';
 import { watchGlob as virtualFilePattern } from '../common/watchConfig';
@@ -1375,7 +1375,7 @@ connection.onRequest(DEPLOY_PLAYGROUND, (params) =>
 );
 
 // Install mops package
-connection.onRequest(INSTALL_MOPS_PACAKGE, (params) => mopsAdd(params.name));
+connection.onRequest(INSTALL_MOPS_PACKAGE, (params) => mopsAdd(params.name));
 
 const diagnosticMap = new Map<string, Diagnostic[]>();
 async function sendDiagnostics(params: {

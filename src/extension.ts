@@ -36,7 +36,7 @@ import {
     DEPLOY_PLAYGROUND_MESSAGE,
     ERROR_MESSAGE,
     TEST_FILE_REQUEST,
-    INSTALL_MOPS_PACAKGE,
+    INSTALL_MOPS_PACKAGE,
     TestParams,
     TestResult,
 } from './common/connectionTypes';
@@ -490,7 +490,7 @@ async function installMopsPackage(_context: ExtensionContext) {
             async (progress) => {
                 progress.report({ message: `Installing package "${name}"...` });
                 try {
-                    await client.sendRequest(INSTALL_MOPS_PACAKGE, { name });
+                    await client.sendRequest(INSTALL_MOPS_PACKAGE, { name });
                     // window.showInformationMessage(`Package "${name}" installed successfully`);
                 } catch (err) {
                     window.showErrorMessage(
