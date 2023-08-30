@@ -127,6 +127,10 @@
             {
                 "command": "motoko.deployPlayground",
                 "title": "Motoko: Deploy (20 minutes)"
+            },
+            {
+                "command": "motoko.installMopsPackage",
+                "title": "Motoko: Install Mops Package..."
             }
         ],
         "jsonValidation": [
@@ -165,6 +169,7 @@
         "@wasmer/wasi": "1.2.2",
         "change-case": "4.1.2",
         "fast-glob": "3.2.12",
+        "ic-mops": "0.26.3",
         "ic0": "0.2.7",
         "mnemonist": "0.39.5",
         "motoko": "3.6.6",

@@ -5,6 +5,7 @@ import { existsSync, readFileSync } from 'fs';
 import { Node } from 'motoko/lib/ast';
 import { keywords } from 'motoko/lib/keywords';
 import * as baseLibrary from 'motoko/packages/latest/base.json';
+import { add as mopsAdd } from 'ic-mops/commands/add';
 import { join, resolve } from 'path';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import {
@@ -39,6 +40,7 @@ import {
     DEPLOY_PLAYGROUND_MESSAGE,
     ERROR_MESSAGE,
     TEST_FILE_REQUEST,
+    INSTALL_MOPS_PACAKGE,
     TestResult,
 } from '../common/connectionTypes';
 import { watchGlob as virtualFilePattern } from '../common/watchConfig';
@@ -1400,6 +1402,9 @@ connection.onRequest(DEPLOY_PLAYGROUND, (params) =>
         connection.sendNotification(DEPLOY_PLAYGROUND_MESSAGE, { message }),
     ),
 );
+
+// Install mops package
+connection.onRequest(INSTALL_MOPS_PACAKGE, (params) => mopsAdd(params.name));
 
 const diagnosticMap = new Map<string, Diagnostic[]>();
 async function sendDiagnostics(params: {

@@ -15,11 +15,13 @@ import {
     TextEdit,
     Uri,
     ViewColumn,
+    QuickPickItem,
     commands,
     languages,
     tests,
     window,
     workspace,
+    Disposable,
 } from 'vscode';
 import {
     LanguageClient,
@@ -28,11 +30,13 @@ import {
     TransportKind,
 } from 'vscode-languageclient/node';
 import * as which from 'which';
+import * as mops from 'ic-mops/mops';
 import {
     DEPLOY_PLAYGROUND,
     DEPLOY_PLAYGROUND_MESSAGE,
     ERROR_MESSAGE,
     TEST_FILE_REQUEST,
+    INSTALL_MOPS_PACAKGE,
     TestParams,
     TestResult,
 } from './common/connectionTypes';
@@ -66,6 +70,11 @@ export function activate(context: ExtensionContext) {
                 await deployPlayground(context, uri);
             },
         ),
+    );
+    context.subscriptions.push(
+        commands.registerCommand('motoko.installMopsPackage', async () => {
+            await installMopsPackage(context);
+        }),
     );
     context.subscriptions.push(
         languages.registerDocumentFormattingEditProvider(['motoko', 'candid'], {
@@ -438,4 +447,64 @@ async function deployPlayground(_context: ExtensionContext, uri: string) {
         );
     }
     deployingSet.delete(uri);
+}
+
+async function installMopsPackage(_context: ExtensionContext) {
+    const disposables: Disposable[] = [];
+
+    const mopsActor = await mops.mainActor();
+
+    const quickPick = window.createQuickPick<QuickPickItem>();
+    quickPick.items = [];
+    quickPick.placeholder = 'Type to search for Motoko packages';
+
+    quickPick.onDidChangeValue(async (value) => {
+        quickPick.busy = true;
+        const [results, _pageCount] = await mopsActor.search(value, [], []);
+        console.log('res', results, _pageCount);
+        if (value && results.length) {
+            quickPick.items = results.map((packageSummary) => {
+                return {
+                    label: packageSummary.config.name,
+                    description: packageSummary.config.version,
+                    detail: packageSummary.config.description,
+                };
+            });
+            quickPick.placeholder = 'Type to search for Motoko packages';
+        } else {
+            quickPick.items = [];
+            quickPick.placeholder = 'No packages found';
+        }
+        quickPick.busy = false;
+    });
+
+    quickPick.onDidAccept(async () => {
+        const name = quickPick.selectedItems[0].label;
+
+        quickPick.enabled = true;
+        quickPick.busy = false;
+        quickPick.dispose();
+
+        await window.withProgress(
+            { location: vscode.ProgressLocation.Notification },
+            async (progress) => {
+                progress.report({ message: `Installing package "${name}"...` });
+                try {
+                    await client.sendRequest(INSTALL_MOPS_PACAKGE, { name });
+                    // window.showInformationMessage(`Package "${name}" installed successfully`);
+                } catch (err) {
+                    window.showErrorMessage(
+                        `Failed to install package "${name}"\n${err}`,
+                    );
+                }
+            },
+        );
+    });
+
+    quickPick.onDidHide(async () => {
+        disposables.forEach((d) => d.dispose());
+        quickPick.dispose();
+    });
+
+    quickPick.show();
 }

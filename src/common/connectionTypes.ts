@@ -45,3 +45,9 @@ export interface NotifyErrorParams {
     message: string;
     detail?: string | undefined;
 }
+
+export const INSTALL_MOPS_PACAKGE = new RequestType<
+    { name: string },
+    Promise<void>,
+    any
+>('vscode-motoko/install-mops-package');
