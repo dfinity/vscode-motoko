@@ -1,4 +1,4 @@
-import { NotificationType, RequestType } from 'vscode-languageserver';
+import { NotificationType, RequestType, TextEdit } from 'vscode-languageserver';
 
 export const TEST_FILE_REQUEST = new RequestType<TestParams, TestResult, any>(
     'vscode-motoko/run-test-file',
@@ -45,3 +45,12 @@ export interface NotifyErrorParams {
     message: string;
     detail?: string | undefined;
 }
+
+export const IMPORT_MOPS_PACKAGE = new RequestType<
+    {
+        uri: string;
+        name: string;
+    },
+    Promise<TextEdit[]>,
+    any
+>('vscode-motoko/install-mops-package');

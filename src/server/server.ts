@@ -5,6 +5,7 @@ import { existsSync, readFileSync } from 'fs';
 import { Node } from 'motoko/lib/ast';
 import { keywords } from 'motoko/lib/keywords';
 import * as baseLibrary from 'motoko/packages/latest/base.json';
+import { add as mopsAdd } from 'ic-mops/commands/add';
 import { join, resolve } from 'path';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import {
@@ -39,6 +40,7 @@ import {
     DEPLOY_PLAYGROUND_MESSAGE,
     ERROR_MESSAGE,
     TEST_FILE_REQUEST,
+    IMPORT_MOPS_PACKAGE,
     TestResult,
 } from '../common/connectionTypes';
 import { watchGlob as virtualFilePattern } from '../common/watchConfig';
@@ -64,6 +66,7 @@ import { deployPlayground } from './playground';
 import {
     Class,
     Field,
+    Import,
     ObjBlock,
     Program,
     SyntaxWithFields,
@@ -78,6 +81,7 @@ import {
     resolveFilePath,
     resolveVirtualPath,
 } from './utils';
+import { pascalCase } from 'change-case';
 
 const errorCodes: Record<
     string,
@@ -390,10 +394,40 @@ function notifyDfxChange() {
 }
 
 // TODO: refactor
-function findNewImportPosition(uri: string, context: Context): Position {
+function findNewImportPosition(
+    uri: string,
+    context: Context,
+    importPath: string,
+): Position {
     const imports = context.astResolver.request(uri)?.program?.imports;
     if (imports?.length) {
-        const lastImport = imports[imports.length - 1];
+        let lastImport = imports[imports.length - 1];
+
+        // add after last import from the same package
+        if (importPath.startsWith('mo:')) {
+            const importsReversed = imports.slice().reverse();
+            importPath = importPath.split('/')[0];
+
+            const lastSamePackageImport: Import | undefined =
+                importsReversed.find((imprt) => {
+                    return (
+                        imprt.path === importPath ||
+                        imprt.path.startsWith(`${importPath}/`)
+                    );
+                });
+            if (lastSamePackageImport) {
+                lastImport = lastSamePackageImport;
+            } else {
+                // add after last package import
+                const lastPackageImport = importsReversed.find((imprt) => {
+                    return imprt.path.startsWith('mo:');
+                });
+                if (lastPackageImport) {
+                    lastImport = lastPackageImport;
+                }
+            }
+        }
+
         const end = (lastImport.ast as Node)?.end;
         if (end) {
             return Position.create(end[0], 0);
@@ -906,7 +940,7 @@ connection.onCodeAction((event) => {
                         changes: {
                             [uri]: [
                                 TextEdit.insert(
-                                    findNewImportPosition(uri, context),
+                                    findNewImportPosition(uri, context, path),
                                     `import ${name} "${path}";\n`,
                                 ),
                             ],
@@ -955,7 +989,7 @@ connection.onCompletion((event) => {
                         }
                         const edits: TextEdit[] = [
                             TextEdit.insert(
-                                findNewImportPosition(uri, context),
+                                findNewImportPosition(uri, context, path),
                                 `import ${name} "${path}";\n`,
                             ),
                         ];
@@ -1371,6 +1405,24 @@ connection.onRequest(DEPLOY_PLAYGROUND, (params) =>
         connection.sendNotification(DEPLOY_PLAYGROUND_MESSAGE, { message }),
     ),
 );
+
+// Install and import mops package
+connection.onRequest(IMPORT_MOPS_PACKAGE, async (params) => {
+    mopsAdd(params.name);
+
+    const context = getContext(params.uri);
+
+    if (params.uri.endsWith('.mo')) {
+        return [
+            TextEdit.insert(
+                findNewImportPosition(params.uri, context, `mo:${params.name}`),
+                `import ${pascalCase(params.name)} "mo:${params.name}";\n`,
+            ),
+        ];
+    } else {
+        return [];
+    }
+});
 
 const diagnosticMap = new Map<string, Diagnostic[]>();
 async function sendDiagnostics(params: {

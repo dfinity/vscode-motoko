@@ -15,11 +15,13 @@ import {
     TextEdit,
     Uri,
     ViewColumn,
+    QuickPickItem,
     commands,
     languages,
     tests,
     window,
     workspace,
+    Disposable,
 } from 'vscode';
 import {
     LanguageClient,
@@ -28,11 +30,13 @@ import {
     TransportKind,
 } from 'vscode-languageclient/node';
 import * as which from 'which';
+import * as mops from 'ic-mops/mops';
 import {
     DEPLOY_PLAYGROUND,
     DEPLOY_PLAYGROUND_MESSAGE,
     ERROR_MESSAGE,
     TEST_FILE_REQUEST,
+    IMPORT_MOPS_PACKAGE,
     TestParams,
     TestResult,
 } from './common/connectionTypes';
@@ -66,6 +70,11 @@ export function activate(context: ExtensionContext) {
                 await deployPlayground(context, uri);
             },
         ),
+    );
+    context.subscriptions.push(
+        commands.registerCommand('motoko.importMopsPackage', async () => {
+            await importMopsPackage(context);
+        }),
     );
     context.subscriptions.push(
         languages.registerDocumentFormattingEditProvider(['motoko', 'candid'], {
@@ -438,4 +447,94 @@ async function deployPlayground(_context: ExtensionContext, uri: string) {
         );
     }
     deployingSet.delete(uri);
+}
+
+let packageItemsCache: vscode.QuickPickItem[] = [];
+
+async function importMopsPackage(_context: ExtensionContext) {
+    const mopsActor = await mops.mainActor();
+    const quickPick = window.createQuickPick<QuickPickItem>();
+    quickPick.placeholder = 'Type to search for Motoko packages';
+
+    const loadInitial = async () => {
+        if (packageItemsCache.length) {
+            quickPick.items = packageItemsCache;
+            return;
+        }
+        quickPick.busy = true;
+        const limit = 200;
+        const [results, _pageCount] = await mopsActor
+            .search('', [BigInt(limit)], [])
+            .finally(() => {
+                quickPick.busy = false;
+            });
+        const items = results.map((packageSummary) => {
+            return {
+                label: packageSummary.config.name,
+                description: packageSummary.config.version,
+                detail: packageSummary.config.description,
+            };
+        });
+        packageItemsCache = items;
+        quickPick.items = items;
+    };
+
+    quickPick.onDidAccept(async () => {
+        const name = quickPick.selectedItems[0].label;
+
+        quickPick.enabled = true;
+        quickPick.busy = false;
+        quickPick.dispose();
+
+        await window.withProgress(
+            { location: vscode.ProgressLocation.Notification },
+            async (progress) => {
+                progress.report({ message: `Installing package "${name}"...` });
+                const editor = window.activeTextEditor;
+                if (!editor) {
+                    return;
+                }
+                try {
+                    const uri = editor.document?.uri.toString();
+                    // install package
+                    const edits = await client.sendRequest(
+                        IMPORT_MOPS_PACKAGE,
+                        { uri, name },
+                    );
+
+                    // add import line
+                    const workspaceEdit = new vscode.WorkspaceEdit();
+                    workspaceEdit.set(
+                        editor.document.uri,
+                        edits.map(
+                            (edit) =>
+                                new TextEdit(
+                                    new Range(
+                                        edit.range.start.line,
+                                        edit.range.start.character,
+                                        edit.range.end.line,
+                                        edit.range.end.character,
+                                    ),
+                                    edit.newText,
+                                ),
+                        ),
+                    );
+                    vscode.workspace.applyEdit(workspaceEdit);
+                    // window.showInformationMessage(`Package "${name}" installed successfully`);
+                } catch (err) {
+                    window.showErrorMessage(
+                        `Failed to install package "${name}"\n${err}`,
+                    );
+                }
+            },
+        );
+    });
+
+    quickPick.onDidHide(async () => {
+        quickPick.dispose();
+    });
+
+    quickPick.show();
+
+    await loadInitial();
 }

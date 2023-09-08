@@ -25,18 +25,18 @@ Below are the default key bindings for commonly used features supported in the e
 
 - **Code formatter** (`Shift` + `Alt` + `F`): format a Motoko file using [prettier-plugin-motoko](https://github.com/dfinity/prettier-plugin-motoko).
 - **Organize imports** (`Shift` + `Alt` + `O`): group and sort imports at the top of your Motoko file.
-- **Import code action** (`Ctrl/Cmd` + `.` while hovering over an unresolved variable): show quick-fix options. 
+- **Import code action** (`Ctrl/Cmd` + `.` while hovering over an unresolved variable): show quick-fix options.
 - **Go to definition** (`F12`): jump to the definition of a local or imported identifier.
-- **IntelliSense** (`Ctrl` + `Space`): view all available autocompletions and code snippets. 
+- **IntelliSense** (`Ctrl` + `Space`): view all available autocompletions and code snippets.
 
 [![Snippets](https://github.com/dfinity/vscode-motoko/raw/master/guide/assets/snippets.png)](https://marketplace.visualstudio.com/items?itemName=dfinity-foundation.vscode-motoko)
 
 ## Other Features
 
 - Deploy to the Internet Computer mainnet using a right-click context menu action.
-- [Vessel](https://github.com/dfinity/vessel) and [MOPS](https://mops.one/) (the two most popular Motoko package managers) are supported out-of-the-box in this extension. 
+- [Vessel](https://github.com/dfinity/vessel) and [MOPS](https://mops.one/) (the two most popular Motoko package managers) are supported out-of-the-box in this extension.
 - Quickly convert between Motoko types using code snippets such as `array-2-buffer` or `principal-2-text`.
-- In case you're hoping to learn Motoko without installing `dfx`, the Motoko VS Code extension works standalone on all major operating systems (including Windows). 
+- In case you're hoping to learn Motoko without installing `dfx`, the Motoko VS Code extension works standalone on all major operating systems (including Windows).
 - This extension also provides schema validation and autocompletion for `dfx.json` config files.
 - View type information and documentation by hovering over function names, imports, and other expressions.
 
@@ -46,6 +46,7 @@ Below are the default key bindings for commonly used features supported in the e
 
 - `Motoko: Restart language server`: Starts (or restarts) the language server
 - `Motoko: Deploy (20 minutes)`: Temporarily deploys the currently open file to the Internet Computer via [Motoko Playground](https://m7sm4-2iaaa-aaaab-qabra-cai.raw.ic0.app/)
+- `Motoko: Import Mops Package...`: Search, install and import a package from [Mops](https://mops.one)
 
 [![Motoko Playground deployment](https://github.com/dfinity/vscode-motoko/raw/master/guide/assets/deploy.png)](https://marketplace.visualstudio.com/items?itemName=dfinity-foundation.vscode-motoko)
 
