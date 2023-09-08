@@ -449,34 +449,36 @@ async function deployPlayground(_context: ExtensionContext, uri: string) {
     deployingSet.delete(uri);
 }
 
+let packageItemsCache: vscode.QuickPickItem[] = [];
+
 async function importMopsPackage(_context: ExtensionContext) {
-    const disposables: Disposable[] = [];
-
     const mopsActor = await mops.mainActor();
-
     const quickPick = window.createQuickPick<QuickPickItem>();
-    quickPick.items = [];
     quickPick.placeholder = 'Type to search for Motoko packages';
 
-    quickPick.onDidChangeValue(async (value) => {
-        quickPick.busy = true;
-        const [results, _pageCount] = await mopsActor.search(value, [], []);
-        console.log('res', results, _pageCount);
-        if (value && results.length) {
-            quickPick.items = results.map((packageSummary) => {
-                return {
-                    label: packageSummary.config.name,
-                    description: packageSummary.config.version,
-                    detail: packageSummary.config.description,
-                };
-            });
-            quickPick.placeholder = 'Type to search for Motoko packages';
-        } else {
-            quickPick.items = [];
-            quickPick.placeholder = 'No packages found';
+    const loadInitial = async () => {
+        if (packageItemsCache.length) {
+            quickPick.items = packageItemsCache;
+            return;
         }
+        quickPick.busy = true;
+        const limit = 200;
+        const [results, _pageCount] = await mopsActor.search(
+            '',
+            [BigInt(limit)],
+            [],
+        );
+        const items = results.map((packageSummary) => {
+            return {
+                label: packageSummary.config.name,
+                description: packageSummary.config.version,
+                detail: packageSummary.config.description,
+            };
+        });
+        packageItemsCache = items;
+        quickPick.items = items;
         quickPick.busy = false;
-    });
+    };
 
     quickPick.onDidAccept(async () => {
         const name = quickPick.selectedItems[0].label;
@@ -530,9 +532,10 @@ async function importMopsPackage(_context: ExtensionContext) {
     });
 
     quickPick.onDidHide(async () => {
-        disposables.forEach((d) => d.dispose());
         quickPick.dispose();
     });
 
     quickPick.show();
+
+    await loadInitial();
 }
