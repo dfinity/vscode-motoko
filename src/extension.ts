@@ -463,11 +463,11 @@ async function importMopsPackage(_context: ExtensionContext) {
         }
         quickPick.busy = true;
         const limit = 200;
-        const [results, _pageCount] = await mopsActor.search(
-            '',
-            [BigInt(limit)],
-            [],
-        );
+        const [results, _pageCount] = await mopsActor
+            .search('', [BigInt(limit)], [])
+            .finally(() => {
+                quickPick.busy = false;
+            });
         const items = results.map((packageSummary) => {
             return {
                 label: packageSummary.config.name,
@@ -477,7 +477,6 @@ async function importMopsPackage(_context: ExtensionContext) {
         });
         packageItemsCache = items;
         quickPick.items = items;
-        quickPick.busy = false;
     };
 
     quickPick.onDidAccept(async () => {

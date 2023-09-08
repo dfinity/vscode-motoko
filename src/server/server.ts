@@ -1412,12 +1412,16 @@ connection.onRequest(IMPORT_MOPS_PACKAGE, async (params) => {
 
     const context = getContext(params.uri);
 
-    return [
-        TextEdit.insert(
-            findNewImportPosition(params.uri, context, `mo:${params.name}`),
-            `import ${pascalCase(params.name)} "mo:${params.name}";\n`,
-        ),
-    ];
+    if (params.uri.endsWith('.mo')) {
+        return [
+            TextEdit.insert(
+                findNewImportPosition(params.uri, context, `mo:${params.name}`),
+                `import ${pascalCase(params.name)} "mo:${params.name}";\n`,
+            ),
+        ];
+    } else {
+        return [];
+    }
 });
 
 const diagnosticMap = new Map<string, Diagnostic[]>();
