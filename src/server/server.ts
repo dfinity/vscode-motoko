@@ -40,7 +40,7 @@ import {
     DEPLOY_PLAYGROUND_MESSAGE,
     ERROR_MESSAGE,
     TEST_FILE_REQUEST,
-    INSTALL_MOPS_PACKAGE,
+    IMPORT_MOPS_PACKAGE,
     TestResult,
 } from '../common/connectionTypes';
 import { watchGlob as virtualFilePattern } from '../common/watchConfig';
@@ -80,6 +80,7 @@ import {
     resolveFilePath,
     resolveVirtualPath,
 } from './utils';
+import { pascalCase } from 'change-case';
 
 const errorCodes: Record<
     string,
@@ -1374,8 +1375,19 @@ connection.onRequest(DEPLOY_PLAYGROUND, (params) =>
     ),
 );
 
-// Install mops package
-connection.onRequest(INSTALL_MOPS_PACKAGE, (params) => mopsAdd(params.name));
+// Install and import mops package
+connection.onRequest(IMPORT_MOPS_PACKAGE, async (params) => {
+    mopsAdd(params.name);
+
+    const context = getContext(params.uri);
+
+    return [
+        TextEdit.insert(
+            findNewImportPosition(params.uri, context),
+            `import ${pascalCase(params.name)} "mo:${params.name}";\n`,
+        ),
+    ];
+});
 
 const diagnosticMap = new Map<string, Diagnostic[]>();
 async function sendDiagnostics(params: {

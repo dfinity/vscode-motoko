@@ -129,8 +129,8 @@
                 "title": "Motoko: Deploy (20 minutes)"
             },
             {
-                "command": "motoko.installMopsPackage",
-                "title": "Motoko: Install Mops Package..."
+                "command": "motoko.importMopsPackage",
+                "title": "Motoko: Import Mops Package..."
             }
         ],
         "jsonValidation": [

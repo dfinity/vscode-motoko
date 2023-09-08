@@ -36,7 +36,7 @@ import {
     DEPLOY_PLAYGROUND_MESSAGE,
     ERROR_MESSAGE,
     TEST_FILE_REQUEST,
-    INSTALL_MOPS_PACKAGE,
+    IMPORT_MOPS_PACKAGE,
     TestParams,
     TestResult,
 } from './common/connectionTypes';
@@ -72,8 +72,8 @@ export function activate(context: ExtensionContext) {
         ),
     );
     context.subscriptions.push(
-        commands.registerCommand('motoko.installMopsPackage', async () => {
-            await installMopsPackage(context);
+        commands.registerCommand('motoko.importMopsPackage', async () => {
+            await importMopsPackage(context);
         }),
     );
     context.subscriptions.push(
@@ -449,7 +449,7 @@ async function deployPlayground(_context: ExtensionContext, uri: string) {
     deployingSet.delete(uri);
 }
 
-async function installMopsPackage(_context: ExtensionContext) {
+async function importMopsPackage(_context: ExtensionContext) {
     const disposables: Disposable[] = [];
 
     const mopsActor = await mops.mainActor();
@@ -489,8 +489,36 @@ async function installMopsPackage(_context: ExtensionContext) {
             { location: vscode.ProgressLocation.Notification },
             async (progress) => {
                 progress.report({ message: `Installing package "${name}"...` });
+                const editor = window.activeTextEditor;
+                if (!editor) {
+                    return;
+                }
                 try {
-                    await client.sendRequest(INSTALL_MOPS_PACKAGE, { name });
+                    const uri = editor.document?.uri.toString();
+                    // install package
+                    const edits = await client.sendRequest(
+                        IMPORT_MOPS_PACKAGE,
+                        { uri, name },
+                    );
+
+                    // add import line
+                    const workspaceEdit = new vscode.WorkspaceEdit();
+                    workspaceEdit.set(
+                        editor.document.uri,
+                        edits.map(
+                            (edit) =>
+                                new TextEdit(
+                                    new Range(
+                                        edit.range.start.line,
+                                        edit.range.start.character,
+                                        edit.range.end.line,
+                                        edit.range.end.character,
+                                    ),
+                                    edit.newText,
+                                ),
+                        ),
+                    );
+                    vscode.workspace.applyEdit(workspaceEdit);
                     // window.showInformationMessage(`Package "${name}" installed successfully`);
                 } catch (err) {
                     window.showErrorMessage(
