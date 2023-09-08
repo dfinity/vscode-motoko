@@ -66,6 +66,7 @@ import { deployPlayground } from './playground';
 import {
     Class,
     Field,
+    Import,
     ObjBlock,
     Program,
     SyntaxWithFields,
@@ -393,10 +394,40 @@ function notifyDfxChange() {
 }
 
 // TODO: refactor
-function findNewImportPosition(uri: string, context: Context): Position {
+function findNewImportPosition(
+    uri: string,
+    context: Context,
+    importPath: string,
+): Position {
     const imports = context.astResolver.request(uri)?.program?.imports;
     if (imports?.length) {
-        const lastImport = imports[imports.length - 1];
+        let lastImport = imports[imports.length - 1];
+
+        // add after last import from the same package
+        if (importPath.startsWith('mo:')) {
+            const importsReversed = imports.slice().reverse();
+            importPath = importPath.split('/')[0];
+
+            const lastSamePackageImport: Import | undefined =
+                importsReversed.find((imprt) => {
+                    return (
+                        imprt.path === importPath ||
+                        imprt.path.startsWith(`${importPath}/`)
+                    );
+                });
+            if (lastSamePackageImport) {
+                lastImport = lastSamePackageImport;
+            } else {
+                // add after last package import
+                const lastPackageImport = importsReversed.find((imprt) => {
+                    return imprt.path.startsWith('mo:');
+                });
+                if (lastPackageImport) {
+                    lastImport = lastPackageImport;
+                }
+            }
+        }
+
         const end = (lastImport.ast as Node)?.end;
         if (end) {
             return Position.create(end[0], 0);
@@ -909,7 +940,7 @@ connection.onCodeAction((event) => {
                         changes: {
                             [uri]: [
                                 TextEdit.insert(
-                                    findNewImportPosition(uri, context),
+                                    findNewImportPosition(uri, context, path),
                                     `import ${name} "${path}";\n`,
                                 ),
                             ],
@@ -958,7 +989,7 @@ connection.onCompletion((event) => {
                         }
                         const edits: TextEdit[] = [
                             TextEdit.insert(
-                                findNewImportPosition(uri, context),
+                                findNewImportPosition(uri, context, path),
                                 `import ${name} "${path}";\n`,
                             ),
                         ];
@@ -1383,7 +1414,7 @@ connection.onRequest(IMPORT_MOPS_PACKAGE, async (params) => {
 
     return [
         TextEdit.insert(
-            findNewImportPosition(params.uri, context),
+            findNewImportPosition(params.uri, context, `mo:${params.name}`),
             `import ${pascalCase(params.name)} "mo:${params.name}";\n`,
         ),
     ];
