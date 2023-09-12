@@ -25,6 +25,8 @@ interface CompileResult {
 
 const playground = ic('mwrha-maaaa-aaaab-qabqq-cai');
 
+const origin = { origin: 'vscode', tags: [] };
+
 const currentCanisterMap = new Map<string, CanisterInfo>();
 const currentCanisterTimeoutMap = new Map<
     string,
@@ -134,6 +136,7 @@ export async function deployPlayground(
         const info: CanisterInfo = await playground.call(
             'getCanisterId',
             nonce,
+            origin,
         );
         return {
             id: info.id,
@@ -159,11 +162,16 @@ export async function deployPlayground(
             mode: { [mode]: null },
             canister_id: canisterId,
         };
+        const installConfig = {
+            profiling,
+            is_whitelisted: false,
+            origin,
+        };
         const newInfo: CanisterInfo = await playground.call(
             'installCode',
             canisterInfo,
             installArgs,
-            profiling,
+            installConfig,
         );
         canisterInfo = newInfo;
         return canisterInfo;
