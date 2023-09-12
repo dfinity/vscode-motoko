@@ -159,11 +159,16 @@ export async function deployPlayground(
             mode: { [mode]: null },
             canister_id: canisterId,
         };
+        const installConfig = {
+            profiling,
+            is_whitelisted: false,
+            origin: { origin: 'vscode', tags: [] },
+        };
         const newInfo: CanisterInfo = await playground.call(
             'installCode',
             canisterInfo,
             installArgs,
-            profiling,
+            installConfig,
         );
         canisterInfo = newInfo;
         return canisterInfo;
