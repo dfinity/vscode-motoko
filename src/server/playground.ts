@@ -168,7 +168,9 @@ export async function deployPlayground(
             canister_id: canisterId,
         };
         const installConfig = {
-            profiling: profiling ? [profiling] : [],
+            profiling: !!profiling,
+            start_page: profiling?.start_page ? [profiling.start_page] : [],
+            page_limit: profiling?.page_limit ? [profiling.page_limit] : [],
             is_whitelisted: false,
             origin,
         };
