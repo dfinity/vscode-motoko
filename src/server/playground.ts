@@ -23,6 +23,11 @@ interface CompileResult {
     stable: string;
 }
 
+interface ProfilingConfig {
+    start_page: [] | [number];
+    page_limit: [] | [number];
+}
+
 const playground = ic('mwrha-maaaa-aaaab-qabqq-cai');
 
 const origin = { origin: 'vscode', tags: [] };
@@ -52,7 +57,7 @@ export async function deployPlayground(
 
     // TODO: custom init args?
     const arg = IDL.encode([], []);
-    const profiling = false;
+    const profiling = null;
 
     // Deploy and reset canister state
     const updatedCanister = await deploy(
@@ -91,7 +96,7 @@ export async function deployPlayground(
         args: Uint8Array,
         mode: 'install' | 'reinstall' | 'upgrade',
         wasm: Uint8Array,
-        profiling: boolean,
+        profiling: ProfilingConfig | null,
     ): Promise<CanisterInfo> {
         try {
             let updatedState: CanisterInfo | null = null;
@@ -149,7 +154,7 @@ export async function deployPlayground(
         module: Uint8Array,
         args: Uint8Array,
         mode: string,
-        profiling: boolean,
+        profiling: ProfilingConfig | null,
     ): Promise<CanisterInfo> {
         notify('Installing WebAssembly...');
         if (!canisterInfo) {
@@ -163,7 +168,7 @@ export async function deployPlayground(
             canister_id: canisterId,
         };
         const installConfig = {
-            profiling,
+            profiling: profiling ? [profiling] : [],
             is_whitelisted: false,
             origin,
         };
