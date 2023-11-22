@@ -7,7 +7,7 @@
 
 ## Overview
 
-[Motoko](https://github.com/dfinity/motoko) is a high-level smart contract language for the [Internet Computer](https://internetcomputer.org/).
+[Motoko](https://internetcomputer.org/docs/current/motoko/main/motoko) is a high-level smart contract language for the [Internet Computer](https://internetcomputer.org/).
 
 This IDE extension provides type checking, formatting, snippets, and more for [Motoko canister development](https://internetcomputer.org/docs/current/developer-docs/build/cdks/motoko-dfinity/motoko/).
 
