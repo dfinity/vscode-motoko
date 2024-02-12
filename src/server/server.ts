@@ -348,6 +348,9 @@ function notifyDfxChange() {
             if (projectDir && dfxConfig) {
                 if (dfxConfig.canisters) {
                     try {
+                        const candidPath = join(projectDir, '.dfx/local/lsp');
+                        const candidUri = URI.file(candidPath).toString();
+
                         const idsPath = join(
                             projectDir,
                             '.dfx/local/canister_ids.json',
@@ -377,13 +380,29 @@ function notifyDfxChange() {
                             Object.entries(pulledDeps.canisters).forEach(
                                 ([id, { name }]: [string, any]) => {
                                     aliases[name] = id;
+                                    // Add Candid as virtual file LSP directory
+                                    const candid = readFileSync(
+                                        join(
+                                            projectDir,
+                                            `deps/candid/${id}.did`,
+                                        ),
+                                        'utf8',
+                                    );
+                                    writeVirtual(
+                                        resolveVirtualPath(
+                                            candidUri,
+                                            `${id}.did`,
+                                        ),
+                                        candid,
+                                    );
                                 },
                             );
                         }
-                        const path = join(projectDir, '.dfx/local/lsp');
-                        const uri = URI.file(path).toString();
                         allContexts().forEach(({ motoko }) => {
-                            motoko.setAliases(resolveVirtualPath(uri), aliases);
+                            motoko.setAliases(
+                                resolveVirtualPath(candidUri),
+                                aliases,
+                            );
                         });
                     } catch (err) {
                         console.error(
