@@ -82,6 +82,7 @@ import {
     resolveVirtualPath,
 } from './utils';
 import { pascalCase } from 'change-case';
+import icCandid from '../candid/aaaaa-aa.did';
 
 const errorCodes: Record<
     string,
@@ -350,6 +351,12 @@ function notifyDfxChange() {
                     try {
                         const candidPath = join(projectDir, '.dfx/local/lsp');
                         const candidUri = URI.file(candidPath).toString();
+
+                        // Add management canister Candid file
+                        const icUri = URI.file(
+                            join(candidPath, 'aaaaa-aa.did'),
+                        ).toString();
+                        writeVirtual(resolveVirtualPath(icUri), icCandid);
 
                         const idsPath = join(
                             projectDir,
