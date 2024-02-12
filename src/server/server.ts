@@ -380,7 +380,7 @@ function notifyDfxChange() {
                             Object.entries(pulledDeps.canisters).forEach(
                                 ([id, { name }]: [string, any]) => {
                                     aliases[name] = id;
-                                    // Add Candid as virtual file LSP directory
+                                    // Add Candid as virtual file in LSP directory
                                     const candid = readFileSync(
                                         join(
                                             projectDir,
