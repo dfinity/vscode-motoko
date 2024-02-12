@@ -352,11 +352,11 @@ function notifyDfxChange() {
                             projectDir,
                             '.dfx/local/canister_ids.json',
                         );
+                        const aliases: Record<string, string> = {};
                         if (existsSync(idsPath)) {
                             const canisterIds = JSON.parse(
                                 readFileSync(idsPath, 'utf8'),
                             );
-                            const aliases: Record<string, string> = {};
                             Object.entries(canisterIds).forEach(
                                 ([name, ids]: [string, any]) => {
                                     const keys = Object.keys(ids);
@@ -368,15 +368,23 @@ function notifyDfxChange() {
                                     }
                                 },
                             );
-                            const path = join(projectDir, '.dfx/local/lsp');
-                            const uri = URI.file(path).toString();
-                            allContexts().forEach(({ motoko }) => {
-                                motoko.setAliases(
-                                    resolveVirtualPath(uri),
-                                    aliases,
-                                );
-                            });
                         }
+                        const depsPath = join(projectDir, 'deps/pulled.json');
+                        if (existsSync(depsPath)) {
+                            const pulledDeps = JSON.parse(
+                                readFileSync(depsPath, 'utf8'),
+                            );
+                            Object.entries(pulledDeps.canisters).forEach(
+                                ([id, { name }]: [string, any]) => {
+                                    aliases[name] = id;
+                                },
+                            );
+                        }
+                        const path = join(projectDir, '.dfx/local/lsp');
+                        const uri = URI.file(path).toString();
+                        allContexts().forEach(({ motoko }) => {
+                            motoko.setAliases(resolveVirtualPath(uri), aliases);
+                        });
                     } catch (err) {
                         console.error(
                             `Error while resolving canister aliases: ${err}`,
