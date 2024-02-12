@@ -82,6 +82,7 @@ import {
     resolveVirtualPath,
 } from './utils';
 import { pascalCase } from 'change-case';
+import icCandid from '../candid/aaaaa-aa.did';
 
 const errorCodes: Record<
     string,
@@ -348,15 +349,24 @@ function notifyDfxChange() {
             if (projectDir && dfxConfig) {
                 if (dfxConfig.canisters) {
                     try {
+                        const candidPath = join(projectDir, '.dfx/local/lsp');
+                        const candidUri = URI.file(candidPath).toString();
+
+                        // Add management canister Candid file
+                        const icUri = URI.file(
+                            join(candidPath, 'aaaaa-aa.did'),
+                        ).toString();
+                        writeVirtual(resolveVirtualPath(icUri), icCandid);
+
                         const idsPath = join(
                             projectDir,
                             '.dfx/local/canister_ids.json',
                         );
+                        const aliases: Record<string, string> = {};
                         if (existsSync(idsPath)) {
                             const canisterIds = JSON.parse(
                                 readFileSync(idsPath, 'utf8'),
                             );
-                            const aliases: Record<string, string> = {};
                             Object.entries(canisterIds).forEach(
                                 ([name, ids]: [string, any]) => {
                                     const keys = Object.keys(ids);
@@ -368,15 +378,39 @@ function notifyDfxChange() {
                                     }
                                 },
                             );
-                            const path = join(projectDir, '.dfx/local/lsp');
-                            const uri = URI.file(path).toString();
-                            allContexts().forEach(({ motoko }) => {
-                                motoko.setAliases(
-                                    resolveVirtualPath(uri),
-                                    aliases,
-                                );
-                            });
                         }
+                        const depsPath = join(projectDir, 'deps/pulled.json');
+                        if (existsSync(depsPath)) {
+                            const pulledDeps = JSON.parse(
+                                readFileSync(depsPath, 'utf8'),
+                            );
+                            Object.entries(pulledDeps.canisters).forEach(
+                                ([id, { name }]: [string, any]) => {
+                                    aliases[name] = id;
+                                    // Add Candid as virtual file in LSP directory
+                                    const candid = readFileSync(
+                                        join(
+                                            projectDir,
+                                            `deps/candid/${id}.did`,
+                                        ),
+                                        'utf8',
+                                    );
+                                    writeVirtual(
+                                        resolveVirtualPath(
+                                            candidUri,
+                                            `${id}.did`,
+                                        ),
+                                        candid,
+                                    );
+                                },
+                            );
+                        }
+                        allContexts().forEach(({ motoko }) => {
+                            motoko.setAliases(
+                                resolveVirtualPath(candidUri),
+                                aliases,
+                            );
+                        });
                     } catch (err) {
                         console.error(
                             `Error while resolving canister aliases: ${err}`,
