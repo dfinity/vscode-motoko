@@ -82,7 +82,7 @@ import {
     resolveVirtualPath,
 } from './utils';
 import { pascalCase } from 'change-case';
-import icCandid from '../candid/aaaaa-aa.did';
+import icCandid from '../generated/aaaaa-aa.did';
 
 const errorCodes: Record<
     string,
