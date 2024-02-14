@@ -353,10 +353,11 @@ function notifyDfxChange() {
                         const candidUri = URI.file(candidPath).toString();
 
                         // Add management canister Candid file
-                        const icUri = URI.file(
-                            join(candidPath, 'aaaaa-aa.did'),
-                        ).toString();
-                        writeVirtual(resolveVirtualPath(icUri), icCandid);
+                        const icPath = join(candidPath, 'aaaaa-aa.did');
+                        if (!existsSync(icPath)) {
+                            const icUri = URI.file(icPath).toString();
+                            writeVirtual(resolveVirtualPath(icUri), icCandid);
+                        }
 
                         const idsPath = join(
                             projectDir,
