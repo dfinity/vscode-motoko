@@ -100,8 +100,8 @@ export function fromAST(ast: AST): Syntax {
         fields.forEach((field) => {
             if (field.name !== 'DecField') {
                 console.error(
-                    'Error: expected `DecField`, received',
-                    field.name,
+                    'Error: expected object with `name: "DecField"`, received',
+                    field,
                 );
                 return;
             }
