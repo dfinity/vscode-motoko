@@ -77,7 +77,7 @@ If you want VS Code to automatically format Motoko files on save, consider addin
 
 ### Set up your local development environment:
 
-Ensure that [Node.js >= 14.x](https://nodejs.org/en/) and [Cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html) are installed on your system.
+Ensure that [Node.js >= 16.x](https://nodejs.org/en/) and [Cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html) are installed on your system.
 
 ```bash
 git clone https://github.com/dfinity/vscode-motoko
