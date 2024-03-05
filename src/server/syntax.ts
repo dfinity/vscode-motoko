@@ -94,7 +94,7 @@ export function fromAST(ast: AST): Syntax {
         return prog;
     } else if (ast.name === 'ObjBlockE' && ast.args) {
         const sort = ast.args[0] as ObjSort;
-        const fields = ast.args.slice(1) as Node[];
+        const fields = ast.args.slice(2) as Node[];
 
         const obj = new ObjBlock(ast, sort);
         fields.forEach((field) => {
