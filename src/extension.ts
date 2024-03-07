@@ -21,7 +21,6 @@ import {
     tests,
     window,
     workspace,
-    Disposable,
 } from 'vscode';
 import {
     LanguageClient,
@@ -434,7 +433,7 @@ async function deployPlayground(_context: ExtensionContext, uri: string) {
         }
         panel.webview.html = `
             <iframe
-                src="https://a4gq6-oaaaa-aaaab-qaa4q-cai.raw.ic0.app/?id=${
+                src="https://a4gq6-oaaaa-aaaab-qaa4q-cai.raw.icp0.io/?id=${
                     result.canisterId
                 }&tag=${tag++}"
                 style="width:100vw; height:100vh; border:none"
