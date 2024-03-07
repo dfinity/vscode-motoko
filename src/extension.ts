@@ -21,7 +21,6 @@ import {
     tests,
     window,
     workspace,
-    Disposable,
 } from 'vscode';
 import {
     LanguageClient,
