@@ -50,12 +50,10 @@ function requestMotokoInstance(
                 delete require.cache[key];
             }
         });
+        motoko = require(motokoPath).default;
         // TODO: download `moc.js` versions from GitHub releases
         if (version == '0.10.4') {
-            // Currently using moc.js `0.10.4` for any dfx version prior to `0.18.0`
-            motoko = require('./compiler/moc-0.10.4').default;
-        } else {
-            motoko = require(motokoPath).default;
+            motoko.compiler = require('./compiler/moc-0.10.4').default;
         }
     }
     motoko.loadPackage(baseLibrary);
