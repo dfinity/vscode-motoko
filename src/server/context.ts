@@ -1,4 +1,4 @@
-import { Motoko } from 'motoko/lib';
+import { type Motoko } from 'motoko/lib';
 import * as baseLibrary from 'motoko/packages/latest/base.json';
 import ImportResolver from './imports';
 import AstResolver from './ast';
@@ -34,7 +34,10 @@ const previousMotokoInstances = new Map<string, Motoko>();
 /**
  * Create or reuse a `moc.js` compiler instance.
  */
-function requestMotokoInstance(uri: string): Motoko {
+function requestMotokoInstance(
+    uri: string,
+    version: string | undefined,
+): Motoko {
     let motoko = previousMotokoInstances.get(uri)!;
     if (motoko) {
         motoko.clearPackages();
@@ -44,11 +47,16 @@ function requestMotokoInstance(uri: string): Motoko {
                 key.endsWith('/out/motoko.js') ||
                 key.endsWith('\\out\\motoko.js')
             ) {
-                // console.warn('Deleting cache:', key);
                 delete require.cache[key];
             }
         });
-        motoko = require(motokoPath).default;
+        // TODO: download `moc.js` versions from GitHub releases
+        if (version == '0.10.4') {
+            // Currently using moc.js `0.10.4` for any dfx version prior to `0.18.0`
+            motoko = require('./compiler/moc-0.10.4').default;
+        } else {
+            motoko = require(motokoPath).default;
+        }
     }
     motoko.loadPackage(baseLibrary);
     return motoko;
@@ -58,11 +66,10 @@ let defaultContext: Context | undefined;
 function requestDefaultContext() {
     if (!defaultContext) {
         defaultContext = addContext('');
-        // console.warn('Created default context');
     }
     return defaultContext;
 }
-requestDefaultContext(); // Always add a default context (provisional)
+requestDefaultContext(); // Always add a default context
 
 /**
  * Reset all contexts (used to update Vessel configuration).
@@ -81,13 +88,16 @@ export function resetContexts() {
 /**
  * Register a context for the given directory (specified as a URI).
  */
-export function addContext(uri: string): Context {
+export function addContext(
+    uri: string,
+    motokoVersion?: string | undefined,
+): Context {
     const existing = contexts.find((other) => uri === other.uri);
     if (existing) {
         console.warn('Duplicate contexts for URI:', uri);
         return existing;
     }
-    const motoko = requestMotokoInstance(uri);
+    const motoko = requestMotokoInstance(uri, motokoVersion);
     const context = new Context(uri, motoko);
     // Insert by descending specificity (`uri.length`) and then ascending alphabetical order
     let index = 0;

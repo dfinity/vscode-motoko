@@ -1,11 +1,12 @@
 import { WASI, init as initWASI } from '@wasmer/wasi';
+import { pascalCase } from 'change-case';
 import { exec } from 'child_process';
 import * as glob from 'fast-glob';
 import { existsSync, readFileSync } from 'fs';
+import { add as mopsAdd } from 'ic-mops/commands/add';
 import { Node } from 'motoko/lib/ast';
 import { keywords } from 'motoko/lib/keywords';
 import * as baseLibrary from 'motoko/packages/latest/base.json';
-import { add as mopsAdd } from 'ic-mops/commands/add';
 import { join, resolve } from 'path';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import {
@@ -39,11 +40,12 @@ import {
     DEPLOY_PLAYGROUND,
     DEPLOY_PLAYGROUND_MESSAGE,
     ERROR_MESSAGE,
-    TEST_FILE_REQUEST,
     IMPORT_MOPS_PACKAGE,
+    TEST_FILE_REQUEST,
     TestResult,
 } from '../common/connectionTypes';
 import { watchGlob as virtualFilePattern } from '../common/watchConfig';
+import icCandid from '../generated/aaaaa-aa.did';
 import { globalASTCache } from './ast';
 import {
     Context,
@@ -81,8 +83,8 @@ import {
     resolveFilePath,
     resolveVirtualPath,
 } from './utils';
-import { pascalCase } from 'change-case';
-import icCandid from '../generated/aaaaa-aa.did';
+
+import execa = require('execa');
 
 const errorCodes: Record<
     string,
@@ -262,8 +264,34 @@ function notifyPackageConfigChange(reuseCached = false) {
                     try {
                         console.log('Loading packages for directory:', dir);
 
+                        let overrideMotokoVersion: string | undefined;
+                        try {
+                            const result = await execa('dfx', ['--version'], {
+                                cwd: dir,
+                            });
+                            const match = /dfx 0\.(\d+)/.exec(result.stdout);
+                            if (match) {
+                                // TODO: generalize to all Motoko versions
+                                const dfxMinorVersion = +match[1];
+                                if (dfxMinorVersion < 18) {
+                                    overrideMotokoVersion = '0.10.4';
+                                }
+                            }
+                        } catch (err) {
+                            console.warn(
+                                'Error while checking for custom Motoko version:',
+                            );
+                            console.warn(err);
+                        }
+                        if (overrideMotokoVersion) {
+                            console.log(
+                                'Using Motoko version:',
+                                overrideMotokoVersion,
+                            );
+                        }
+
                         const uri = URI.file(dir).toString();
-                        const context = addContext(uri);
+                        const context = addContext(uri, overrideMotokoVersion);
 
                         try {
                             context.packages = await getPackageSources(dir);
