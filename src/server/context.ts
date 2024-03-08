@@ -2,6 +2,7 @@ import { type Motoko } from 'motoko/lib';
 import * as baseLibrary from 'motoko/packages/latest/base.json';
 import ImportResolver from './imports';
 import AstResolver from './ast';
+import { join } from 'path';
 
 /**
  * A Motoko compiler context.
@@ -45,15 +46,22 @@ function requestMotokoInstance(
         Object.keys(require.cache).forEach((key) => {
             if (
                 key.endsWith('/out/motoko.js') ||
-                key.endsWith('\\out\\motoko.js')
+                key.endsWith('\\out\\motoko.js') ||
+                key.includes('/out/compiler/') ||
+                key.includes('\\out\\compiler\\')
             ) {
                 delete require.cache[key];
             }
         });
-        motoko = require(motokoPath).default;
         // TODO: download `moc.js` versions from GitHub releases
         if (version == '0.10.4') {
-            motoko.compiler = require('./compiler/moc-0.10.4').default;
+            const compiler = require(join(
+                __dirname,
+                '/compiler/moc-' + version,
+            )).Motoko;
+            motoko = require('motoko/lib').default(compiler);
+        } else {
+            motoko = require(motokoPath).default;
         }
     }
     motoko.loadPackage(baseLibrary);
