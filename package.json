@@ -2,7 +2,7 @@
     "name": "vscode-motoko",
     "displayName": "Motoko",
     "description": "Motoko language support",
-    "version": "0.15.3",
+    "version": "0.16.0",
     "publisher": "dfinity-foundation",
     "repository": "https://github.com/dfinity/vscode-motoko",
     "engines": {
@@ -168,6 +168,7 @@
     "dependencies": {
         "@wasmer/wasi": "1.2.2",
         "change-case": "4.1.2",
+        "execa": "^4.1.0",
         "fast-glob": "3.2.12",
         "ic-mops": "0.26.3",
         "ic0": "0.2.7",
@@ -219,7 +220,7 @@
         "compile:extension": "esbuild ./src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node --minify",
         "compile:browser": "esbuild ./src/browser.ts --bundle --outfile=out/browser.js --external:vscode --format=cjs --platform=node --minify",
         "compile:server": "esbuild ./src/server/server.ts --bundle --outfile=out/server.js --external:vscode --format=cjs --platform=node --minify",
-        "compile:motoko": "esbuild motoko --bundle --outfile=out/motoko.js --format=cjs --platform=node --minify",
+        "compile:motoko": "esbuild motoko --bundle --outfile=out/motoko.js --format=cjs --platform=node --minify && shx cp -r src/server/compiler out/compiler",
         "generate": "node scripts/generate",
         "test": "jest",
         "package": "npm run generate && vsce package && npm test && npm run --silent lint",
