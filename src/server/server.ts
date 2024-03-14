@@ -106,6 +106,9 @@ const ignoreGlobs = [
     '**/.vessel/.tmp/**/*', // temporary Vessel files
 ];
 
+const shouldHideWarnings = (uri: string) =>
+    uri.includes('/.vessel/') || uri.includes('/.mops/');
+
 const packageSourceCache = new Map();
 async function getPackageSources(
     directory: string,
@@ -864,6 +867,11 @@ function checkImmediate(uri: string | TextDocument): boolean {
                     ({ message, severity }) =>
                         severity === DiagnosticSeverity.Error ||
                         !new RegExp(settings!.hideWarningRegex).test(message),
+                );
+            }
+            if (resolvedUri && shouldHideWarnings(resolvedUri)) {
+                diagnostics = diagnostics.filter(
+                    ({ severity }) => severity === DiagnosticSeverity.Error,
                 );
             }
         }
