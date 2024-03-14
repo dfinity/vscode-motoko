@@ -866,6 +866,15 @@ function checkImmediate(uri: string | TextDocument): boolean {
                         !new RegExp(settings!.hideWarningRegex).test(message),
                 );
             }
+            if (
+                resolvedUri &&
+                (resolvedUri.includes('/.vessel/') ||
+                    resolvedUri.includes('/.mops/'))
+            ) {
+                diagnostics = diagnostics.filter(
+                    ({ severity }) => severity === DiagnosticSeverity.Error,
+                );
+            }
         }
         const diagnosticMap: Record<string, Diagnostic[]> = {
             [virtualPath]: [], // Start with empty diagnostics for the main file
