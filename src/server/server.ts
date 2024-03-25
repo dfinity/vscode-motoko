@@ -1048,11 +1048,13 @@ connection.onCompletion((event) => {
             let hadError = false;
             context.importResolver
                 .getNameEntries()
-                .forEach(([name, originalPath]) => {
-                    try {
-                        const path = getRelativeUri(uri, originalPath);
+                .forEach(([name, importPath]) => {
+                    if (name.startsWith(identStart)) {
+                        try {
+                            const path = importPath.startsWith('mo:')
+                                ? importPath
+                                : getRelativeUri(uri, importPath);
 
-                        if (name.startsWith(identStart)) {
                             const status = context.astResolver.request(uri);
                             const existingImport =
                                 status?.program?.imports.find(
@@ -1081,12 +1083,12 @@ connection.onCompletion((event) => {
                                     : CompletionItemKind.Class, // TODO: resolve actors, classes, etc.
                                 additionalTextEdits: edits,
                             });
-                        }
-                    } catch (err) {
-                        if (!hadError) {
-                            hadError = true;
-                            console.error('Error during autocompletion:');
-                            console.error(err);
+                        } catch (err) {
+                            if (!hadError) {
+                                hadError = true;
+                                console.error('Error during autocompletion:');
+                                console.error(err);
+                            }
                         }
                     }
                 });
