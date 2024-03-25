@@ -79,6 +79,7 @@ import {
 import {
     formatMotoko,
     getFileText,
+    getRelativeUri,
     rangeContainsPosition,
     resolveFilePath,
     resolveVirtualPath,
@@ -1044,35 +1045,51 @@ connection.onCompletion((event) => {
             ?.slice(1) ?? ['', ''];
 
         if (!dot) {
+            let hadError = false;
             context.importResolver
-                .getNameEntries(uri)
-                .forEach(([name, path]) => {
+                .getNameEntries()
+                .forEach(([name, importPath]) => {
                     if (name.startsWith(identStart)) {
-                        const status = context.astResolver.request(uri);
-                        const existingImport = status?.program?.imports.find(
-                            (i) =>
-                                i.name === name ||
-                                i.fields.some(([, alias]) => alias === name),
-                        );
-                        if (existingImport || !status?.program) {
-                            // Skip alternatives with already imported name
-                            return;
+                        try {
+                            const path = importPath.startsWith('mo:')
+                                ? importPath
+                                : getRelativeUri(uri, importPath);
+
+                            const status = context.astResolver.request(uri);
+                            const existingImport =
+                                status?.program?.imports.find(
+                                    (i) =>
+                                        i.name === name ||
+                                        i.fields.some(
+                                            ([, alias]) => alias === name,
+                                        ),
+                                );
+                            if (existingImport || !status?.program) {
+                                // Skip alternatives with already imported name
+                                return;
+                            }
+                            const edits: TextEdit[] = [
+                                TextEdit.insert(
+                                    findNewImportPosition(uri, context, path),
+                                    `import ${name} "${path}";\n`,
+                                ),
+                            ];
+                            list.items.push({
+                                label: name,
+                                detail: path,
+                                insertText: name,
+                                kind: path.startsWith('mo:')
+                                    ? CompletionItemKind.Module
+                                    : CompletionItemKind.Class, // TODO: resolve actors, classes, etc.
+                                additionalTextEdits: edits,
+                            });
+                        } catch (err) {
+                            if (!hadError) {
+                                hadError = true;
+                                console.error('Error during autocompletion:');
+                                console.error(err);
+                            }
                         }
-                        const edits: TextEdit[] = [
-                            TextEdit.insert(
-                                findNewImportPosition(uri, context, path),
-                                `import ${name} "${path}";\n`,
-                            ),
-                        ];
-                        list.items.push({
-                            label: name,
-                            detail: path,
-                            insertText: name,
-                            kind: path.startsWith('mo:')
-                                ? CompletionItemKind.Module
-                                : CompletionItemKind.Class, // TODO: resolve actors, classes, etc.
-                            additionalTextEdits: edits,
-                        });
                     }
                 });
 
@@ -1092,14 +1109,15 @@ connection.onCompletion((event) => {
             if (program) {
                 // TODO: only show relevant identifiers
                 const idents = new Set<string>();
-                findNodes(program.ast, (node) => node.name === 'VarP').forEach(
-                    (node) => {
-                        const ident = node.args?.[0];
-                        if (typeof ident === 'string') {
-                            idents.add(ident);
-                        }
-                    },
-                );
+                findNodes(
+                    program.ast,
+                    (node) => node.name === 'VarP' || node.name === 'VarD',
+                ).forEach((node) => {
+                    const ident = node.args?.[0]; // First arg for both `VarP` and `VarD`
+                    if (typeof ident === 'string') {
+                        idents.add(ident);
+                    }
+                });
                 idents.forEach((ident) => {
                     list.items.push({
                         label: ident,
@@ -1298,7 +1316,7 @@ connection.onDefinition(
             );
             return definition ? locationFromDefinition(definition) : [];
         } catch (err) {
-            console.error(`Error while finding definition:`);
+            console.error('Error while finding definition:');
             console.error(err);
             // throw err;
             return [];
