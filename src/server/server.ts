@@ -79,6 +79,7 @@ import {
 import {
     formatMotoko,
     getFileText,
+    getRelativeUri,
     rangeContainsPosition,
     resolveFilePath,
     resolveVirtualPath,
@@ -1044,35 +1045,49 @@ connection.onCompletion((event) => {
             ?.slice(1) ?? ['', ''];
 
         if (!dot) {
+            let hadError = false;
             context.importResolver
-                .getNameEntries(uri)
-                .forEach(([name, path]) => {
-                    if (name.startsWith(identStart)) {
-                        const status = context.astResolver.request(uri);
-                        const existingImport = status?.program?.imports.find(
-                            (i) =>
-                                i.name === name ||
-                                i.fields.some(([, alias]) => alias === name),
-                        );
-                        if (existingImport || !status?.program) {
-                            // Skip alternatives with already imported name
-                            return;
+                .getNameEntries()
+                .forEach(([name, originalPath]) => {
+                    try {
+                        const path = getRelativeUri(uri, originalPath);
+
+                        if (name.startsWith(identStart)) {
+                            const status = context.astResolver.request(uri);
+                            const existingImport =
+                                status?.program?.imports.find(
+                                    (i) =>
+                                        i.name === name ||
+                                        i.fields.some(
+                                            ([, alias]) => alias === name,
+                                        ),
+                                );
+                            if (existingImport || !status?.program) {
+                                // Skip alternatives with already imported name
+                                return;
+                            }
+                            const edits: TextEdit[] = [
+                                TextEdit.insert(
+                                    findNewImportPosition(uri, context, path),
+                                    `import ${name} "${path}";\n`,
+                                ),
+                            ];
+                            list.items.push({
+                                label: name,
+                                detail: path,
+                                insertText: name,
+                                kind: path.startsWith('mo:')
+                                    ? CompletionItemKind.Module
+                                    : CompletionItemKind.Class, // TODO: resolve actors, classes, etc.
+                                additionalTextEdits: edits,
+                            });
                         }
-                        const edits: TextEdit[] = [
-                            TextEdit.insert(
-                                findNewImportPosition(uri, context, path),
-                                `import ${name} "${path}";\n`,
-                            ),
-                        ];
-                        list.items.push({
-                            label: name,
-                            detail: path,
-                            insertText: name,
-                            kind: path.startsWith('mo:')
-                                ? CompletionItemKind.Module
-                                : CompletionItemKind.Class, // TODO: resolve actors, classes, etc.
-                            additionalTextEdits: edits,
-                        });
+                    } catch (err) {
+                        if (!hadError) {
+                            hadError = true;
+                            console.error('Error during autocompletion:');
+                            console.error(err);
+                        }
                     }
                 });
 
@@ -1298,7 +1313,7 @@ connection.onDefinition(
             );
             return definition ? locationFromDefinition(definition) : [];
         } catch (err) {
-            console.error(`Error while finding definition:`);
+            console.error('Error while finding definition:');
             console.error(err);
             // throw err;
             return [];

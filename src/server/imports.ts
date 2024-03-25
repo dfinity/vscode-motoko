@@ -110,11 +110,8 @@ export default class ImportResolver {
      * Finds all available module-level imports.
      * @returns Array of `[name, path]` entries
      */
-    getNameEntries(uri: string): [string, string][] {
-        return [...this._moduleNameUriMap.entries()].map(([name, path]) => [
-            name,
-            getRelativeUri(uri, path),
-        ]);
+    getNameEntries(): [string, string][] {
+        return [...this._moduleNameUriMap.entries()];
     }
 
     // /**
