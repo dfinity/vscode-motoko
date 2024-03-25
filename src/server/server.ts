@@ -1109,14 +1109,15 @@ connection.onCompletion((event) => {
             if (program) {
                 // TODO: only show relevant identifiers
                 const idents = new Set<string>();
-                findNodes(program.ast, (node) => node.name === 'VarP').forEach(
-                    (node) => {
-                        const ident = node.args?.[0];
-                        if (typeof ident === 'string') {
-                            idents.add(ident);
-                        }
-                    },
-                );
+                findNodes(
+                    program.ast,
+                    (node) => node.name === 'VarP' || node.name === 'VarD',
+                ).forEach((node) => {
+                    const ident = node.args?.[0]; // First arg for both `VarP` and `VarD`
+                    if (typeof ident === 'string') {
+                        idents.add(ident);
+                    }
+                });
                 idents.forEach((ident) => {
                     list.items.push({
                         label: ident,
