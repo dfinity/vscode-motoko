@@ -170,7 +170,7 @@ export async function startServer(context: ExtensionContext) {
         viperTools = normalise(viperTools, config.paths.viperToolsPath);
         const buildVersion = config.buildVersion || 'Stable';
         const homePath = homedir();
-        // Viper extension v3.0.1
+        // Viper extension v4.3.1
         if (
             viperTools ===
                 path.resolve(homePath, 'Library/Application Support/Viper') ||
@@ -191,7 +191,7 @@ export async function startServer(context: ExtensionContext) {
             );
         }
         // WSL tweak
-        if (env.remoteName === 'wsl') {
+        if (env.remoteName === 'wsl' || env.remoteName === 'ssh-remote') {
             viperTools = viperTools.replace(
                 path.join(homePath, '.config', 'Code'),
                 path.join(homePath, '.vscode-server', 'data'),

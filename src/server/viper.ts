@@ -198,6 +198,9 @@ try {
         }
     };
     server.stdout.on('data', dataListener);
+    server.stderr.on('data', (data) => {
+        console.error(`child stderr:\n${data}`);
+    });
 } catch (err) {
     console.error(`Error while initializing Viper LSP: ${err}`);
 }
