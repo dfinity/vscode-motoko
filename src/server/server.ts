@@ -444,6 +444,22 @@ function notifyDfxChange() {
                                     const id = canister.remote?.id?.local;
                                     if (id) {
                                         aliases[name] = id;
+                                        const candidPath =
+                                            canister.remote?.candid;
+                                        if (candidPath) {
+                                            // Add Candid as virtual file in LSP directory
+                                            const candid = readFileSync(
+                                                resolve(projectDir, candidPath),
+                                                'utf8',
+                                            );
+                                            writeVirtual(
+                                                resolveVirtualPath(
+                                                    candidUri,
+                                                    `${id}.did`,
+                                                ),
+                                                candid,
+                                            );
+                                        }
                                     }
                                 }
                             },
