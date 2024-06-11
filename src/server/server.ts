@@ -438,7 +438,18 @@ function notifyDfxChange() {
                                 },
                             );
                         }
+                        Object.entries(dfxConfig.canisters).forEach(
+                            ([name, canister]) => {
+                                if (!aliases.hasOwnProperty(name)) {
+                                    const id = canister.remote?.id?.local;
+                                    if (id) {
+                                        aliases[name] = id;
+                                    }
+                                }
+                            },
+                        );
                         allContexts().forEach(({ motoko }) => {
+                            console.log('Actor aliases:', aliases);
                             motoko.setAliases(
                                 resolveVirtualPath(candidUri),
                                 aliases,

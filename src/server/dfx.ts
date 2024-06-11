@@ -4,6 +4,12 @@ import { dirname } from 'path';
 interface DfxCanister {
     type?: string;
     main?: string;
+    remote?: {
+        candid?: string;
+        id?: {
+            local?: string;
+        };
+    };
 }
 
 interface DfxConfig {
