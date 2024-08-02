@@ -172,7 +172,7 @@ async function getPackageSources(
         // Prioritize MOPS over Vessel
         if (existsSync(join(directory, 'mops.toml'))) {
             // const command = 'mops sources';
-            const command = 'npx --no ic-mops sources';
+            const command = 'npx --no ic-mops sources --no-install';
             try {
                 sources = await sourcesFromCommand(command);
             } catch (err: any) {
