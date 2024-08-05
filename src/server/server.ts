@@ -196,7 +196,7 @@ async function getPackageSources(
                 // }
 
                 throw new Error(
-                    `Error while finding Mops packages.\nMake sure Mops is installed locally or globally (https://mops.one/docs/install).\n${
+                    `Error while finding Mops packages.\nMake sure the latest version of Mops is installed locally or globally (https://docs.mops.one/quick-start).\n${
                         err?.message || err
                     }`,
                 );
