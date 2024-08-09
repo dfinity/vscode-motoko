@@ -172,7 +172,7 @@ async function getPackageSources(
         // Prioritize MOPS over Vessel
         if (existsSync(join(directory, 'mops.toml'))) {
             // const command = 'mops sources';
-            const command = 'npx --no ic-mops sources';
+            const command = 'npx --no ic-mops sources --no-install';
             try {
                 sources = await sourcesFromCommand(command);
             } catch (err: any) {
@@ -196,7 +196,7 @@ async function getPackageSources(
                 // }
 
                 throw new Error(
-                    `Error while finding Mops packages.\nMake sure Mops is installed locally or globally (https://mops.one/docs/install).\n${
+                    `Error while finding Mops packages.\nMake sure the latest version of Mops is installed locally or globally (https://docs.mops.one/quick-start).\n${
                         err?.message || err
                     }`,
                 );
