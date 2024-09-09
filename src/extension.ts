@@ -38,42 +38,103 @@ import {
     IMPORT_MOPS_PACKAGE,
     TestParams,
     TestResult,
+    ENVIRONMENT,
 } from './common/connectionTypes';
 import { watchGlob } from './common/watchConfig';
 import { formatDocument } from './formatter';
+import { startReplica } from './server/replicaManager';
+import { getCanisterNames } from './server/canisterNames';
+import { resolveCandidUIAddress } from './server/candidAddressProvider';
+import { exec } from 'child_process';
 
 const config = workspace.getConfiguration('motoko');
 
 let client: LanguageClient;
 
 export function activate(context: ExtensionContext) {
+    const outputChannel = vscode.window.createOutputChannel('ICP logs');
+    context.subscriptions.push(outputChannel);
     context.subscriptions.push(
         commands.registerCommand('motoko.startService', () =>
             startServer(context),
         ),
     );
-    context.subscriptions.push(
-        commands.registerCommand(
-            'motoko.deployPlayground',
-            async (relevantUri?: Uri) => {
-                const uri =
-                    relevantUri?.toString() ||
-                    window.activeTextEditor?.document?.uri.toString();
-                if (!uri || !uri.endsWith('.mo')) {
-                    window.showErrorMessage(
-                        'Invalid deploy URI:',
-                        uri ?? `(${uri})`,
-                    );
-                    return;
-                }
-                await deployPlayground(context, uri);
-            },
-        ),
-    );
+    // context.subscriptions.push(
+    //     commands.registerCommand(
+    //         'motoko.deployPlayground',
+    //         async (relevantUri?: Uri) => {
+    //             const uri =
+    //                 relevantUri?.toString() ||
+    //                 window.activeTextEditor?.document?.uri.toString();
+    //             if (!uri || !uri.endsWith('.mo')) {
+    //                 window.showErrorMessage(
+    //                     'Invalid deploy URI:',
+    //                     uri ?? `(${uri})`,
+    //                 );
+    //                 return;
+    //             }
+    //             await deployPlayground(context, uri);
+    //         },
+    //     ),
+    // );
     context.subscriptions.push(
         commands.registerCommand('motoko.importMopsPackage', async () => {
             await importMopsPackage(context);
         }),
+    );
+    context.subscriptions.push(
+        commands.registerCommand('motoko.startReplica', async () => {
+            await startReplica(outputChannel);
+        }),
+    );
+    context.subscriptions.push(
+        commands.registerCommand('motoko.deployLocalSelection', async () => {
+            await showLocalCanisterDeployOptions();
+        }),
+    );
+    context.subscriptions.push(
+        commands.registerCommand(
+            'motoko.deployLocal',
+            async (canisterName?: string) => {
+                await runCommands(
+                    [`dfx deploy ${canisterName ? canisterName : ''}`],
+                    outputChannel,
+                    context,
+                    ENVIRONMENT.PLAYGROUND,
+                    canisterName,
+                );
+            },
+        ),
+    );
+    context.subscriptions.push(
+        commands.registerCommand(
+            'motoko.deployPlaygroundSelection',
+            async () => {
+                await showPlaygroundCanisterDeployOptions();
+            },
+        ),
+    );
+    context.subscriptions.push(
+        commands.registerCommand(
+            'motoko.deployPlayground',
+            async (canisterName?: string) => {
+                await runCommands(
+                    [
+                        `dfx canister create ${
+                            canisterName ? canisterName : '--all'
+                        }`,
+                        `dfx build ${canisterName ? canisterName : ''}`,
+                        `dfx deploy ${
+                            canisterName ? canisterName : ''
+                        } --playground`,
+                    ],
+                    outputChannel,
+                    context,
+                    ENVIRONMENT.PLAYGROUND,
+                    canisterName,
+                );
+            },
+        ),
     );
     context.subscriptions.push(
         languages.registerDocumentFormattingEditProvider(['motoko', 'candid'], {
@@ -100,6 +161,32 @@ export function activate(context: ExtensionContext) {
     );
     startServer(context);
     setupTests(context);
+}
+
+async function showLocalCanisterDeployOptions() {
+    const options = await getCanisterNames();
+    const selection = await vscode.window.showQuickPick(options, {
+        placeHolder: 'Select canister to deploy',
+    });
+
+    if (selection === 'All') {
+        vscode.commands.executeCommand('motoko.deployLocal');
+    } else {
+        vscode.commands.executeCommand('motoko.deployLocal', selection);
+    }
+}
+
+async function showPlaygroundCanisterDeployOptions() {
+    const options = await getCanisterNames();
+    const selection = await vscode.window.showQuickPick(options, {
+        placeHolder: 'Select canister to deploy',
+    });
+
+    if (selection === 'All') {
+        vscode.commands.executeCommand('motoko.deployPlayground');
+    } else {
+        vscode.commands.executeCommand('motoko.deployPlayground', selection);
+    }
 }
 
 export async function deactivate() {
@@ -393,6 +480,49 @@ const deployingSet = new Set<string>();
 const deployPanelMap = new Map<string, vscode.WebviewPanel>();
 let tag = Math.floor(Math.random() * 1e12);
 
+async function openCandid(
+    _context: ExtensionContext,
+    env: ENVIRONMENT,
+    canisterName: string,
+) {
+    const candidUIAddress = await resolveCandidUIAddress(
+        env,
+        canisterName,
+        tag,
+    );
+    if (!candidUIAddress) {
+        return;
+    }
+    try {
+        const key = env + canisterName;
+        let panel = deployPanelMap.get(key);
+        if (!panel) {
+            panel = window.createWebviewPanel(
+                'candid-ui',
+                'Candid UI',
+                ViewColumn.Beside,
+                {
+                    enableScripts: true,
+                    retainContextWhenHidden: true,
+                },
+            );
+            deployPanelMap.set(key, panel);
+            panel.onDidDispose(() => deployPanelMap.delete(key));
+        }
+        panel.webview.html = `
+            <iframe
+                src="${candidUIAddress}"
+                style="width:100vw; height:100vh; border:none"
+            />`;
+    } catch (err: any) {
+        window.showErrorMessage(
+            err?.message
+                ? String(err.message)
+                : 'Unexpected error while deploying canister',
+        );
+    }
+}
+
 async function deployPlayground(_context: ExtensionContext, uri: string) {
     try {
         if (deployingSet.has(uri)) {
@@ -536,4 +666,48 @@ async function importMopsPackage(_context: ExtensionContext) {
     quickPick.show();
 
     await loadInitial();
+}
+
+async function runCommands(
+    commands: string[],
+    outputChannel: vscode.OutputChannel,
+    _context: vscode.ExtensionContext,
+    env: ENVIRONMENT,
+    canisterName?: string,
+) {
+    const command = commands.shift();
+    if (!command) {
+        return;
+    }
+    outputChannel.show(true);
+    const process = exec(command, { cwd: vscode.workspace.rootPath });
+
+    if (process.stdout) {
+        process.stdout.on('data', (data) => {
+            const cleanData = stripAnsiCodes(data.toString());
+            outputChannel.appendLine(cleanData);
+        });
+    }
+
+    if (process.stderr) {
+        process.stderr.on('data', (data) => {
+            const cleanData = stripAnsiCodes(data.toString());
+            outputChannel.appendLine(cleanData);
+        });
+    }
+
+    process.on('close', (code) => {
+        outputChannel.appendLine(`Replica process exited with code ${code}`);
+        if (commands.length > 0 && code === 0) {
+            runCommands(commands, outputChannel, _context, env, canisterName);
+        } else if (canisterName && code === 0) {
+            openCandid(_context, env, canisterName);
+        }
+    });
+}
+
+function stripAnsiCodes(input: string): string {
+    const ansiRegex =
+        /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g;
+    return input.replace(ansiRegex, '');
 }

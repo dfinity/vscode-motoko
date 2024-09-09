@@ -1232,6 +1232,9 @@ connection.onHover((event) => {
 
     // Error code explanations
     const codes: string[] = [];
+    console.log('Hoover');
+    notify('Hoover');
+    new Promise((resolve) => setTimeout(resolve, 1000));
     diagnosticMap.get(uri)?.forEach((diagnostic) => {
         if (rangeContainsPosition(diagnostic.range, position)) {
             const code = diagnostic.code;
@@ -1402,6 +1405,9 @@ function getDocumentSymbols(
     field: Field,
     skipUnnamed: boolean,
 ): DocumentSymbol[] {
+    console.log('GET Documents symbol');
+    notify('GET Documents symbol');
+    new Promise((resolve) => setTimeout(resolve, 5000));
     const range = rangeFromNode(asNode(field.ast)) || defaultRange();
     const kind =
         field.exp instanceof ObjBlock
@@ -1545,6 +1551,7 @@ async function sendDiagnostics(params: {
     uri: string;
     diagnostics: Diagnostic[];
 }) {
+    console.log('WE ARE IN SEND DIAGNOSTICS');
     const { uri, diagnostics } = params;
     diagnosticMap.set(uri, diagnostics);
     return connection.sendDiagnostics(params);
@@ -1553,6 +1560,7 @@ async function sendDiagnostics(params: {
 let validatingTimeout: ReturnType<typeof setTimeout>;
 let validatingUri: string | undefined;
 documents.onDidChangeContent((event) => {
+    console.log('WE ARE IN ON DID CHANGE');
     const document = event.document;
     const { uri } = document;
     if (uri === validatingUri) {

@@ -4,6 +4,11 @@ export const TEST_FILE_REQUEST = new RequestType<TestParams, TestResult, any>(
     'vscode-motoko/run-test-file',
 );
 
+export enum ENVIRONMENT {
+    LOCAL = 'local',
+    PLAYGROUND = 'playground',
+}
+
 export interface TestParams {
     uri: string;
 }
