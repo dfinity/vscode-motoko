@@ -1090,7 +1090,7 @@ connection.onCompletion((event) => {
             if (
                 lines[position.line]
                     .substring(0, position.character)
-                    .includes(element + '.')
+                    .match(element + '.' + identStart + '$')
             ) {
                 list.items.push({
                     label: 'caller',
