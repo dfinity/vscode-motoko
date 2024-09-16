@@ -43,9 +43,13 @@ import {
 import { watchGlob } from './common/watchConfig';
 import { formatDocument } from './formatter';
 import { startReplica } from './server/replicaManager';
-import { getCanisterNames } from './server/canisterNames';
+import {
+    getCanisterNames,
+    getCanisterNamesForCandid,
+} from './server/canisterNames';
 import { resolveCandidUIAddress } from './server/candidAddressProvider';
 import { exec } from 'child_process';
+import { TerminalProvider } from './server/terminalProvider';
 
 const config = workspace.getConfiguration('motoko');
 
@@ -53,6 +57,7 @@ let client: LanguageClient;
 
 export function activate(context: ExtensionContext) {
     const outputChannel = vscode.window.createOutputChannel('ICP logs');
+    const terminalProvider = new TerminalProvider();
     context.subscriptions.push(outputChannel);
     context.subscriptions.push(
         commands.registerCommand('motoko.startService', () =>
@@ -84,7 +89,7 @@ export function activate(context: ExtensionContext) {
     );
     context.subscriptions.push(
         commands.registerCommand('motoko.startReplica', async () => {
-            await startReplica(outputChannel);
+            await startReplica(terminalProvider.get());
         }),
     );
     context.subscriptions.push(
@@ -96,12 +101,9 @@ export function activate(context: ExtensionContext) {
         commands.registerCommand(
             'motoko.deployLocal',
             async (canisterName?: string) => {
-                await runCommands(
-                    [`dfx deploy ${canisterName ? canisterName : ''}`],
-                    outputChannel,
-                    context,
-                    ENVIRONMENT.PLAYGROUND,
-                    canisterName,
+                await runCommand(
+                    `dfx deploy ${canisterName ? canisterName : ''}`,
+                    terminalProvider.get(),
                 );
             },
         ),
@@ -118,24 +120,50 @@ export function activate(context: ExtensionContext) {
         commands.registerCommand(
             'motoko.deployPlayground',
             async (canisterName?: string) => {
-                await runCommands(
-                    [
-                        `dfx canister create ${
-                            canisterName ? canisterName : '--all'
-                        }`,
-                        `dfx build ${canisterName ? canisterName : ''}`,
-                        `dfx deploy ${
-                            canisterName ? canisterName : ''
-                        } --playground`,
-                    ],
-                    outputChannel,
-                    context,
-                    ENVIRONMENT.PLAYGROUND,
-                    canisterName,
+                await runCommand(
+                    `dfx canister create ${
+                        canisterName ? canisterName : '--all'
+                    } &&
+                    dfx build ${canisterName ? canisterName : ''} && 
+                    dfx deploy ${
+                        canisterName ? canisterName : ''
+                    } --playground`,
+                    terminalProvider.get(),
                 );
             },
         ),
     );
+
+    context.subscriptions.push(
+        commands.registerCommand('motoko.candidLocalSelection', async () => {
+            await showLocalCanisterCandidOptions();
+        }),
+    );
+    context.subscriptions.push(
+        commands.registerCommand(
+            'motoko.candidLocal',
+            async (canisterName: string) => {
+                await openCandid(context, ENVIRONMENT.LOCAL, canisterName);
+            },
+        ),
+    );
+    context.subscriptions.push(
+        commands.registerCommand(
+            'motoko.candidPlaygroundSelection',
+            async () => {
+                await showPlaygroundCanisterCandidOptions();
+            },
+        ),
+    );
+    context.subscriptions.push(
+        commands.registerCommand(
+            'motoko.candidPlayground',
+            async (canisterName: string) => {
+                await openCandid(context, ENVIRONMENT.PLAYGROUND, canisterName);
+            },
+        ),
+    );
+
     context.subscriptions.push(
         languages.registerDocumentFormattingEditProvider(['motoko', 'candid'], {
             provideDocumentFormattingEdits(
@@ -187,6 +215,22 @@ async function showPlaygroundCanisterDeployOptions() {
     } else {
         vscode.commands.executeCommand('motoko.deployPlayground', selection);
     }
+}
+
+async function showLocalCanisterCandidOptions() {
+    const options = await getCanisterNamesForCandid(ENVIRONMENT.LOCAL);
+    const selection = await vscode.window.showQuickPick(options, {
+        placeHolder: 'Select canister to view in Candid UI',
+    });
+    vscode.commands.executeCommand('motoko.candidLocal', selection);
+}
+
+async function showPlaygroundCanisterCandidOptions() {
+    const options = await getCanisterNamesForCandid(ENVIRONMENT.PLAYGROUND);
+    const selection = await vscode.window.showQuickPick(options, {
+        placeHolder: 'Select canister to view in Candid UI',
+    });
+    vscode.commands.executeCommand('motoko.candidPlayground', selection);
 }
 
 export async function deactivate() {
@@ -668,46 +712,9 @@ async function importMopsPackage(_context: ExtensionContext) {
     await loadInitial();
 }
 
-async function runCommands(
-    commands: string[],
-    outputChannel: vscode.OutputChannel,
-    _context: vscode.ExtensionContext,
-    env: ENVIRONMENT,
-    canisterName?: string,
-) {
-    const command = commands.shift();
-    if (!command) {
-        return;
-    }
-    outputChannel.show(true);
-    const process = exec(command, { cwd: vscode.workspace.rootPath });
-
-    if (process.stdout) {
-        process.stdout.on('data', (data) => {
-            const cleanData = stripAnsiCodes(data.toString());
-            outputChannel.appendLine(cleanData);
-        });
-    }
-
-    if (process.stderr) {
-        process.stderr.on('data', (data) => {
-            const cleanData = stripAnsiCodes(data.toString());
-            outputChannel.appendLine(cleanData);
-        });
-    }
-
-    process.on('close', (code) => {
-        outputChannel.appendLine(`Replica process exited with code ${code}`);
-        if (commands.length > 0 && code === 0) {
-            runCommands(commands, outputChannel, _context, env, canisterName);
-        } else if (canisterName && code === 0) {
-            openCandid(_context, env, canisterName);
-        }
-    });
-}
-
-function stripAnsiCodes(input: string): string {
-    const ansiRegex =
-        /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g;
-    return input.replace(ansiRegex, '');
+async function runCommand(command: string, terminal: vscode.Terminal) {
+    terminal.show();
+    terminal.show();
+    terminal.sendText(command);
+    return true;
 }

@@ -139,6 +139,14 @@
             {
                 "command": "motoko.deployLocalSelection",
                 "title": "Motoko: Deploy (local node)..."
+            },
+            {
+                "command": "motoko.candidLocalSelection",
+                "title": "Motoko: Open Candid UI for canister (local node)..."
+            },
+            {
+                "command": "motoko.candidPlaygroundSelection",
+                "title": "Motoko: Open Candid UI for canister (playground)..."
             }
         ],
         "jsonValidation": [
@@ -225,10 +233,10 @@
         "compile:formatter": "shx cp node_modules/prettier-plugin-motoko/wasm/pkg/nodejs/wasm_bg.wasm out/wasm_bg.wasm",
         "compile:rust_": "",
         "compile:rust": "cd rust && npm run build-release && shx cp ./index.node ../out/vscode_motoko.node",
-        "compile:extension": "esbuild ./src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node ",
-        "compile:browser": "esbuild ./src/browser.ts --bundle --outfile=out/browser.js --external:vscode --format=cjs --platform=node ",
-        "compile:server": "esbuild ./src/server/server.ts --bundle --outfile=out/server.js --external:vscode --format=cjs --platform=node ",
-        "compile:motoko": "esbuild motoko --bundle --outfile=out/motoko.js --format=cjs --platform=node  && shx cp -r src/server/compiler out/compiler",
+        "compile:extension": "esbuild ./src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node --minify",
+        "compile:browser": "esbuild ./src/browser.ts --bundle --outfile=out/browser.js --external:vscode --format=cjs --platform=node --minify",
+        "compile:server": "esbuild ./src/server/server.ts --bundle --outfile=out/server.js --external:vscode --format=cjs --platform=node --minify",
+        "compile:motoko": "esbuild motoko --bundle --outfile=out/motoko.js --format=cjs --platform=node --minify && shx cp -r src/server/compiler out/compiler",
         "generate": "node scripts/generate",
         "test": "jest",
         "package": "npm run generate && vsce package && npm test && npm run --silent lint",

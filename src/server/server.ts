@@ -1262,9 +1262,6 @@ connection.onHover((event) => {
 
     // Error code explanations
     const codes: string[] = [];
-    console.log('Hoover');
-    notify('Hoover');
-    new Promise((resolve) => setTimeout(resolve, 1000));
     diagnosticMap.get(uri)?.forEach((diagnostic) => {
         if (rangeContainsPosition(diagnostic.range, position)) {
             const code = diagnostic.code;
@@ -1534,9 +1531,6 @@ function getDocumentSymbols(
     field: Field,
     skipUnnamed: boolean,
 ): DocumentSymbol[] {
-    console.log('GET Documents symbol');
-    notify('GET Documents symbol');
-    new Promise((resolve) => setTimeout(resolve, 5000));
     const range = rangeFromNode(asNode(field.ast)) || defaultRange();
     const kind =
         field.exp instanceof ObjBlock
