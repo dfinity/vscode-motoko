@@ -165,14 +165,54 @@
             "explorer/context": [
                 {
                     "when": "resourceLangId == motoko",
+                    "command": "motoko.startReplica",
+                    "group": "2_main"
+                },
+                {
+                    "when": "resourceLangId == motoko",
                     "command": "motoko.deployPlaygroundSelection",
+                    "group": "2_main"
+                },
+                {
+                    "when": "resourceLangId == motoko",
+                    "command": "motoko.candidPlaygroundSelection",
+                    "group": "2_main"
+                },
+                {
+                    "when": "resourceLangId == motoko",
+                    "command": "motoko.deployLocalSelection",
+                    "group": "2_main"
+                },
+                {
+                    "when": "resourceLangId == motoko",
+                    "command": "motoko.candidLocalSelection",
                     "group": "2_main"
                 }
             ],
             "editor/context": [
                 {
                     "when": "resourceLangId == motoko",
+                    "command": "motoko.startReplica",
+                    "group": "2_main"
+                },
+                {
+                    "when": "resourceLangId == motoko",
                     "command": "motoko.deployPlaygroundSelection",
+                    "group": "2_main"
+                },
+                {
+                    "when": "resourceLangId == motoko",
+                    "command": "motoko.candidPlaygroundSelection",
+                    "group": "2_main"
+                },
+                {
+                    "when": "resourceLangId == motoko",
+                    "command": "motoko.deployLocalSelection",
+                    "group": "2_main"
+                },
+                {
+                    "when": "resourceLangId == motoko",
+                    "command": "motoko.candidLocalSelection",
                     "group": "2_main"
                 }
             ]
