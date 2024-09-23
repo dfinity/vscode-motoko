@@ -38,43 +38,132 @@ import {
     IMPORT_MOPS_PACKAGE,
     TestParams,
     TestResult,
+    ENVIRONMENT,
 } from './common/connectionTypes';
 import { watchGlob } from './common/watchConfig';
 import { formatDocument } from './formatter';
+import { startReplica } from './server/replicaManager';
+import {
+    getCanisterNames,
+    getCanisterNamesForCandid,
+} from './server/canisterNames';
+import { resolveCandidUIAddress } from './server/candidAddressProvider';
+import { exec } from 'child_process';
+import { TerminalProvider } from './server/terminalProvider';
 
 const config = workspace.getConfiguration('motoko');
 
 let client: LanguageClient;
 
 export function activate(context: ExtensionContext) {
+    const outputChannel = vscode.window.createOutputChannel('ICP logs');
+    const terminalProvider = new TerminalProvider();
+    context.subscriptions.push(outputChannel);
     context.subscriptions.push(
         commands.registerCommand('motoko.startService', () =>
             startServer(context),
         ),
     );
-    context.subscriptions.push(
-        commands.registerCommand(
-            'motoko.deployPlayground',
-            async (relevantUri?: Uri) => {
-                const uri =
-                    relevantUri?.toString() ||
-                    window.activeTextEditor?.document?.uri.toString();
-                if (!uri || !uri.endsWith('.mo')) {
-                    window.showErrorMessage(
-                        'Invalid deploy URI:',
-                        uri ?? `(${uri})`,
-                    );
-                    return;
-                }
-                await deployPlayground(context, uri);
-            },
-        ),
-    );
+    // context.subscriptions.push(
+    //     commands.registerCommand(
+    //         'motoko.deployPlayground',
+    //         async (relevantUri?: Uri) => {
+    //             const uri =
+    //                 relevantUri?.toString() ||
+    //                 window.activeTextEditor?.document?.uri.toString();
+    //             if (!uri || !uri.endsWith('.mo')) {
+    //                 window.showErrorMessage(
+    //                     'Invalid deploy URI:',
+    //                     uri ?? `(${uri})`,
+    //                 );
+    //                 return;
+    //             }
+    //             await deployPlayground(context, uri);
+    //         },
+    //     ),
+    // );
     context.subscriptions.push(
         commands.registerCommand('motoko.importMopsPackage', async () => {
             await importMopsPackage(context);
         }),
     );
+    context.subscriptions.push(
+        commands.registerCommand('motoko.startReplica', async () => {
+            await startReplica(terminalProvider.get());
+        }),
+    );
+    context.subscriptions.push(
+        commands.registerCommand('motoko.deployLocalSelection', async () => {
+            await showLocalCanisterDeployOptions();
+        }),
+    );
+    context.subscriptions.push(
+        commands.registerCommand(
+            'motoko.deployLocal',
+            async (canisterName?: string) => {
+                await runCommand(
+                    `dfx deploy ${canisterName ? canisterName : ''}`,
+                    terminalProvider.get(),
+                );
+            },
+        ),
+    );
+    context.subscriptions.push(
+        commands.registerCommand(
+            'motoko.deployPlaygroundSelection',
+            async () => {
+                await showPlaygroundCanisterDeployOptions();
+            },
+        ),
+    );
+    context.subscriptions.push(
+        commands.registerCommand(
+            'motoko.deployPlayground',
+            async (canisterName?: string) => {
+                await runCommand(
+                    `dfx canister create ${
+                        canisterName ? canisterName : '--all'
+                    } &&
+                    dfx build ${canisterName ? canisterName : ''} && 
+                    dfx deploy ${
+                        canisterName ? canisterName : ''
+                    } --playground`,
+                    terminalProvider.get(),
+                );
+            },
+        ),
+    );
+
+    context.subscriptions.push(
+        commands.registerCommand('motoko.candidLocalSelection', async () => {
+            await showLocalCanisterCandidOptions();
+        }),
+    );
+    context.subscriptions.push(
+        commands.registerCommand(
+            'motoko.candidLocal',
+            async (canisterName: string) => {
+                await openCandid(context, ENVIRONMENT.LOCAL, canisterName);
+            },
+        ),
+    );
+    context.subscriptions.push(
+        commands.registerCommand(
+            'motoko.candidPlaygroundSelection',
+            async () => {
+                await showPlaygroundCanisterCandidOptions();
+            },
+        ),
+    );
+    context.subscriptions.push(
+        commands.registerCommand(
+            'motoko.candidPlayground',
+            async (canisterName: string) => {
+                await openCandid(context, ENVIRONMENT.PLAYGROUND, canisterName);
+            },
+        ),
+    );
+
     context.subscriptions.push(
         languages.registerDocumentFormattingEditProvider(['motoko', 'candid'], {
             provideDocumentFormattingEdits(
@@ -100,6 +189,48 @@ export function activate(context: ExtensionContext) {
     );
     startServer(context);
     setupTests(context);
+}
+
+async function showLocalCanisterDeployOptions() {
+    const options = await getCanisterNames();
+    const selection = await vscode.window.showQuickPick(options, {
+        placeHolder: 'Select canister to deploy',
+    });
+
+    if (selection === 'All') {
+        vscode.commands.executeCommand('motoko.deployLocal');
+    } else {
+        vscode.commands.executeCommand('motoko.deployLocal', selection);
+    }
+}
+
+async function showPlaygroundCanisterDeployOptions() {
+    const options = await getCanisterNames();
+    const selection = await vscode.window.showQuickPick(options, {
+        placeHolder: 'Select canister to deploy',
+    });
+
+    if (selection === 'All') {
+        vscode.commands.executeCommand('motoko.deployPlayground');
+    } else {
+        vscode.commands.executeCommand('motoko.deployPlayground', selection);
+    }
+}
+
+async function showLocalCanisterCandidOptions() {
+    const options = await getCanisterNamesForCandid(ENVIRONMENT.LOCAL);
+    const selection = await vscode.window.showQuickPick(options, {
+        placeHolder: 'Select canister to view in Candid UI',
+    });
+    vscode.commands.executeCommand('motoko.candidLocal', selection);
+}
+
+async function showPlaygroundCanisterCandidOptions() {
+    const options = await getCanisterNamesForCandid(ENVIRONMENT.PLAYGROUND);
+    const selection = await vscode.window.showQuickPick(options, {
+        placeHolder: 'Select canister to view in Candid UI',
+    });
+    vscode.commands.executeCommand('motoko.candidPlayground', selection);
 }
 
 export async function deactivate() {
@@ -393,6 +524,49 @@ const deployingSet = new Set<string>();
 const deployPanelMap = new Map<string, vscode.WebviewPanel>();
 let tag = Math.floor(Math.random() * 1e12);
 
+async function openCandid(
+    _context: ExtensionContext,
+    env: ENVIRONMENT,
+    canisterName: string,
+) {
+    const candidUIAddress = await resolveCandidUIAddress(
+        env,
+        canisterName,
+        tag,
+    );
+    if (!candidUIAddress) {
+        return;
+    }
+    try {
+        const key = env + canisterName;
+        let panel = deployPanelMap.get(key);
+        if (!panel) {
+            panel = window.createWebviewPanel(
+                'candid-ui',
+                'Candid UI',
+                ViewColumn.Beside,
+                {
+                    enableScripts: true,
+                    retainContextWhenHidden: true,
+                },
+            );
+            deployPanelMap.set(key, panel);
+            panel.onDidDispose(() => deployPanelMap.delete(key));
+        }
+        panel.webview.html = `
+            <iframe
+                src="${candidUIAddress}"
+                style="width:100vw; height:100vh; border:none"
+            />`;
+    } catch (err: any) {
+        window.showErrorMessage(
+            err?.message
+                ? String(err.message)
+                : 'Unexpected error while deploying canister',
+        );
+    }
+}
+
 async function deployPlayground(_context: ExtensionContext, uri: string) {
     try {
         if (deployingSet.has(uri)) {
@@ -536,4 +710,11 @@ async function importMopsPackage(_context: ExtensionContext) {
     quickPick.show();
 
     await loadInitial();
+}
+
+async function runCommand(command: string, terminal: vscode.Terminal) {
+    terminal.show();
+    terminal.show();
+    terminal.sendText(command);
+    return true;
 }

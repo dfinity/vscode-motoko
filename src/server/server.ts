@@ -1056,6 +1056,19 @@ connection.onSignatureHelp((): SignatureHelp | null => {
     return null;
 });
 
+function getAllMatchingArgumentsFromString(inputString: string): string[] {
+    const regex = /shared\(([^)]+)\)/g;
+
+    let match: RegExpExecArray | null;
+    const messages: string[] = [];
+
+    while ((match = regex.exec(inputString)) !== null) {
+        messages.push(match[1]);
+    }
+
+    return [...new Set(messages.map((item) => item))];
+}
+
 connection.onCompletion((event) => {
     const { position } = event;
     const { uri } = event.textDocument;
@@ -1070,6 +1083,23 @@ connection.onCompletion((event) => {
         const [dot, identStart] = /(\s*\.\s*)?([a-zA-Z_]?[a-zA-Z0-9_]*)$/
             .exec(lines[position.line].substring(0, position.character))
             ?.slice(1) ?? ['', ''];
+
+        const methodArgument = getAllMatchingArgumentsFromString(text);
+
+        methodArgument?.forEach((element) => {
+            if (
+                lines[position.line]
+                    .substring(0, position.character)
+                    .match(element + '.' + identStart + '$')
+            ) {
+                list.items.push({
+                    label: 'caller',
+                    kind: CompletionItemKind.Method,
+                });
+            }
+        });
+
+        addPrincipalAutocomplete(lines, position, identStart, list);
 
         if (!dot) {
             let hadError = false;
@@ -1397,6 +1427,105 @@ connection.onDocumentSymbol((event) => {
     });
     return results;
 });
+
+function addPrincipalAutocomplete(
+    lines: string[],
+    position: Position,
+    identStart: string,
+    list: CompletionList,
+) {
+    if (
+        lines[position.line]
+            .substring(0, position.character)
+            .match('Principal.' + identStart + '$')
+    ) {
+        list.items.push({
+            label: 'fromActor',
+            detail: 'Get the Principal identifier of an actor.',
+            kind: CompletionItemKind.Method,
+        }),
+            list.items.push({
+                label: 'toLedgerAccount',
+                detail: 'Compute the Ledger account identifier of a principal. Optionally specify a sub-account.',
+                kind: CompletionItemKind.Method,
+            }),
+            list.items.push({
+                label: 'toBlob',
+                detail: 'Convert a Principal to its Blob (bytes) representation.',
+                kind: CompletionItemKind.Method,
+            }),
+            list.items.push({
+                label: 'fromBlob',
+                detail: 'Converts a Blob (bytes) representation of a Principal to a Principal value.',
+                kind: CompletionItemKind.Method,
+            }),
+            list.items.push({
+                label: 'fromBlob',
+                detail: 'Converts a Blob (bytes) representation of a Principal to a Principal value.',
+                kind: CompletionItemKind.Method,
+            }),
+            list.items.push({
+                label: 'toText',
+                detail: 'Converts a Principal to its Text representation.',
+                kind: CompletionItemKind.Method,
+            }),
+            list.items.push({
+                label: 'fromText',
+                detail: 'Converts a Text representation of a Principal to a Principal value.',
+                kind: CompletionItemKind.Method,
+            }),
+            list.items.push({
+                label: 'isAnonymous',
+                detail: 'Checks if the given principal represents an anonymous user.',
+                kind: CompletionItemKind.Method,
+            }),
+            list.items.push({
+                label: 'isController',
+                detail: 'Checks if the given principal can control this canister.',
+                kind: CompletionItemKind.Method,
+            }),
+            list.items.push({
+                label: 'hash',
+                detail: 'Hashes the given principal by hashing its Blob representation.',
+                kind: CompletionItemKind.Method,
+            }),
+            list.items.push({
+                label: 'compare',
+                detail: 'General purpose comparison function for Principal. Returns the Order ( either #less, #equal, or #greater) of comparing principal1 with principal2.',
+                kind: CompletionItemKind.Method,
+            }),
+            list.items.push({
+                label: 'equal',
+                detail: 'Equality function for Principal types. This is equivalent to principal1 == principal2.',
+                kind: CompletionItemKind.Method,
+            }),
+            list.items.push({
+                label: 'notEqual',
+                detail: 'Inequality function for Principal types. This is equivalent to principal1 != principal2.',
+                kind: CompletionItemKind.Method,
+            }),
+            list.items.push({
+                label: 'less',
+                detail: '"Less than" function for Principal types. This is equivalent to principal1 < principal2.',
+                kind: CompletionItemKind.Method,
+            }),
+            list.items.push({
+                label: 'lessOrEqual',
+                detail: '"Less than or equal to" function for Principal types. This is equivalent to principal1 <= principal2.',
+                kind: CompletionItemKind.Method,
+            }),
+            list.items.push({
+                label: 'greater',
+                detail: '"Greater than" function for Principal types. This is equivalent to principal1 > principal2.',
+                kind: CompletionItemKind.Method,
+            }),
+            list.items.push({
+                label: 'greaterOrEqual',
+                detail: '"Greater than or equal to" function for Principal types. This is equivalent to principal1 >= principal2.',
+                kind: CompletionItemKind.Method,
+            });
+    }
+}
 
 function getDocumentSymbols(
     field: Field,

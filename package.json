@@ -125,12 +125,28 @@
                 "title": "Motoko: Restart language server"
             },
             {
-                "command": "motoko.deployPlayground",
+                "command": "motoko.deployPlaygroundSelection",
                 "title": "Motoko: Deploy (20 minutes)"
             },
             {
                 "command": "motoko.importMopsPackage",
                 "title": "Motoko: Import Mops Package..."
+            },
+            {
+                "command": "motoko.startReplica",
+                "title": "Motoko: Start local replica..."
+            },
+            {
+                "command": "motoko.deployLocalSelection",
+                "title": "Motoko: Deploy (local node)..."
+            },
+            {
+                "command": "motoko.candidLocalSelection",
+                "title": "Motoko: Open Candid UI for canister (local node)..."
+            },
+            {
+                "command": "motoko.candidPlaygroundSelection",
+                "title": "Motoko: Open Candid UI for canister (playground)..."
             }
         ],
         "jsonValidation": [
@@ -149,14 +165,54 @@
             "explorer/context": [
                 {
                     "when": "resourceLangId == motoko",
-                    "command": "motoko.deployPlayground",
+                    "command": "motoko.startReplica",
+                    "group": "2_main"
+                },
+                {
+                    "when": "resourceLangId == motoko",
+                    "command": "motoko.deployPlaygroundSelection",
+                    "group": "2_main"
+                },
+                {
+                    "when": "resourceLangId == motoko",
+                    "command": "motoko.candidPlaygroundSelection",
+                    "group": "2_main"
+                },
+                {
+                    "when": "resourceLangId == motoko",
+                    "command": "motoko.deployLocalSelection",
+                    "group": "2_main"
+                },
+                {
+                    "when": "resourceLangId == motoko",
+                    "command": "motoko.candidLocalSelection",
                     "group": "2_main"
                 }
             ],
             "editor/context": [
                 {
                     "when": "resourceLangId == motoko",
-                    "command": "motoko.deployPlayground",
+                    "command": "motoko.startReplica",
+                    "group": "2_main"
+                },
+                {
+                    "when": "resourceLangId == motoko",
+                    "command": "motoko.deployPlaygroundSelection",
+                    "group": "2_main"
+                },
+                {
+                    "when": "resourceLangId == motoko",
+                    "command": "motoko.candidPlaygroundSelection",
+                    "group": "2_main"
+                },
+                {
+                    "when": "resourceLangId == motoko",
+                    "command": "motoko.deployLocalSelection",
+                    "group": "2_main"
+                },
+                {
+                    "when": "resourceLangId == motoko",
+                    "command": "motoko.candidLocalSelection",
                     "group": "2_main"
                 }
             ]
