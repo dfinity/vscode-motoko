@@ -134,15 +134,19 @@
             },
             {
                 "command": "motoko.startReplica",
-                "title": "Motoko: Start local replica..."
+                "title": "Motoko: Start local replica"
+            },
+            {
+                "command": "motoko.stopReplica",
+                "title": "Motoko: Stop local replica"
             },
             {
                 "command": "motoko.deployLocalSelection",
-                "title": "Motoko: Deploy (local node)..."
+                "title": "Motoko: Deploy (local replica)..."
             },
             {
                 "command": "motoko.candidLocalSelection",
-                "title": "Motoko: Open Candid UI for canister (local node)..."
+                "title": "Motoko: Open Candid UI for canister (local replica)..."
             },
             {
                 "command": "motoko.candidPlaygroundSelection",
@@ -170,6 +174,11 @@
                 },
                 {
                     "when": "resourceLangId == motoko",
+                    "command": "motoko.stopReplica",
+                    "group": "2_main"
+                },
+                {
+                    "when": "resourceLangId == motoko",
                     "command": "motoko.deployPlaygroundSelection",
                     "group": "2_main"
                 },
@@ -193,6 +202,11 @@
                 {
                     "when": "resourceLangId == motoko",
                     "command": "motoko.startReplica",
+                    "group": "2_main"
+                },
+                {
+                    "when": "resourceLangId == motoko",
+                    "command": "motoko.stopReplica",
                     "group": "2_main"
                 },
                 {

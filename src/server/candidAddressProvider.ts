@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import * as fs from 'fs';
+import * as fs from 'fs/promises';
 import * as path from 'path';
 import { ENVIRONMENT } from '../common/connectionTypes';
 
@@ -19,23 +19,29 @@ export async function resolveCandidUIAddress(
             'local',
             'canister_ids.json',
         );
-        if (fs.existsSync(jsonFilePath)) {
-            const fileContent = fs.readFileSync(jsonFilePath, 'utf-8');
-            const jsonData = JSON.parse(fileContent);
-            if (jsonData) {
-                const candidId = getCanisterId(
-                    jsonData,
-                    CANDID_UI_CANISTER_NAME,
-                    env,
-                );
-                const canisterId = getCanisterId(jsonData, canisterName, env);
-                return `http://localhost:${WEBVIEW_PORT}/?canisterId=${candidId}&id=${canisterId}&tag${tag++}`;
-            } else {
+        return fs.readFile(jsonFilePath, 'utf-8').then(
+            (fileContent) => {
+                const jsonData = JSON.parse(fileContent);
+                if (jsonData) {
+                    const candidId = getCanisterId(
+                        jsonData,
+                        CANDID_UI_CANISTER_NAME,
+                        env,
+                    );
+                    const canisterId = getCanisterId(
+                        jsonData,
+                        canisterName,
+                        env,
+                    );
+                    return `http://localhost:${WEBVIEW_PORT}/?canisterId=${candidId}&id=${canisterId}&tag${tag++}`;
+                } else {
+                    return null;
+                }
+            },
+            () => {
                 return null;
-            }
-        } else {
-            return null;
-        }
+            },
+        );
     } else if (ENVIRONMENT.PLAYGROUND === env && rootPath) {
         const jsonFilePath = path.join(
             rootPath,
@@ -43,18 +49,24 @@ export async function resolveCandidUIAddress(
             'playground',
             'canister_ids.json',
         );
-        if (fs.existsSync(jsonFilePath)) {
-            const fileContent = fs.readFileSync(jsonFilePath, 'utf-8');
-            const jsonData = JSON.parse(fileContent);
-            if (jsonData) {
-                const canisterId = getCanisterId(jsonData, canisterName, env);
-                return `https://a4gq6-oaaaa-aaaab-qaa4q-cai.raw.icp0.io/?id=${canisterId}&tag${tag++}`;
-            } else {
+        return fs.readFile(jsonFilePath, 'utf-8').then(
+            (fileContent) => {
+                const jsonData = JSON.parse(fileContent);
+                if (jsonData) {
+                    const canisterId = getCanisterId(
+                        jsonData,
+                        canisterName,
+                        env,
+                    );
+                    return `https://a4gq6-oaaaa-aaaab-qaa4q-cai.raw.icp0.io/?id=${canisterId}&tag${tag++}`;
+                } else {
+                    return null;
+                }
+            },
+            () => {
                 return null;
-            }
-        } else {
-            return null;
-        }
+            },
+        );
     } else {
         return null;
     }

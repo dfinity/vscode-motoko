@@ -42,13 +42,12 @@ import {
 } from './common/connectionTypes';
 import { watchGlob } from './common/watchConfig';
 import { formatDocument } from './formatter';
-import { startReplica } from './server/replicaManager';
+import { startReplica, stopReplica } from './server/replicaManager';
 import {
     getCanisterNames,
     getCanisterNamesForCandid,
 } from './server/canisterNames';
 import { resolveCandidUIAddress } from './server/candidAddressProvider';
-import { exec } from 'child_process';
 import { TerminalProvider } from './server/terminalProvider';
 
 const config = workspace.getConfiguration('motoko');
@@ -93,6 +92,11 @@ export function activate(context: ExtensionContext) {
         }),
     );
     context.subscriptions.push(
+        commands.registerCommand('motoko.stopReplica', async () => {
+            await stopReplica(terminalProvider.get());
+        }),
+    );
+    context.subscriptions.push(
         commands.registerCommand('motoko.deployLocalSelection', async () => {
             await showLocalCanisterDeployOptions();
         }),
@@ -124,10 +128,8 @@ export function activate(context: ExtensionContext) {
                     `dfx canister create ${
                         canisterName ? canisterName : '--all'
                     } &&
-                    dfx build ${canisterName ? canisterName : ''} && 
-                    dfx deploy ${
-                        canisterName ? canisterName : ''
-                    } --playground`,
+                    dfx build ${canisterName || ''} && 
+                    dfx deploy ${canisterName || ''} --playground`,
                     terminalProvider.get(),
                 );
             },
@@ -197,7 +199,7 @@ async function showLocalCanisterDeployOptions() {
         placeHolder: 'Select canister to deploy',
     });
 
-    if (selection === 'All') {
+    if (selection === options[0]) {
         vscode.commands.executeCommand('motoko.deployLocal');
     } else {
         vscode.commands.executeCommand('motoko.deployLocal', selection);
@@ -210,7 +212,7 @@ async function showPlaygroundCanisterDeployOptions() {
         placeHolder: 'Select canister to deploy',
     });
 
-    if (selection === 'All') {
+    if (selection === options[0]) {
         vscode.commands.executeCommand('motoko.deployPlayground');
     } else {
         vscode.commands.executeCommand('motoko.deployPlayground', selection);
