@@ -134,15 +134,15 @@
             },
             {
                 "command": "motoko.startReplica",
-                "title": "Motoko: Start local replica..."
+                "title": "Motoko: Start local replica"
             },
             {
                 "command": "motoko.deployLocalSelection",
-                "title": "Motoko: Deploy (local node)..."
+                "title": "Motoko: Deploy (local replica)..."
             },
             {
                 "command": "motoko.candidLocalSelection",
-                "title": "Motoko: Open Candid UI for canister (local node)..."
+                "title": "Motoko: Open Candid UI for canister (local replica)..."
             },
             {
                 "command": "motoko.candidPlaygroundSelection",
