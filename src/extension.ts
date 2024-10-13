@@ -48,7 +48,6 @@ import {
     getCanisterNamesForCandid,
 } from './server/canisterNames';
 import { resolveCandidUIAddress } from './server/candidAddressProvider';
-import { exec } from 'child_process';
 import { TerminalProvider } from './server/terminalProvider';
 
 const config = workspace.getConfiguration('motoko');
@@ -129,10 +128,8 @@ export function activate(context: ExtensionContext) {
                     `dfx canister create ${
                         canisterName ? canisterName : '--all'
                     } &&
-                    dfx build ${canisterName ? canisterName : ''} && 
-                    dfx deploy ${
-                        canisterName ? canisterName : ''
-                    } --playground`,
+                    dfx build ${canisterName || ''} && 
+                    dfx deploy ${canisterName || ''} --playground`,
                     terminalProvider.get(),
                 );
             },
