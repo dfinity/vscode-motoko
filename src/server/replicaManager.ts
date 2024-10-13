@@ -7,3 +7,11 @@ export function startReplica(terminal: vscode.Terminal) {
     terminal.sendText(command);
     return true;
 }
+
+export function stopReplica(terminal: vscode.Terminal) {
+    terminal.show();
+    const command = `dfx stop`;
+    terminal.show();
+    terminal.sendText(command);
+    return true;
+}

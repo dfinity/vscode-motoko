@@ -42,7 +42,7 @@ import {
 } from './common/connectionTypes';
 import { watchGlob } from './common/watchConfig';
 import { formatDocument } from './formatter';
-import { startReplica } from './server/replicaManager';
+import { startReplica, stopReplica } from './server/replicaManager';
 import {
     getCanisterNames,
     getCanisterNamesForCandid,
@@ -90,6 +90,11 @@ export function activate(context: ExtensionContext) {
     context.subscriptions.push(
         commands.registerCommand('motoko.startReplica', async () => {
             await startReplica(terminalProvider.get());
+        }),
+    );
+    context.subscriptions.push(
+        commands.registerCommand('motoko.stopReplica', async () => {
+            await stopReplica(terminalProvider.get());
         }),
     );
     context.subscriptions.push(
