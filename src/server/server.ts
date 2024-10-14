@@ -45,7 +45,10 @@ import {
     TEST_FILE_REQUEST,
     TestResult,
 } from '../common/connectionTypes';
-import { watchGlob as virtualFilePattern } from '../common/watchConfig';
+import {
+    ignoreGlobPatterns,
+    watchGlob as virtualFilePattern,
+} from '../common/watchConfig';
 import icCandid from '../generated/aaaaa-aa.did';
 import { globalASTCache } from './ast';
 import {
@@ -102,11 +105,6 @@ interface MotokoSettings {
     maxNumberOfProblems: number;
     debugHover: boolean;
 }
-
-const ignoreGlobs = [
-    '**/node_modules/**/*', // npm packages
-    '**/.vessel/.tmp/**/*', // temporary Vessel files
-];
 
 const shouldHideWarnings = (uri: string) =>
     uri.includes('/.vessel/') || uri.includes('/.mops/');
@@ -246,7 +244,7 @@ function notifyPackageConfigChange(reuseCached = false) {
                     const cwd = resolveFilePath(workspaceFolder.uri);
                     const paths = glob.sync(`**/{${filenames.join(',')}}`, {
                         cwd,
-                        ignore: ignoreGlobs,
+                        ignore: ignoreGlobPatterns,
                         dot: false,
                         followSymbolicLinks: false,
                     });
@@ -686,7 +684,7 @@ function notifyWorkspace() {
         glob.sync(virtualFilePattern, {
             cwd: folderPath,
             dot: true,
-            ignore: ignoreGlobs,
+            ignore: ignoreGlobPatterns,
             followSymbolicLinks: false,
         }).forEach((relativePath) => {
             const path = join(folderPath, relativePath);

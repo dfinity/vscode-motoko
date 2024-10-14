@@ -39,7 +39,7 @@ import {
     TestParams,
     TestResult,
 } from './common/connectionTypes';
-import { watchGlob } from './common/watchConfig';
+import { ignoreGlobPatterns, watchGlob } from './common/watchConfig';
 import { formatDocument } from './formatter';
 
 const config = workspace.getConfiguration('motoko');
@@ -232,14 +232,24 @@ function setupTests(context: ExtensionContext) {
             controller.items.add(item);
             testItemTypeMap.set(item, ItemType.File);
         } catch (err) {
-            console.error(`Error while adding test file: ${uri}\n${err}`);
+            console.error(`Error while adding test file: ${uri}`);
+            console.error(err);
         }
     };
     workspace.workspaceFolders?.forEach((workspaceFolder) => {
-        const directory = workspaceFolder.uri.fsPath;
-        glob.sync(pattern, { cwd: directory }).forEach((file) => {
-            addFile(Uri.file(path.resolve(directory, file)));
-        });
+        try {
+            const directory = workspaceFolder.uri.fsPath;
+            glob.sync(pattern, {
+                cwd: directory,
+                ignore: ignoreGlobPatterns,
+                followSymbolicLinks: false,
+            }).forEach((file) => {
+                addFile(Uri.file(path.resolve(directory, file)));
+            });
+        } catch (err) {
+            console.error('Error while loading test files:');
+            console.error(err);
+        }
     });
     watcher.onDidCreate(addFile, context.subscriptions);
     watcher.onDidChange(addFile, context.subscriptions);
