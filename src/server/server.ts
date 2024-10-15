@@ -1,6 +1,7 @@
 import { WASI, init as initWASI } from '@wasmer/wasi';
 import { pascalCase } from 'change-case';
-import { exec } from 'child_process';
+import { exec, execSync } from 'child_process';
+import * as semver from 'semver';
 import * as glob from 'fast-glob';
 import { existsSync, readFileSync } from 'fs';
 import { add as mopsAdd } from 'ic-mops/commands/add';
@@ -44,7 +45,10 @@ import {
     TEST_FILE_REQUEST,
     TestResult,
 } from '../common/connectionTypes';
-import { watchGlob as virtualFilePattern } from '../common/watchConfig';
+import {
+    ignoreGlobPatterns,
+    watchGlob as virtualFilePattern,
+} from '../common/watchConfig';
 import icCandid from '../generated/aaaaa-aa.did';
 import { globalASTCache } from './ast';
 import {
@@ -101,11 +105,6 @@ interface MotokoSettings {
     maxNumberOfProblems: number;
     debugHover: boolean;
 }
-
-const ignoreGlobs = [
-    '**/node_modules/**/*', // npm packages
-    '**/.vessel/.tmp/**/*', // temporary Vessel files
-];
 
 const shouldHideWarnings = (uri: string) =>
     uri.includes('/.vessel/') || uri.includes('/.mops/');
@@ -171,9 +170,15 @@ async function getPackageSources(
     if (!sources.length) {
         // Prioritize MOPS over Vessel
         if (existsSync(join(directory, 'mops.toml'))) {
-            // const command = 'mops sources';
-            const command = 'npx --no ic-mops sources';
+            // let command = 'mops sources';
+            let command = 'npx --no ic-mops sources';
             try {
+                const mopsVersion = execSync('npx --no ic-mops -- --version')
+                    .toString()
+                    .split(/\s/)[1];
+                if (semver.gte(mopsVersion, '0.45.3')) {
+                    command += ' --no-install';
+                }
                 sources = await sourcesFromCommand(command);
             } catch (err: any) {
                 // try {
@@ -196,7 +201,7 @@ async function getPackageSources(
                 // }
 
                 throw new Error(
-                    `Error while finding Mops packages.\nMake sure Mops is installed locally or globally (https://mops.one/docs/install).\n${
+                    `Error while finding Mops packages.\nMake sure the latest version of Mops is installed locally or globally (https://docs.mops.one/quick-start).\n${
                         err?.message || err
                     }`,
                 );
@@ -239,7 +244,7 @@ function notifyPackageConfigChange(reuseCached = false) {
                     const cwd = resolveFilePath(workspaceFolder.uri);
                     const paths = glob.sync(`**/{${filenames.join(',')}}`, {
                         cwd,
-                        ignore: ignoreGlobs,
+                        ignore: ignoreGlobPatterns,
                         dot: false,
                         followSymbolicLinks: false,
                     });
@@ -679,7 +684,7 @@ function notifyWorkspace() {
         glob.sync(virtualFilePattern, {
             cwd: folderPath,
             dot: true,
-            ignore: ignoreGlobs,
+            ignore: ignoreGlobPatterns,
             followSymbolicLinks: false,
         }).forEach((relativePath) => {
             const path = join(folderPath, relativePath);
