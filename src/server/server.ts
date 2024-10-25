@@ -1,7 +1,10 @@
 import { WASI, init as initWASI } from '@wasmer/wasi';
-import { exec } from 'child_process';
+import { pascalCase } from 'change-case';
+import { exec, execSync } from 'child_process';
+import * as semver from 'semver';
 import * as glob from 'fast-glob';
 import { existsSync, readFileSync } from 'fs';
+import { add as mopsAdd } from 'ic-mops/commands/add';
 import { Node } from 'motoko/lib/ast';
 import { keywords } from 'motoko/lib/keywords';
 import * as baseLibrary from 'motoko/packages/latest/base.json';
@@ -14,6 +17,7 @@ import {
     CompletionList,
     Diagnostic,
     DiagnosticSeverity,
+    DocumentSymbol,
     FileChangeType,
     InitializeResult,
     Location,
@@ -23,20 +27,30 @@ import {
     Range,
     ReferenceParams,
     SignatureHelp,
+    SymbolKind,
     TextDocumentPositionParams,
     TextDocumentSyncKind,
     TextDocuments,
     TextEdit,
     WorkspaceFolder,
+    WorkspaceSymbol,
     createConnection,
 } from 'vscode-languageserver/node';
 import { URI } from 'vscode-uri';
 import {
+    DEPLOY_PLAYGROUND,
+    DEPLOY_PLAYGROUND_MESSAGE,
+    ERROR_MESSAGE,
+    IMPORT_MOPS_PACKAGE,
     TEST_FILE_REQUEST,
-    TestParams,
     TestResult,
-} from '../common/testConfig';
-import { watchGlob as virtualFilePattern } from '../common/watchConfig';
+} from '../common/connectionTypes';
+import {
+    ignoreGlobPatterns,
+    watchGlob as virtualFilePattern,
+} from '../common/watchConfig';
+import icCandid from '../generated/aaaaa-aa.did';
+import { globalASTCache } from './ast';
 import {
     Context,
     addContext,
@@ -48,18 +62,39 @@ import DfxResolver from './dfx';
 import { organizeImports } from './imports';
 import { getAstInformation } from './information';
 import {
+    defaultRange,
     findDefinition,
     findMostSpecificNodeForPosition,
     locationFromDefinition,
     rangeFromNode,
 } from './navigation';
-import { Program, asNode, findNodes } from './syntax';
+import { deployPlayground } from './playground';
+import {
+    Class,
+    Field,
+    Import,
+    ObjBlock,
+    Program,
+    SyntaxWithFields,
+    Type,
+    asNode,
+    findNodes,
+} from './syntax';
 import {
     formatMotoko,
     getFileText,
+    getRelativeUri,
+    rangeContainsPosition,
     resolveFilePath,
     resolveVirtualPath,
 } from './utils';
+
+import execa = require('execa');
+
+const errorCodes: Record<
+    string,
+    string
+> = require('motoko/contrib/generated/errorCodes.json');
 
 interface Settings {
     motoko: MotokoSettings;
@@ -71,10 +106,8 @@ interface MotokoSettings {
     debugHover: boolean;
 }
 
-const ignoreGlobs = [
-    '**/node_modules/**/*', // npm packages
-    '**/.vessel/.tmp/**/*', // temporary Vessel files
-];
+const shouldHideWarnings = (uri: string) =>
+    uri.includes('/.vessel/') || uri.includes('/.mops/');
 
 const packageSourceCache = new Map();
 async function getPackageSources(
@@ -137,9 +170,15 @@ async function getPackageSources(
     if (!sources.length) {
         // Prioritize MOPS over Vessel
         if (existsSync(join(directory, 'mops.toml'))) {
-            // const command = 'mops sources';
-            const command = 'npx --no ic-mops sources';
+            // let command = 'mops sources';
+            let command = 'npx --no ic-mops sources';
             try {
+                const mopsVersion = execSync('npx --no ic-mops -- --version')
+                    .toString()
+                    .split(/\s/)[1];
+                if (semver.gte(mopsVersion, '0.45.3')) {
+                    command += ' --no-install';
+                }
                 sources = await sourcesFromCommand(command);
             } catch (err: any) {
                 // try {
@@ -150,10 +189,10 @@ async function getPackageSources(
                 //     return Object.entries(sources);
                 // } catch (fallbackError) {
                 //     console.error(
-                //         `Error in fallback MOPS implementation:`,
+                //         `Error in fallback Mops implementation:`,
                 //         fallbackError,
                 //     );
-                //     // Provide a verbose error message for MOPS command
+                //     // Provide a verbose error message for Mops command
                 //     throw new Error(
                 //         `Error while running \`${command}\`: ${
                 //             err?.message || err
@@ -162,7 +201,7 @@ async function getPackageSources(
                 // }
 
                 throw new Error(
-                    `Error while finding MOPS packages.\nMake sure MOPS is installed locally or globally (https://mops.one/docs/install).\n${
+                    `Error while finding Mops packages.\nMake sure the latest version of Mops is installed locally or globally (https://docs.mops.one/quick-start).\n${
                         err?.message || err
                     }`,
                 );
@@ -187,7 +226,6 @@ async function getPackageSources(
 }
 
 let loadingPackages = false;
-let packageConfigError = false;
 let packageConfigChangeTimeout: ReturnType<typeof setTimeout>;
 function notifyPackageConfigChange(reuseCached = false) {
     if (!reuseCached) {
@@ -196,7 +234,6 @@ function notifyPackageConfigChange(reuseCached = false) {
     loadingPackages = true;
     clearTimeout(packageConfigChangeTimeout);
     packageConfigChangeTimeout = setTimeout(async () => {
-        packageConfigError = false;
         try {
             resetContexts();
 
@@ -207,8 +244,9 @@ function notifyPackageConfigChange(reuseCached = false) {
                     const cwd = resolveFilePath(workspaceFolder.uri);
                     const paths = glob.sync(`**/{${filenames.join(',')}}`, {
                         cwd,
-                        ignore: ignoreGlobs,
+                        ignore: ignoreGlobPatterns,
                         dot: false,
+                        followSymbolicLinks: false,
                     });
                     paths.forEach((path) => {
                         path = join(cwd, path);
@@ -235,8 +273,34 @@ function notifyPackageConfigChange(reuseCached = false) {
                     try {
                         console.log('Loading packages for directory:', dir);
 
+                        let overrideMotokoVersion: string | undefined;
+                        try {
+                            const result = await execa('dfx', ['--version'], {
+                                cwd: dir,
+                            });
+                            const match = /dfx 0\.(\d+)/.exec(result.stdout);
+                            if (match) {
+                                // TODO: generalize to all Motoko versions
+                                const dfxMinorVersion = +match[1];
+                                if (dfxMinorVersion < 18) {
+                                    overrideMotokoVersion = '0.10.4';
+                                }
+                            }
+                        } catch (err) {
+                            console.warn(
+                                'Error while checking for custom Motoko version:',
+                            );
+                            console.warn(err);
+                        }
+                        if (overrideMotokoVersion) {
+                            console.log(
+                                'Using Motoko version:',
+                                overrideMotokoVersion,
+                            );
+                        }
+
                         const uri = URI.file(dir).toString();
-                        const context = addContext(uri);
+                        const context = addContext(uri, overrideMotokoVersion);
 
                         try {
                             context.packages = await getPackageSources(dir);
@@ -255,16 +319,23 @@ function notifyPackageConfigChange(reuseCached = false) {
                                 context.motoko.usePackage(name, path);
                             });
                         } catch (err) {
-                            packageConfigError = true;
+                            connection.sendNotification(ERROR_MESSAGE, {
+                                message: `Error while resolving Motoko packages:`,
+                                detail: String(err).replace(/^Error: /, ''),
+                            });
                             context.error = String(err);
                             console.warn(err);
                             return;
                         }
-                    } catch (err) {
-                        packageConfigError = true;
+                    } catch (err: any) {
+                        connection.sendNotification(ERROR_MESSAGE, {
+                            message: `Error while loading Motoko packages:`,
+                            detail: String(err).replace(/^Error: /, ''),
+                        });
                         console.error(
                             `Error while reading packages for directory (${dir}): ${err}`,
                         );
+                        return;
                     }
                 }),
             );
@@ -280,10 +351,11 @@ function notifyPackageConfigChange(reuseCached = false) {
             loadingPackages = false;
             notifyWorkspace(); // Update virtual file system
             notifyDfxChange(); // Reload dfx.json
-        } catch (err) {
+        } catch (err: any) {
             loadingPackages = false;
-            packageConfigError = true;
-            console.error(`Error while loading packages: ${err}`);
+            console.error(
+                `Error while loading packages: ${err?.message || err}`,
+            );
         }
     }, 1000);
 }
@@ -314,15 +386,25 @@ function notifyDfxChange() {
             if (projectDir && dfxConfig) {
                 if (dfxConfig.canisters) {
                     try {
+                        const candidPath = join(projectDir, '.dfx/local/lsp');
+                        const candidUri = URI.file(candidPath).toString();
+
+                        // Add management canister Candid file
+                        const icPath = join(candidPath, 'aaaaa-aa.did');
+                        if (!existsSync(icPath)) {
+                            const icUri = URI.file(icPath).toString();
+                            writeVirtual(resolveVirtualPath(icUri), icCandid);
+                        }
+
                         const idsPath = join(
                             projectDir,
                             '.dfx/local/canister_ids.json',
                         );
+                        const aliases: Record<string, string> = {};
                         if (existsSync(idsPath)) {
                             const canisterIds = JSON.parse(
                                 readFileSync(idsPath, 'utf8'),
                             );
-                            const aliases: Record<string, string> = {};
                             Object.entries(canisterIds).forEach(
                                 ([name, ids]: [string, any]) => {
                                     const keys = Object.keys(ids);
@@ -334,15 +416,66 @@ function notifyDfxChange() {
                                     }
                                 },
                             );
-                            const path = join(projectDir, '.dfx/local/lsp');
-                            const uri = URI.file(path).toString();
-                            allContexts().forEach(({ motoko }) => {
-                                motoko.setAliases(
-                                    resolveVirtualPath(uri),
-                                    aliases,
-                                );
-                            });
                         }
+                        const depsPath = join(projectDir, 'deps/pulled.json');
+                        if (existsSync(depsPath)) {
+                            const pulledDeps = JSON.parse(
+                                readFileSync(depsPath, 'utf8'),
+                            );
+                            Object.entries(pulledDeps.canisters).forEach(
+                                ([id, { name }]: [string, any]) => {
+                                    aliases[name] = id;
+                                    // Add Candid as virtual file in LSP directory
+                                    const candid = readFileSync(
+                                        join(
+                                            projectDir,
+                                            `deps/candid/${id}.did`,
+                                        ),
+                                        'utf8',
+                                    );
+                                    writeVirtual(
+                                        resolveVirtualPath(
+                                            candidUri,
+                                            `${id}.did`,
+                                        ),
+                                        candid,
+                                    );
+                                },
+                            );
+                        }
+                        Object.entries(dfxConfig.canisters).forEach(
+                            ([name, canister]) => {
+                                if (!aliases.hasOwnProperty(name)) {
+                                    const id = canister.remote?.id?.local;
+                                    if (id) {
+                                        aliases[name] = id;
+                                        const candidPath =
+                                            canister.remote?.candid;
+                                        if (candidPath) {
+                                            // Add Candid as virtual file in LSP directory
+                                            const candid = readFileSync(
+                                                resolve(projectDir, candidPath),
+                                                'utf8',
+                                            );
+                                            writeVirtual(
+                                                resolveVirtualPath(
+                                                    candidUri,
+                                                    `${id}.did`,
+                                                ),
+                                                candid,
+                                            );
+                                        }
+                                    }
+                                }
+                            },
+                        );
+                        allContexts().forEach(({ motoko }) => {
+                            console.log('Actor aliases:', aliases);
+                            motoko.setAliases(
+                                resolveVirtualPath(candidUri),
+                                aliases,
+                            );
+                        });
                     } catch (err) {
                         console.error(
                             `Error while resolving canister aliases: ${err}`,
@@ -360,10 +493,40 @@ function notifyDfxChange() {
 }
 
 // TODO: refactor
-function findNewImportPosition(uri: string, context: Context): Position {
+function findNewImportPosition(
+    uri: string,
+    context: Context,
+    importPath: string,
+): Position {
     const imports = context.astResolver.request(uri)?.program?.imports;
     if (imports?.length) {
-        const lastImport = imports[imports.length - 1];
+        let lastImport = imports[imports.length - 1];
+
+        // add after last import from the same package
+        if (importPath.startsWith('mo:')) {
+            const importsReversed = imports.slice().reverse();
+            importPath = importPath.split('/')[0];
+
+            const lastSamePackageImport: Import | undefined =
+                importsReversed.find((imprt) => {
+                    return (
+                        imprt.path === importPath ||
+                        imprt.path.startsWith(`${importPath}/`)
+                    );
+                });
+            if (lastSamePackageImport) {
+                lastImport = lastSamePackageImport;
+            } else {
+                // add after last package import
+                const lastPackageImport = importsReversed.find((imprt) => {
+                    return imprt.path.startsWith('mo:');
+                });
+                if (lastPackageImport) {
+                    lastImport = lastPackageImport;
+                }
+            }
+        }
+
         const end = (lastImport.ast as Node)?.end;
         if (end) {
             return Position.create(end[0], 0);
@@ -425,7 +588,8 @@ connection.onInitialize((event): InitializeResult => {
             },
             hoverProvider: true,
             // executeCommandProvider: { commands: [] },
-            // workspaceSymbolProvider: true,
+            workspaceSymbolProvider: true,
+            documentSymbolProvider: true,
             // diagnosticProvider: {
             //     documentSelector: ['motoko'],
             //     interFileDependencies: true,
@@ -473,7 +637,7 @@ connection.onDidChangeWatchedFiles((event) => {
                 const path = resolveVirtualPath(change.uri);
                 deleteVirtual(path);
                 notifyDeleteUri(change.uri);
-                connection.sendDiagnostics({
+                sendDiagnostics({
                     uri: change.uri,
                     diagnostics: [],
                 });
@@ -520,7 +684,8 @@ function notifyWorkspace() {
         glob.sync(virtualFilePattern, {
             cwd: folderPath,
             dot: true,
-            ignore: ignoreGlobs,
+            ignore: ignoreGlobPatterns,
+            followSymbolicLinks: false,
         }).forEach((relativePath) => {
             const path = join(folderPath, relativePath);
             try {
@@ -547,6 +712,7 @@ const checkQueue: string[] = [];
 let checkTimeout: ReturnType<typeof setTimeout>;
 function processQueue() {
     clearTimeout(checkTimeout);
+    clearTimeout(checkWorkspaceTimeout);
     checkTimeout = setTimeout(() => {
         const uri = checkQueue.shift();
         if (checkQueue.length) {
@@ -602,6 +768,7 @@ function checkWorkspace() {
             //         cwd: folderPath,
             //         dot: false, // exclude directories such as `.vessel`
             //         ignore: ignoreGlobs,
+            //         followSymbolicLinks: false,
             //     }).forEach((relativePath) => {
             //         const path = join(folderPath, relativePath);
             //         try {
@@ -642,7 +809,7 @@ function checkWorkspace() {
             }
             previousCheckedFiles.forEach((uri) => {
                 if (!checkedFiles.includes(uri)) {
-                    connection.sendDiagnostics({ uri, diagnostics: [] });
+                    sendDiagnostics({ uri, diagnostics: [] });
                 }
             });
             checkedFiles.forEach((uri) => notify(uri));
@@ -653,11 +820,6 @@ function checkWorkspace() {
             console.error(err);
         }
     }, 1000);
-}
-
-function validate(uri: string | TextDocument) {
-    notify(uri);
-    scheduleCheck(uri);
 }
 
 /**
@@ -692,7 +854,7 @@ function checkImmediate(uri: string | TextDocument): boolean {
         const skipExtension = '.mo_'; // Skip type checking `*.mo_` files
         const resolvedUri = typeof uri === 'string' ? uri : uri?.uri;
         if (resolvedUri?.endsWith(skipExtension)) {
-            connection.sendDiagnostics({
+            sendDiagnostics({
                 uri: resolvedUri,
                 diagnostics: [],
             });
@@ -711,7 +873,7 @@ function checkImmediate(uri: string | TextDocument): boolean {
 
         const { uri: contextUri, motoko, error } = getContext(resolvedUri);
         console.log('~', virtualPath, `(${contextUri || 'default'})`);
-        let diagnostics = motoko.check(virtualPath) as any as Diagnostic[];
+        let diagnostics = motoko.check(virtualPath) as Diagnostic[];
         if (error) {
             // Context initialization error
             // diagnostics.length = 0;
@@ -737,8 +899,12 @@ function checkImmediate(uri: string | TextDocument): boolean {
                 diagnostics = diagnostics.filter(
                     ({ message, severity }) =>
                         severity === DiagnosticSeverity.Error ||
-                        // @ts-ignore
-                        !new RegExp(settings.hideWarningRegex).test(message),
+                        !new RegExp(settings!.hideWarningRegex).test(message),
+                );
+            }
+            if (resolvedUri && shouldHideWarnings(resolvedUri)) {
+                diagnostics = diagnostics.filter(
+                    ({ severity }) => severity === DiagnosticSeverity.Error,
                 );
             }
         }
@@ -756,7 +922,7 @@ function checkImmediate(uri: string | TextDocument): boolean {
                     // Extra debugging information for `canister:` import errors
                     diagnostic = {
                         ...diagnostic,
-                        message: `${diagnostic.message}. This is usually fixed by running \`dfx deploy\``,
+                        message: `${diagnostic.message}. This is usually fixed by running \`dfx deploy\` or adding \`dependencies\` in your dfx.json file`,
                     };
                 }
 
@@ -768,7 +934,7 @@ function checkImmediate(uri: string | TextDocument): boolean {
         });
 
         Object.entries(diagnosticMap).forEach(([path, diagnostics]) => {
-            connection.sendDiagnostics({
+            sendDiagnostics({
                 uri: URI.file(path).toString(),
                 diagnostics,
             });
@@ -776,7 +942,7 @@ function checkImmediate(uri: string | TextDocument): boolean {
         return true;
     } catch (err) {
         console.error(`Error while compiling Motoko file: ${err}`);
-        connection.sendDiagnostics({
+        sendDiagnostics({
             uri: typeof uri === 'string' ? uri : uri.uri,
             diagnostics: [
                 {
@@ -878,7 +1044,7 @@ connection.onCodeAction((event) => {
                         changes: {
                             [uri]: [
                                 TextEdit.insert(
-                                    findNewImportPosition(uri, context),
+                                    findNewImportPosition(uri, context, path),
                                     `import ${name} "${path}";\n`,
                                 ),
                             ],
@@ -911,35 +1077,51 @@ connection.onCompletion((event) => {
             ?.slice(1) ?? ['', ''];
 
         if (!dot) {
+            let hadError = false;
             context.importResolver
-                .getNameEntries(uri)
-                .forEach(([name, path]) => {
+                .getNameEntries()
+                .forEach(([name, importPath]) => {
                     if (name.startsWith(identStart)) {
-                        const status = context.astResolver.request(uri);
-                        const existingImport = status?.program?.imports.find(
-                            (i) =>
-                                i.name === name ||
-                                i.fields.some(([, alias]) => alias === name),
-                        );
-                        if (existingImport || !status?.program) {
-                            // Skip alternatives with already imported name
-                            return;
+                        try {
+                            const path = importPath.startsWith('mo:')
+                                ? importPath
+                                : getRelativeUri(uri, importPath);
+
+                            const status = context.astResolver.request(uri);
+                            const existingImport =
+                                status?.program?.imports.find(
+                                    (i) =>
+                                        i.name === name ||
+                                        i.fields.some(
+                                            ([, alias]) => alias === name,
+                                        ),
+                                );
+                            if (existingImport || !status?.program) {
+                                // Skip alternatives with already imported name
+                                return;
+                            }
+                            const edits: TextEdit[] = [
+                                TextEdit.insert(
+                                    findNewImportPosition(uri, context, path),
+                                    `import ${name} "${path}";\n`,
+                                ),
+                            ];
+                            list.items.push({
+                                label: name,
+                                detail: path,
+                                insertText: name,
+                                kind: path.startsWith('mo:')
+                                    ? CompletionItemKind.Module
+                                    : CompletionItemKind.Class, // TODO: resolve actors, classes, etc.
+                                additionalTextEdits: edits,
+                            });
+                        } catch (err) {
+                            if (!hadError) {
+                                hadError = true;
+                                console.error('Error during autocompletion:');
+                                console.error(err);
+                            }
                         }
-                        const edits: TextEdit[] = [
-                            TextEdit.insert(
-                                findNewImportPosition(uri, context),
-                                `import ${name} "${path}";\n`,
-                            ),
-                        ];
-                        list.items.push({
-                            label: name,
-                            detail: path,
-                            insertText: name,
-                            kind: path.startsWith('mo:')
-                                ? CompletionItemKind.Module
-                                : CompletionItemKind.Class, // TODO: resolve actors, classes, etc.
-                            additionalTextEdits: edits,
-                        });
                     }
                 });
 
@@ -959,14 +1141,15 @@ connection.onCompletion((event) => {
             if (program) {
                 // TODO: only show relevant identifiers
                 const idents = new Set<string>();
-                findNodes(program.ast, (node) => node.name === 'VarP').forEach(
-                    (node) => {
-                        const ident = node.args?.[0];
-                        if (typeof ident === 'string') {
-                            idents.add(ident);
-                        }
-                    },
-                );
+                findNodes(
+                    program.ast,
+                    (node) => node.name === 'VarP' || node.name === 'VarD',
+                ).forEach((node) => {
+                    const ident = node.args?.[0]; // First arg for both `VarP` and `VarD`
+                    if (typeof ident === 'string') {
+                        idents.add(ident);
+                    }
+                });
                 idents.forEach((ident) => {
                     list.items.push({
                         label: ident,
@@ -1035,7 +1218,10 @@ connection.onHover((event) => {
         }
         if (docNode.name === 'Prog' && !docNode.doc) {
             // Get doc comment at top of file
-            return asNode(docNode.args?.[0])?.doc;
+            const doc = asNode(docNode.args?.[0])?.doc;
+            if (doc) {
+                return doc;
+            }
         }
         return docNode.doc;
     }
@@ -1043,81 +1229,110 @@ connection.onHover((event) => {
     const { position } = event;
     const { uri } = event.textDocument;
     const { astResolver } = getContext(uri);
-    const status = astResolver.requestTyped(uri);
-    if (!status || status.outdated || !status.ast) {
-        return;
-    }
-    // Find AST nodes which include the cursor position
-    const node = findMostSpecificNodeForPosition(
-        status.ast,
-        position,
-        (node) => !!node.type,
-        true, // Mouse cursor
-    );
-    if (!node) {
-        return;
-    }
 
     const text = getFileText(uri);
     const lines = text.split(/\r?\n/g);
-
-    const startLine = lines[node.start[0] - 1];
-    const isSameLine = node.start[0] === node.end[0];
-
-    const codeSnippet = (source: string) => `\`\`\`motoko\n${source}\n\`\`\``;
     const docs: string[] = [];
-    const source = (
-        isSameLine ? startLine.substring(node.start[1], node.end[1]) : startLine
-    ).trim();
-    const doc = findDocComment(node);
-    if (doc) {
-        const typeInfo = node.type ? formatMotoko(node.type).trim() : '';
-        const lineIndex = typeInfo.indexOf('\n');
-        if (typeInfo) {
-            if (lineIndex === -1) {
-                docs.push(codeSnippet(typeInfo));
+    let range: Range | undefined;
+
+    // Error code explanations
+    const codes: string[] = [];
+    diagnosticMap.get(uri)?.forEach((diagnostic) => {
+        if (rangeContainsPosition(diagnostic.range, position)) {
+            const code = diagnostic.code;
+            if (typeof code === 'string' && !codes.includes(code)) {
+                codes.push(code);
+                if (errorCodes.hasOwnProperty(code)) {
+                    // Show explanation without Markdown heading
+                    docs.push(errorCodes[code].replace(/^# M[0-9]+\s+/, ''));
+                }
             }
-        } else if (!isSameLine) {
-            docs.push(codeSnippet(source));
         }
-        docs.push(doc);
-        if (lineIndex !== -1) {
-            docs.push(`*Type definition:*\n${codeSnippet(typeInfo)}`);
+    });
+
+    const status = astResolver.requestTyped(uri);
+    if (status && !status.outdated && status.ast) {
+        // Find AST nodes which include the cursor position
+        const node = findMostSpecificNodeForPosition(
+            status.ast,
+            position,
+            (node) => !!node.type,
+            true, // Mouse cursor
+        );
+        if (node) {
+            range = rangeFromNode(node, true);
+
+            const startLine = lines[node.start[0] - 1];
+            const isSameLine = node.start[0] === node.end[0];
+
+            const codeSnippet = (source: string) =>
+                `\`\`\`motoko\n${source}\n\`\`\``;
+            const source = (
+                isSameLine
+                    ? startLine.substring(node.start[1], node.end[1])
+                    : startLine
+            ).trim();
+
+            // Doc comments
+            const doc = findDocComment(node);
+            if (doc) {
+                const typeInfo = node.type
+                    ? formatMotoko(node.type).trim()
+                    : '';
+                const lineIndex = typeInfo.indexOf('\n');
+                if (typeInfo) {
+                    if (lineIndex === -1) {
+                        docs.push(codeSnippet(typeInfo));
+                    }
+                } else if (!isSameLine) {
+                    docs.push(codeSnippet(source));
+                }
+                docs.push(doc);
+                if (lineIndex !== -1) {
+                    docs.push(`*Type definition:*\n${codeSnippet(typeInfo)}`);
+                }
+            } else if (node.type) {
+                docs.push(codeSnippet(formatMotoko(node.type)));
+            } else if (!isSameLine) {
+                docs.push(codeSnippet(source));
+            }
+
+            // Syntax explanations
+            const info = getAstInformation(node /* , source */);
+            if (info) {
+                docs.push(info);
+            }
+            if (settings?.debugHover) {
+                let debugText = `\n${node.name}`;
+                if (node.args?.length) {
+                    // Show AST debug information
+                    debugText += ` [${node.args
+                        .map(
+                            (arg) =>
+                                `\n  ${
+                                    typeof arg === 'object'
+                                        ? Array.isArray(arg)
+                                            ? '[...]'
+                                            : arg?.name
+                                        : JSON.stringify(arg)
+                                }`,
+                        )
+                        .join('')}\n]`;
+                }
+                docs.push(codeSnippet(debugText));
+            }
         }
-    } else if (node.type) {
-        docs.push(codeSnippet(formatMotoko(node.type)));
-    } else if (!isSameLine) {
-        docs.push(codeSnippet(source));
     }
-    const info = getAstInformation(node /* , source */);
-    if (info) {
-        docs.push(info);
-    }
-    if (settings?.debugHover) {
-        let debugText = `\n${node.name}`;
-        if (node.args?.length) {
-            // Show AST debug information
-            debugText += ` [${node.args
-                .map(
-                    (arg) =>
-                        `\n  ${
-                            typeof arg === 'object'
-                                ? Array.isArray(arg)
-                                    ? '[...]'
-                                    : arg?.name
-                                : JSON.stringify(arg)
-                        }`,
-                )
-                .join('')}\n]`;
-        }
-        docs.push(codeSnippet(debugText));
+
+    if (!docs.length) {
+        return;
     }
     return {
         contents: {
             kind: MarkupKind.Markdown,
             value: docs.join('\n\n---\n\n'),
         },
-        range: rangeFromNode(node, true),
+        range,
     };
 });
 
@@ -1133,7 +1348,7 @@ connection.onDefinition(
             );
             return definition ? locationFromDefinition(definition) : [];
         } catch (err) {
-            console.error(`Error while finding definition:`);
+            console.error('Error while finding definition:');
             console.error(err);
             // throw err;
             return [];
@@ -1150,9 +1365,80 @@ connection.onDefinition(
 //     },
 // );
 
-// connection.onWorkspaceSymbol((_event) => {
-//     return [];
-// });
+connection.onWorkspaceSymbol((event) => {
+    if (!event.query.length) {
+        return [];
+    }
+    const results: WorkspaceSymbol[] = [];
+    const visitDocumentSymbol = (
+        uri: string,
+        symbol: DocumentSymbol,
+        parent?: DocumentSymbol,
+    ) => {
+        results.push({
+            name: symbol.name,
+            kind: symbol.kind,
+            location: Location.create(uri, symbol.range),
+            containerName: parent?.name,
+        });
+        symbol.children?.forEach((s) => visitDocumentSymbol(uri, s, symbol));
+    };
+    globalASTCache.forEach((status) => {
+        status.program?.exportFields.forEach((field) => {
+            getDocumentSymbols(field, true).forEach((symbol) =>
+                visitDocumentSymbol(status.uri, symbol),
+            );
+        });
+    });
+    return results;
+});
+
+connection.onDocumentSymbol((event) => {
+    const { uri } = event.textDocument;
+    const results: DocumentSymbol[] = [];
+    const status = getContext(uri).astResolver.request(uri);
+    status?.program?.exportFields.forEach((field) => {
+        results.push(...getDocumentSymbols(field, false));
+    });
+    return results;
+});
+
+function getDocumentSymbols(
+    field: Field,
+    skipUnnamed: boolean,
+): DocumentSymbol[] {
+    const range = rangeFromNode(asNode(field.ast)) || defaultRange();
+    const kind =
+        field.exp instanceof ObjBlock
+            ? SymbolKind.Module
+            : field.exp instanceof Class
+            ? SymbolKind.Class
+            : field.exp instanceof Type
+            ? SymbolKind.Interface
+            : SymbolKind.Variable;
+    const children: DocumentSymbol[] = [];
+    if (field.exp instanceof SyntaxWithFields) {
+        field.exp.fields.forEach((field) => {
+            children.push(...getDocumentSymbols(field, skipUnnamed));
+        });
+    }
+    if (skipUnnamed && !field.name) {
+        return children;
+    }
+    return [
+        {
+            name:
+                field.name ||
+                (field.exp instanceof ObjBlock
+                    ? field.exp.sort.toLowerCase()
+                    : '(unknown)'), // Default field name
+            kind,
+            range,
+            selectionRange: rangeFromNode(asNode(field.pat?.ast)) || range,
+            children,
+        },
+    ];
+}
 
 connection.onReferences(
     async (_event: ReferenceParams): Promise<Location[]> => {
@@ -1162,167 +1448,134 @@ connection.onReferences(
 );
 
 // Run a file which is recognized as a unit test
-connection.onRequest(
-    TEST_FILE_REQUEST,
-    async (event: TestParams): Promise<TestResult> => {
-        while (loadingPackages) {
-            // Load all packages before running tests
-            await new Promise((resolve) => setTimeout(resolve, 500));
-        }
+connection.onRequest(TEST_FILE_REQUEST, async (event): Promise<TestResult> => {
+    while (loadingPackages) {
+        // Load all packages before running tests
+        await new Promise((resolve) => setTimeout(resolve, 500));
+    }
 
-        try {
-            const { uri } = event;
+    try {
+        const { uri } = event;
 
-            const context = getContext(uri);
-            const { motoko } = context;
+        const context = getContext(uri);
+        const { motoko } = context;
 
-            // TODO: optimize @testmode check
-            const source = getFileText(uri);
+        // TODO: optimize @testmode check
+        const source = getFileText(uri);
+        const mode =
+            /\/\/[^\S\n]*@testmode[^\S\n]*([a-zA-Z]+)/.exec(source)?.[1] ||
+            'interpreter';
+        const virtualPath = resolveVirtualPath(uri);
 
-            // const path = resolveFilePath(uri);
-            // const cwd = dirname(path);
-            // let command = `$(dfx cache show)/moc -r ${JSON.stringify(path)}`;
-            // context.packages?.forEach(
-            //     ([name, path]) =>
-            //         (command += ` --package ${JSON.stringify(
-            //             name,
-            //         )} ${JSON.stringify(
-            //             join(resolveFilePath(context.uri), path),
-            //         )}`),
-            // );
-            // return new Promise((resolve, reject) => {
-            //     const testProcess: ReturnType<typeof exec> = exec(
-            //         command, // TODO: windows
-            //         {
-            //             cwd,
-            //             encoding: 'utf8',
-            //         },
-            //         (err, stdout, stderr) => {
-            //             err
-            //                 ? reject(err)
-            //                 : resolve({
-            //                       passed: testProcess.exitCode === 0,
-            //                       stdout: stdout || '',
-            //                       stderr: stderr || '',
-            //                   });
-            //         },
-            //     );
-            // });
+        console.log('Running test:', uri, `(${mode})`);
 
-            const mode =
-                /\/\/[^\S\n]*@testmode[^\S\n]*([a-zA-Z]+)/.exec(source)?.[1] ||
-                'interpreter';
-
-            const virtualPath = resolveVirtualPath(uri);
-
-            console.log('Running test:', uri, `(${mode})`);
-
-            if (mode === 'interpreter') {
-                // Run tests via moc.js interpreter
-                motoko.setRunStepLimit(100_000_000);
-                const output = motoko.run(virtualPath);
-                return {
-                    passed: output.result
-                        ? !output.result.error
-                        : !output.stderr.includes('error'), // fallback for previous moc.js versions
-                    stdout: output.stdout,
-                    stderr: output.stderr,
-                };
-            } else if (mode === 'wasi') {
-                // Run tests via Wasmer
-                const start = Date.now();
-                const wasiResult = motoko.wasm(virtualPath, 'wasi');
-                console.log('Compile time:', Date.now() - start);
-
-                const WebAssembly = (global as any).WebAssembly;
-                const module = await (
-                    WebAssembly.compileStreaming || WebAssembly.compile
-                )(wasiResult.wasm);
-                await initWASI();
-                const wasi = new WASI({});
-                await wasi.instantiate(module, {});
-                const exitCode = wasi.start();
-                const stdout = wasi.getStdoutString();
-                const stderr = wasi.getStderrString();
-                wasi.free();
-                if (exitCode !== 0) {
-                    console.log(stdout);
-                    console.error(stderr);
-                    console.log('Exit code:', exitCode);
-                }
-                return {
-                    passed: exitCode === 0,
-                    stdout,
-                    stderr,
-                };
-            } else {
-                throw new Error(`Invalid test mode: '${mode}'`);
-            }
-            // else {
-            //     const start = Date.now();
-            //     const wasiResult = motoko.wasm(virtualPath, 'wasi');
-            //     console.log('Compile time:', Date.now() - start);
-
-            //     const WebAssembly = (global as any).WebAssembly;
-            //     const module = await (
-            //         WebAssembly.compileStreaming || WebAssembly.compile
-            //     )(wasiResult.wasm);
-            //     const WASI = require('wasi');
-            //     const wasi = new WASI({});
-            //     const inst = new WebAssembly.Instance(module, {
-            //         wasi_unstable: wasi.exports,
-            //     });
-            //     wasi.setMemory(inst.exports.memory);
-            //     inst.exports._start();
-
-            //     // if (exitCode !== 0) {
-            //     //     console.log(stdout);
-            //     //     console.error(stderr);
-            //     //     console.log('Exit code:', exitCode);
-            //     // }
-            //     // return {
-            //     //     passed: exitCode === 0,
-            //     //     stdout,
-            //     //     stderr,
-            //     // };
-
-            //     console.log(Object.keys(inst.exports)); ///////
-
-            //     return { passed: true, stdout: '', stderr: '' };
-            // }
-        } catch (err) {
-            console.error(err);
+        if (mode === 'interpreter') {
+            // Run tests via moc.js interpreter
+            motoko.setRunStepLimit(100_000_000);
+            const output = motoko.run(virtualPath);
             return {
-                passed: false,
-                stdout: '',
-                stderr: (err as any)?.message || String(err),
+                passed: output.result
+                    ? !output.result.error
+                    : !output.stderr.includes('error'), // fallback for previous moc.js versions
+                stdout: output.stdout,
+                stderr: output.stderr,
             };
+        } else if (mode === 'wasi') {
+            // Run tests via Wasmer
+            const start = Date.now();
+            const wasiResult = motoko.wasm(virtualPath, 'wasi');
+            console.log('Compile time:', Date.now() - start);
+
+            const WebAssembly = (global as any).WebAssembly;
+            const module = await (
+                WebAssembly.compileStreaming || WebAssembly.compile
+            )(wasiResult.wasm);
+            await initWASI();
+            const wasi = new WASI({});
+            await wasi.instantiate(module, {});
+            const exitCode = wasi.start();
+            const stdout = wasi.getStdoutString();
+            const stderr = wasi.getStderrString();
+            wasi.free();
+            if (exitCode !== 0) {
+                console.log(stdout);
+                console.error(stderr);
+                console.log('Exit code:', exitCode);
+            }
+            return {
+                passed: exitCode === 0,
+                stdout,
+                stderr,
+            };
+        } else {
+            throw new Error(`Invalid test mode: '${mode}'`);
         }
-    },
+    } catch (err) {
+        console.error(err);
+        return {
+            passed: false,
+            stdout: '',
+            stderr: (err as any)?.message || String(err),
+        };
+    }
+});
+
+// Deploy to Motoko Playground
+connection.onRequest(DEPLOY_PLAYGROUND, (params) =>
+    deployPlayground(params, (message) =>
+        connection.sendNotification(DEPLOY_PLAYGROUND_MESSAGE, { message }),
+    ),
 );
+
+// Install and import mops package
+connection.onRequest(IMPORT_MOPS_PACKAGE, async (params) => {
+    mopsAdd(params.name);
+
+    const context = getContext(params.uri);
+
+    if (params.uri.endsWith('.mo')) {
+        return [
+            TextEdit.insert(
+                findNewImportPosition(params.uri, context, `mo:${params.name}`),
+                `import ${pascalCase(params.name)} "mo:${params.name}";\n`,
+            ),
+        ];
+    } else {
+        return [];
+    }
+});
+
+const diagnosticMap = new Map<string, Diagnostic[]>();
+async function sendDiagnostics(params: {
+    uri: string;
+    diagnostics: Diagnostic[];
+}) {
+    const { uri, diagnostics } = params;
+    diagnosticMap.set(uri, diagnostics);
+    return connection.sendDiagnostics(params);
+}
 
 let validatingTimeout: ReturnType<typeof setTimeout>;
 let validatingUri: string | undefined;
 documents.onDidChangeContent((event) => {
-    if (packageConfigError) {
-        // notifyPackageConfigChange(true);
-    }
     const document = event.document;
     const { uri } = document;
     if (uri === validatingUri) {
         clearTimeout(validatingTimeout);
     }
+    notify(document);
     validatingUri = uri;
     validatingTimeout = setTimeout(() => {
-        validate(document);
-        const { astResolver } = getContext(uri);
-        astResolver.update(uri, true); /// TODO: also use for type checking?
-    }, 100);
+        notify(document);
+        scheduleCheck(document);
+        // const { astResolver } = getContext(uri);
+        // astResolver.update(uri, true); // TODO: also use for type checking?
+    }, 500);
 });
 
 documents.onDidOpen((event) => scheduleCheck(event.document.uri));
 documents.onDidClose(async (event) => {
-    await connection.sendDiagnostics({
+    await sendDiagnostics({
         uri: event.document.uri,
         diagnostics: [],
     });

@@ -2,7 +2,7 @@
     "name": "vscode-motoko",
     "displayName": "Motoko",
     "description": "Motoko language support",
-    "version": "0.11.4",
+    "version": "0.16.11",
     "publisher": "dfinity-foundation",
     "repository": "https://github.com/dfinity/vscode-motoko",
     "engines": {
@@ -123,6 +123,14 @@
             {
                 "command": "motoko.startService",
                 "title": "Motoko: Restart language server"
+            },
+            {
+                "command": "motoko.deployPlayground",
+                "title": "Motoko: Deploy (20 minutes)"
+            },
+            {
+                "command": "motoko.importMopsPackage",
+                "title": "Motoko: Import Mops Package..."
             }
         ],
         "jsonValidation": [
@@ -136,7 +144,23 @@
                 "language": "motoko",
                 "path": "./snippets.json"
             }
-        ]
+        ],
+        "menus": {
+            "explorer/context": [
+                {
+                    "when": "resourceLangId == motoko",
+                    "command": "motoko.deployPlayground",
+                    "group": "2_main"
+                }
+            ],
+            "editor/context": [
+                {
+                    "when": "resourceLangId == motoko",
+                    "command": "motoko.deployPlayground",
+                    "group": "2_main"
+                }
+            ]
+        }
     },
     "activationEvents": [],
     "main": "./out/extension",
@@ -144,11 +168,15 @@
     "dependencies": {
         "@wasmer/wasi": "1.2.2",
         "change-case": "4.1.2",
+        "execa": "4.1.0",
         "fast-glob": "3.2.12",
+        "ic-mops": "0.45.3",
+        "ic0": "0.2.7",
         "mnemonist": "0.39.5",
-        "motoko": "3.5.6",
+        "motoko": "3.8.4",
         "prettier": "2.8.0",
-        "prettier-plugin-motoko": "0.5.2",
+        "prettier-plugin-motoko": "0.9.2",
+        "semver": "7.6.3",
         "url-relative": "1.0.0",
         "vscode-languageclient": "8.0.2",
         "vscode-languageserver": "8.0.2",
@@ -178,6 +206,7 @@
     },
     "scripts": {
         "prepare": "husky install && cd rust && npm install",
+        "postinstall": "npm run generate",
         "lint": "eslint . --ext ts",
         "lint:fix": "npm run lint -- --fix",
         "format": "prettier --write src",
@@ -191,10 +220,11 @@
         "compile:rust": "cd rust && npm run build-release && shx cp ./index.node ../out/vscode_motoko.node",
         "compile:extension": "esbuild ./src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node --minify",
         "compile:browser": "esbuild ./src/browser.ts --bundle --outfile=out/browser.js --external:vscode --format=cjs --platform=node --minify",
-        "compile:server": "esbuild ./src/server/server.ts --bundle --outfile=out/server.js --format=cjs --platform=node --minify",
-        "compile:motoko": "esbuild motoko --bundle --outfile=out/motoko.js --format=cjs --platform=node --minify",
+        "compile:server": "esbuild ./src/server/server.ts --bundle --outfile=out/server.js --external:vscode --format=cjs --platform=node --minify",
+        "compile:motoko": "esbuild motoko --bundle --outfile=out/motoko.js --format=cjs --platform=node --minify && shx cp -r src/server/compiler out/compiler",
+        "generate": "node scripts/generate",
         "test": "jest",
-        "package": "vsce package && npm test",
+        "package": "npm run generate && vsce package && npm test && npm run --silent lint",
         "publish": "vsce publish"
     },
     "lint-staged": {

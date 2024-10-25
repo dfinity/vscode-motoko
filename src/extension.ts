@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import { Package } from 'motoko/lib/package';
 import * as baseLibrary from 'motoko/packages/latest/base.json';
 import * as path from 'path';
+import * as vscode from 'vscode';
 import {
     ExtensionContext,
     FormattingOptions,
@@ -13,6 +14,8 @@ import {
     TextDocument,
     TextEdit,
     Uri,
+    ViewColumn,
+    QuickPickItem,
     commands,
     languages,
     tests,
@@ -26,8 +29,17 @@ import {
     TransportKind,
 } from 'vscode-languageclient/node';
 import * as which from 'which';
-import { TEST_FILE_REQUEST, TestParams, TestResult } from './common/testConfig';
-import { watchGlob } from './common/watchConfig';
+import * as mops from 'ic-mops/mops';
+import {
+    DEPLOY_PLAYGROUND,
+    DEPLOY_PLAYGROUND_MESSAGE,
+    ERROR_MESSAGE,
+    TEST_FILE_REQUEST,
+    IMPORT_MOPS_PACKAGE,
+    TestParams,
+    TestResult,
+} from './common/connectionTypes';
+import { ignoreGlobPatterns, watchGlob } from './common/watchConfig';
 import { formatDocument } from './formatter';
 
 const config = workspace.getConfiguration('motoko');
@@ -39,6 +51,29 @@ export function activate(context: ExtensionContext) {
         commands.registerCommand('motoko.startService', () =>
             startServer(context),
         ),
+    );
+    context.subscriptions.push(
+        commands.registerCommand(
+            'motoko.deployPlayground',
+            async (relevantUri?: Uri) => {
+                const uri =
+                    relevantUri?.toString() ||
+                    window.activeTextEditor?.document?.uri.toString();
+                if (!uri || !uri.endsWith('.mo')) {
+                    window.showErrorMessage(
+                        'Invalid deploy URI:',
+                        uri ?? `(${uri})`,
+                    );
+                    return;
+                }
+                await deployPlayground(context, uri);
+            },
+        ),
+    );
+    context.subscriptions.push(
+        commands.registerCommand('motoko.importMopsPackage', async () => {
+            await importMopsPackage(context);
+        }),
     );
     context.subscriptions.push(
         languages.registerDocumentFormattingEditProvider(['motoko', 'candid'], {
@@ -197,14 +232,24 @@ function setupTests(context: ExtensionContext) {
             controller.items.add(item);
             testItemTypeMap.set(item, ItemType.File);
         } catch (err) {
-            console.error(`Error while adding test file: ${uri}\n${err}`);
+            console.error(`Error while adding test file: ${uri}`);
+            console.error(err);
         }
     };
     workspace.workspaceFolders?.forEach((workspaceFolder) => {
-        const directory = workspaceFolder.uri.fsPath;
-        glob.sync(pattern, { cwd: directory }).forEach((file) => {
-            addFile(Uri.file(path.resolve(directory, file)));
-        });
+        try {
+            const directory = workspaceFolder.uri.fsPath;
+            glob.sync(pattern, {
+                cwd: directory,
+                ignore: ignoreGlobPatterns,
+                followSymbolicLinks: false,
+            }).forEach((file) => {
+                addFile(Uri.file(path.resolve(directory, file)));
+            });
+        } catch (err) {
+            console.error('Error while loading test files:');
+            console.error(err);
+        }
     });
     watcher.onDidCreate(addFile, context.subscriptions);
     watcher.onDidChange(addFile, context.subscriptions);
@@ -300,6 +345,15 @@ function restartLanguageServer(
         serverOptions,
         clientOptions,
     );
+    client.onNotification(ERROR_MESSAGE, async ({ message, detail }) => {
+        const item = await window.showErrorMessage(
+            detail ? `${message}\n${detail}` : message,
+            'View logs',
+        );
+        if (item === 'View logs') {
+            client.outputChannel.show();
+        }
+    });
     client.start().catch((err) => console.error(err.stack || err));
     context.subscriptions.push(client);
 }
@@ -343,4 +397,153 @@ function getDfxPath(): string {
     } catch {
         return dfx;
     }
+}
+
+const deployingSet = new Set<string>();
+const deployPanelMap = new Map<string, vscode.WebviewPanel>();
+let tag = Math.floor(Math.random() * 1e12);
+
+async function deployPlayground(_context: ExtensionContext, uri: string) {
+    try {
+        if (deployingSet.has(uri)) {
+            throw new Error('Already deploying this file');
+        }
+        deployingSet.add(uri);
+        const result = await window.withProgress(
+            { location: vscode.ProgressLocation.Notification },
+            async (progress) => {
+                progress.report({
+                    message: 'Deploying to Motoko Playground...',
+                });
+                const listener = client.onNotification(
+                    DEPLOY_PLAYGROUND_MESSAGE,
+                    ({ message }) => progress.report({ message }),
+                );
+                const result = await client.sendRequest(DEPLOY_PLAYGROUND, {
+                    uri,
+                });
+                listener.dispose();
+                return result;
+            },
+        );
+        const key = result.canisterId;
+        let panel = deployPanelMap.get(key);
+        if (!panel) {
+            panel = window.createWebviewPanel(
+                'candid-ui',
+                'Candid UI',
+                ViewColumn.Beside,
+                {
+                    enableScripts: true,
+                    retainContextWhenHidden: true,
+                },
+            );
+            deployPanelMap.set(key, panel);
+            panel.onDidDispose(() => deployPanelMap.delete(key));
+        }
+        panel.webview.html = `
+            <iframe
+                src="https://a4gq6-oaaaa-aaaab-qaa4q-cai.raw.icp0.io/?id=${
+                    result.canisterId
+                }&tag=${tag++}"
+                style="width:100vw; height:100vh; border:none"
+            />`;
+    } catch (err: any) {
+        window.showErrorMessage(
+            err?.message
+                ? String(err.message)
+                : 'Unexpected error while deploying canister',
+        );
+    }
+    deployingSet.delete(uri);
+}
+
+let packageItemsCache: vscode.QuickPickItem[] = [];
+
+async function importMopsPackage(_context: ExtensionContext) {
+    const mopsActor = await mops.mainActor();
+    const quickPick = window.createQuickPick<QuickPickItem>();
+    quickPick.placeholder = 'Type to search for Motoko packages';
+
+    const loadInitial = async () => {
+        if (packageItemsCache.length) {
+            quickPick.items = packageItemsCache;
+            return;
+        }
+        quickPick.busy = true;
+        const limit = 200;
+        const [results, _pageCount] = await mopsActor
+            .search('', [BigInt(limit)], [])
+            .finally(() => {
+                quickPick.busy = false;
+            });
+        const items = results.map((packageSummary) => {
+            return {
+                label: packageSummary.config.name,
+                description: packageSummary.config.version,
+                detail: packageSummary.config.description,
+            };
+        });
+        packageItemsCache = items;
+        quickPick.items = items;
+    };
+
+    quickPick.onDidAccept(async () => {
+        const name = quickPick.selectedItems[0].label;
+
+        quickPick.enabled = true;
+        quickPick.busy = false;
+        quickPick.dispose();
+
+        await window.withProgress(
+            { location: vscode.ProgressLocation.Notification },
+            async (progress) => {
+                progress.report({ message: `Installing package "${name}"...` });
+                const editor = window.activeTextEditor;
+                if (!editor) {
+                    return;
+                }
+                try {
+                    const uri = editor.document?.uri.toString();
+                    // install package
+                    const edits = await client.sendRequest(
+                        IMPORT_MOPS_PACKAGE,
+                        { uri, name },
+                    );
+
+                    // add import line
+                    const workspaceEdit = new vscode.WorkspaceEdit();
+                    workspaceEdit.set(
+                        editor.document.uri,
+                        edits.map(
+                            (edit) =>
+                                new TextEdit(
+                                    new Range(
+                                        edit.range.start.line,
+                                        edit.range.start.character,
+                                        edit.range.end.line,
+                                        edit.range.end.character,
+                                    ),
+                                    edit.newText,
+                                ),
+                        ),
+                    );
+                    vscode.workspace.applyEdit(workspaceEdit);
+                    // window.showInformationMessage(`Package "${name}" installed successfully`);
+                } catch (err) {
+                    window.showErrorMessage(
+                        `Failed to install package "${name}"\n${err}`,
+                    );
+                }
+            },
+        );
+    });
+
+    quickPick.onDidHide(async () => {
+        quickPick.dispose();
+    });
+
+    quickPick.show();
+
+    await loadInitial();
 }

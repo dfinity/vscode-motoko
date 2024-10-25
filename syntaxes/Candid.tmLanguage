@@ -598,7 +598,7 @@
 					<key>comment</key>
 					<string>statement keyword</string>
 					<key>match</key>
-					<string>\b(opt|vec|record|variant|func|null|empty|oneway|query)\b</string>
+					<string>\b(opt|vec|record|variant|func|null|empty|oneway|query|composite_query)\b</string>
 					<key>name</key>
 					<string>keyword.statement.candid</string>
 				</dict>

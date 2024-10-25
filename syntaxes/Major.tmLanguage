@@ -242,15 +242,6 @@
 				</dict>
 			</array>
 		</dict>
-		<key>catch-statement-keyword</key>
-		<dict>
-			<key>comment</key>
-			<string>catch-statement</string>
-			<key>match</key>
-			<string>\b(catch|do)\b</string>
-			<key>name</key>
-			<string>kewyord.control.catch.motoko</string>
-		</dict>
 		<key>code-block</key>
 		<dict>
 			<key>begin</key>
@@ -737,7 +728,7 @@
 					<key>comment</key>
 					<string>statement keyword</string>
 					<key>match</key>
-					<string>\b(assert|break|case|continue|debug|debug_show|else|if|ignore|in|for|label|null|return|switch|while|loop|try|throw|catch|do|to_candid|from_candid|with)\b</string>
+					<string>\b(assert|break|case|continue|debug|debug_show|else|if|ignore|in|for|label|null|return|switch|while|loop|try|throw|catch|finally|do|to_candid|from_candid|with)\b</string>
 					<key>name</key>
 					<string>keyword.statement.motoko</string>
 				</dict>
@@ -745,7 +736,7 @@
 					<key>comment</key>
 					<string>other keyword</string>
 					<key>match</key>
-					<string>\b(flexible|query|stable)\b</string>
+					<string>\b(flexible|query|stable|composite)\b</string>
 					<key>name</key>
 					<string>keyword.other.motoko</string>
 				</dict>

@@ -1,7 +1,7 @@
 import { AST, Node, Span } from 'motoko/lib/ast';
 import { Location, Position, Range } from 'vscode-languageserver';
 import { Context, getContext } from './context';
-import { findNodes, matchNode, asNode } from './syntax';
+import { findNodes, matchNode, asNode, findInPattern } from './syntax';
 import { getAbsoluteUri } from './utils';
 
 interface Reference {
@@ -13,6 +13,7 @@ interface Definition {
     uri: string;
     cursor: Node;
     body: Node;
+    name: string | undefined;
 }
 
 interface Search {
@@ -34,7 +35,6 @@ export function findMostSpecificNodeForPosition(
             node.end &&
             position.line >= node.start[0] - 1 &&
             position.line <= node.end[0] - 1 &&
-            // position.line == node.start[0] - 1 &&
             (position.line !== node.start[0] - 1 ||
                 position.character >= node.start[1]) &&
             (position.line !== node.end[0] - 1 ||
@@ -46,9 +46,6 @@ export function findMostSpecificNodeForPosition(
     let nodeLines: number;
     let nodeChars: number;
     nodes.forEach((n: Node) => {
-        // if (ignoredAstNodes.includes(n.name)) {
-        //     return;
-        // }
         const nLines = n.end![0] - n.start![0];
         const nChars = n.end![1] - n.start![1];
         if (
@@ -63,6 +60,11 @@ export function findMostSpecificNodeForPosition(
         }
     });
     return node as (Node & { start: Span; end: Span }) | undefined;
+}
+
+export function defaultRange(): Range {
+    const pos = Position.create(0, 0);
+    return Range.create(pos, pos);
 }
 
 export function rangeFromNode(
@@ -102,42 +104,12 @@ export function locationFromDefinition(definition: Definition) {
     return location;
 }
 
-function findNameInPattern(search: Search, pat: Node): Node | undefined {
-    const matchAny = (...args: Node[]) => {
-        for (const field of args) {
-            const result = findNameInPattern(search, field);
-            if (result) {
-                return result;
-            }
-        }
-        return;
-    };
-    const match = (arg: Node) => findNameInPattern(search, arg);
-    return (
-        matchNode(pat, 'VarP', (name: string) =>
-            name === search.name ? pat : undefined,
-        ) ||
-        matchNode(pat, 'ObjP', (...args: Node[]) => {
-            for (const field of args) {
-                const aliasNode = field.args![0] as Node;
-                const alias = matchNode(
-                    aliasNode,
-                    'VarP',
-                    (alias) => alias,
-                    field.name,
-                );
-                if (alias === search.name) {
-                    return aliasNode || field;
-                }
-            }
-            return;
-        }) ||
-        matchNode(pat, 'TupP', matchAny) ||
-        matchNode(pat, 'AltP', matchAny) ||
-        matchNode(pat, 'AnnotP', match) ||
-        matchNode(pat, 'ParP', match) ||
-        matchNode(pat, 'OptP', match) ||
-        matchNode(pat, 'TagP', (_tag, arg: Node) => match(arg))
+function findNameInPattern(
+    search: Search,
+    pat: Node,
+): [string, Node] | undefined {
+    return findInPattern(pat, (name, node) =>
+        name === search.name ? [name, node] : undefined,
     );
 }
 
@@ -174,7 +146,7 @@ export function findDefinition(
     if (!node) {
         return;
     }
-    const reference = { uri, node };
+    const reference: Reference = { uri, node };
     const importDefinition = followImport(context, reference);
     if (importDefinition) {
         return importDefinition;
@@ -226,9 +198,9 @@ function getTypeSearchPath(node: Node): Search[] {
                 },
             ]) ||
             matchNode(node, 'DotH', (qual: Node, name: string) => [
-                ...getTypeSearchPath(qual),
+                ...getQualifierSearchPath(qual),
                 {
-                    type: 'type',
+                    type: 'variable',
                     name,
                 },
             ]) ||
@@ -273,8 +245,10 @@ function followImport(
         return;
     }
     // Find the relevant field name
-    const field = matchNode(reference.node.parent?.parent, 'ObjP', () =>
-        matchNode(reference.node, 'VarP', (name: string) => name),
+    const field = matchNode(
+        reference.node.parent?.parent,
+        'ObjP',
+        () => reference.node.parent?.name,
     );
     // Follow the module import
     return matchNode(importNode, 'ImportE', (path: string) => {
@@ -302,18 +276,18 @@ function followImport(
             console.log('AST:', status.program.export.ast);
             return;
         }
-        const declaration = {
+        if (field) {
+            return searchObject(
+                { uri, node: exportNode },
+                { type: 'variable', name: field },
+            );
+        }
+        return {
             uri,
             cursor: exportNode,
             body: exportNode,
+            name: undefined,
         };
-        if (field) {
-            return searchObject(
-                { uri: declaration.uri, node: declaration.body },
-                { type: 'variable', name: field },
-            ); // || declaration
-        }
-        return declaration;
     });
 }
 
@@ -369,19 +343,20 @@ function searchInScope(
     return;
 }
 
-function searchVariableBinding(
+function searchDeclaration(
     reference: Reference,
     search: Search,
     dec: Node,
 ): Definition | undefined {
     return (
         matchNode(dec, 'LetD', (pat: Node, body: Node) => {
-            const varNode = findNameInPattern(search, pat);
+            const [name, varNode] = findNameInPattern(search, pat) || [];
             return (
                 varNode && {
                     uri: reference.uri,
                     cursor: varNode,
                     body,
+                    name,
                 }
             );
         }) ||
@@ -391,6 +366,17 @@ function searchVariableBinding(
                       uri: reference.uri,
                       cursor: dec, // TODO: cursor on variable name
                       body,
+                      name,
+                  }
+                : undefined,
+        ) ||
+        matchNode(dec, 'ClassD', (_sharedPat: any, name: string) =>
+            name === search.name
+                ? {
+                      uri: reference.uri,
+                      cursor: dec, // TODO: cursor on variable name
+                      body: dec,
+                      name,
                   }
                 : undefined,
         )
@@ -402,14 +388,27 @@ function searchTypeBinding(
     search: Search,
     dec: Node,
 ): Definition | undefined {
-    return matchNode(dec, 'TypD', (name: string, typ: Node) =>
-        name === search.name
-            ? {
-                  uri: reference.uri,
-                  cursor: typ, // TODO: source location from `name`
-                  body: typ,
-              }
-            : undefined,
+    return (
+        matchNode(dec, 'TypD', (name: string, typ: Node) =>
+            name === search.name
+                ? {
+                      uri: reference.uri,
+                      cursor: typ, // TODO: source location from `name`
+                      body: typ,
+                      name,
+                  }
+                : undefined,
+        ) ||
+        matchNode(dec, 'ClassD', (_sharedPat: any, name: string) =>
+            name === search.name
+                ? {
+                      uri: reference.uri,
+                      cursor: dec, // TODO: cursor on variable name
+                      body: dec,
+                      name,
+                  }
+                : undefined,
+        )
     );
 }
 
@@ -424,11 +423,11 @@ function searchObject(
                 // Skip everything except `Node` values
                 continue;
             }
-            console.log('Searching:', search.name, scope.name, arg.name); ////
+            // console.log('Searching:', search.name, scope.name, arg.name);
             let definition: Definition | undefined;
             if (search.type === 'variable') {
                 definition =
-                    searchVariableBinding(reference, search, arg) ||
+                    searchDeclaration(reference, search, arg) ||
                     matchNode(
                         arg,
                         'ExpField',
@@ -437,10 +436,11 @@ function searchObject(
                                 uri: reference.uri,
                                 cursor: arg,
                                 body,
+                                name,
                             },
                     ) ||
                     matchNode(arg, 'DecField', (dec: Node) =>
-                        searchVariableBinding(reference, search, dec),
+                        searchDeclaration(reference, search, dec),
                     ) ||
                     matchNode(
                         arg,
@@ -451,7 +451,7 @@ function searchObject(
                                     field,
                                     'DecField',
                                     (dec: Node) =>
-                                        searchVariableBinding(
+                                        searchDeclaration(
                                             reference,
                                             search,
                                             dec,
@@ -465,12 +465,13 @@ function searchObject(
                         },
                     );
                 if (!definition) {
-                    const pat = findNameInPattern(search, arg); // Function parameters
+                    const [name, pat] = findNameInPattern(search, arg) || []; // Function parameters
                     if (pat) {
                         definition = {
                             uri: reference.uri,
                             cursor: pat,
                             body: pat,
+                            name,
                         };
                     }
                 }

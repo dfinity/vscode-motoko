@@ -1,13 +1,17 @@
-import { Motoko } from 'motoko/lib';
+import { type Motoko } from 'motoko/lib';
 import * as baseLibrary from 'motoko/packages/latest/base.json';
 import ImportResolver from './imports';
 import AstResolver from './ast';
+import { join } from 'path';
+
+type Version = string | undefined; // `undefined` refers to latest version
 
 /**
  * A Motoko compiler context.
  */
 export class Context {
     public readonly uri: string;
+    public readonly version: Version;
     public readonly motoko: Motoko;
     public readonly astResolver: AstResolver;
     public readonly importResolver: ImportResolver;
@@ -15,10 +19,11 @@ export class Context {
     public packages: [string, string][] | undefined;
     public error: string | undefined;
 
-    constructor(uri: string, motoko: Motoko) {
+    constructor(uri: string, version: Version, motoko: Motoko) {
+        this.version = version;
         this.uri = uri;
         this.motoko = motoko;
-        this.astResolver = new AstResolver();
+        this.astResolver = new AstResolver(this);
         this.importResolver = new ImportResolver(this);
     }
 }
@@ -31,24 +36,40 @@ const contexts: Context[] = [];
 // Reuse `motoko` npm package instances to limit memory usage
 const previousMotokoInstances = new Map<string, Motoko>();
 
+function getMotokoInstanceKey(uri: string, version: Version) {
+    return `${uri}:${version}`;
+}
+
 /**
  * Create or reuse a `moc.js` compiler instance.
  */
-function requestMotokoInstance(uri: string): Motoko {
-    let motoko = previousMotokoInstances.get(uri)!;
+function requestMotokoInstance(uri: string, version: Version): Motoko {
+    let motoko = previousMotokoInstances.get(
+        getMotokoInstanceKey(uri, version),
+    )!;
     if (motoko) {
         motoko.clearPackages();
     } else {
         Object.keys(require.cache).forEach((key) => {
             if (
                 key.endsWith('/out/motoko.js') ||
-                key.endsWith('\\out\\motoko.js')
+                key.endsWith('\\out\\motoko.js') ||
+                key.includes('/out/compiler/') ||
+                key.includes('\\out\\compiler\\')
             ) {
-                // console.warn('Deleting cache:', key);
                 delete require.cache[key];
             }
         });
-        motoko = require(motokoPath).default;
+        // TODO: download `moc.js` versions from GitHub releases
+        if (version === '0.10.4') {
+            const compiler = require(join(
+                __dirname,
+                '/compiler/moc-' + version,
+            )).Motoko;
+            motoko = require('motoko/lib').default(compiler);
+        } else {
+            motoko = require(motokoPath).default;
+        }
     }
     motoko.loadPackage(baseLibrary);
     return motoko;
@@ -58,18 +79,17 @@ let defaultContext: Context | undefined;
 function requestDefaultContext() {
     if (!defaultContext) {
         defaultContext = addContext('');
-        // console.warn('Created default context');
     }
     return defaultContext;
 }
-requestDefaultContext(); // Always add a default context (provisional)
+requestDefaultContext(); // Always add a default context
 
 /**
  * Reset all contexts (used to update Vessel configuration).
  */
 export function resetContexts() {
-    contexts.forEach(({ uri, motoko }) => {
-        previousMotokoInstances.set(uri, motoko);
+    contexts.forEach(({ uri, version, motoko }) => {
+        previousMotokoInstances.set(getMotokoInstanceKey(uri, version), motoko);
     });
     contexts.length = 0;
     if (defaultContext) {
@@ -81,14 +101,14 @@ export function resetContexts() {
 /**
  * Register a context for the given directory (specified as a URI).
  */
-export function addContext(uri: string): Context {
+export function addContext(uri: string, version?: Version): Context {
     const existing = contexts.find((other) => uri === other.uri);
     if (existing) {
         console.warn('Duplicate contexts for URI:', uri);
         return existing;
     }
-    const motoko = requestMotokoInstance(uri);
-    const context = new Context(uri, motoko);
+    const motoko = requestMotokoInstance(uri, version);
+    const context = new Context(uri, version, motoko);
     // Insert by descending specificity (`uri.length`) and then ascending alphabetical order
     let index = 0;
     while (index < contexts.length) {
