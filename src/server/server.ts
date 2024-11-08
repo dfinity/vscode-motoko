@@ -1521,11 +1521,17 @@ connection.onRequest(TEST_FILE_REQUEST, async (event): Promise<TestResult> => {
 });
 
 // Deploy to Motoko Playground
-connection.onRequest(DEPLOY_PLAYGROUND, (params) =>
-    deployPlayground(params, (message) =>
-        connection.sendNotification(DEPLOY_PLAYGROUND_MESSAGE, { message }),
-    ),
-);
+connection.onRequest(DEPLOY_PLAYGROUND, async (params) => {
+    try {
+        return deployPlayground(params, (message) => {
+            console.log(message);
+            connection.sendNotification(DEPLOY_PLAYGROUND_MESSAGE, { message });
+        });
+    } catch (err) {
+        console.error(err);
+        throw err;
+    }
+});
 
 // Install and import mops package
 connection.onRequest(IMPORT_MOPS_PACKAGE, async (params) => {

@@ -71,6 +71,12 @@ function requestMotokoInstance(uri: string, version: Version): Motoko {
             motoko = require(motokoPath).default;
         }
     }
+    // Required for deploying to Motoko Playground
+    motoko.setPublicMetadata([
+        'candid:service',
+        'candid:args',
+        'motoko:stable-types',
+    ]);
     motoko.loadPackage(baseLibrary);
     return motoko;
 }

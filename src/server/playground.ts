@@ -98,41 +98,37 @@ export async function deployPlayground(
         wasm: Uint8Array,
         profiling: ProfilingConfig | null,
     ): Promise<CanisterInfo> {
-        try {
-            let updatedState: CanisterInfo | null = null;
-            if (!canisterInfo) {
-                if (mode !== 'install') {
-                    throw new Error(`Cannot '${mode}' for new canister`);
-                }
-                canisterInfo = await createCanister();
-                notify('Deploying...');
-                updatedState = await install(
-                    canisterInfo,
-                    wasm,
-                    args,
-                    'install',
-                    profiling,
-                );
-            } else {
-                if (mode !== 'reinstall' && mode !== 'upgrade') {
-                    throw new Error(`Unknown mode '${mode}'`);
-                }
-                notify('Deploying...');
-                updatedState = await install(
-                    canisterInfo,
-                    wasm,
-                    args,
-                    mode,
-                    profiling,
-                );
+        let updatedState: CanisterInfo | null = null;
+        if (!canisterInfo) {
+            if (mode !== 'install') {
+                throw new Error(`Cannot '${mode}' for new canister`);
             }
-            //updatedState.candid = candid_source;
-            updatedState.name = canisterName;
-            return updatedState;
-        } catch (err) {
-            // logger.log(err.message);
-            throw err;
+            canisterInfo = await createCanister();
+            notify(`Deploying ${canisterInfo.id}...`);
+            updatedState = await install(
+                canisterInfo,
+                wasm,
+                args,
+                'install',
+                profiling,
+            );
+        } else {
+            if (mode !== 'reinstall' && mode !== 'upgrade') {
+                throw new Error(`Unknown mode '${mode}'`);
+            }
+            notify(`Deploying ${canisterInfo.id}...`);
+            updatedState = await install(
+                canisterInfo,
+                wasm,
+                args,
+                mode,
+                profiling,
+            );
         }
+        console.log('Finished deploying canister');
+        //updatedState.candid = candid_source;
+        updatedState.name = canisterName;
+        return updatedState;
     }
 
     async function createCanister(): Promise<CanisterInfo> {
@@ -158,7 +154,7 @@ export async function deployPlayground(
     ): Promise<CanisterInfo> {
         notify('Installing WebAssembly...');
         if (!canisterInfo) {
-            throw new Error('No canister id');
+            throw new Error('No canister ID');
         }
         const canisterId = canisterInfo.id;
         const installArgs = {
@@ -181,6 +177,7 @@ export async function deployPlayground(
             installConfig,
         );
         canisterInfo = newInfo;
+        console.log(`Code installed at canister ID: ${canisterInfo.id}`);
         return canisterInfo;
     }
 
