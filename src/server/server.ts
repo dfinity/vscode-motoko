@@ -228,6 +228,7 @@ async function getPackageSources(
 let loadingPackages = false;
 let packageConfigChangeTimeout: ReturnType<typeof setTimeout>;
 function notifyPackageConfigChange(reuseCached = false) {
+    isWorkspaceReady = false;
     if (!reuseCached) {
         packageSourceCache.clear();
     }
@@ -363,6 +364,7 @@ function notifyPackageConfigChange(reuseCached = false) {
 let dfxResolver: DfxResolver | undefined;
 let dfxChangeTimeout: ReturnType<typeof setTimeout>;
 function notifyDfxChange() {
+    isWorkspaceReady = false;
     clearTimeout(dfxChangeTimeout);
     dfxChangeTimeout = setTimeout(async () => {
         try {
@@ -751,6 +753,7 @@ function unscheduleCheck(uri: string) {
     }
 }
 
+let isWorkspaceReady = false;
 let previousCheckedFiles: string[] = [];
 let checkWorkspaceTimeout: ReturnType<typeof setTimeout>;
 /**
@@ -815,6 +818,7 @@ function checkWorkspace() {
             checkedFiles.forEach((uri) => notify(uri));
             checkedFiles.forEach((uri) => scheduleCheck(uri));
             previousCheckedFiles = checkedFiles;
+            isWorkspaceReady = true;
         } catch (err) {
             console.error('Error while finding dfx canister paths');
             console.error(err);
@@ -1449,7 +1453,7 @@ connection.onReferences(
 
 // Run a file which is recognized as a unit test
 connection.onRequest(TEST_FILE_REQUEST, async (event): Promise<TestResult> => {
-    while (loadingPackages) {
+    while (!isWorkspaceReady) {
         // Load all packages before running tests
         await new Promise((resolve) => setTimeout(resolve, 500));
     }
@@ -1521,11 +1525,24 @@ connection.onRequest(TEST_FILE_REQUEST, async (event): Promise<TestResult> => {
 });
 
 // Deploy to Motoko Playground
-connection.onRequest(DEPLOY_PLAYGROUND, (params) =>
-    deployPlayground(params, (message) =>
-        connection.sendNotification(DEPLOY_PLAYGROUND_MESSAGE, { message }),
-    ),
-);
+connection.onRequest(DEPLOY_PLAYGROUND, async (params) => {
+    const notify = (message: string) => {
+        console.log(message);
+        connection.sendNotification(DEPLOY_PLAYGROUND_MESSAGE, { message });
+    };
+    try {
+        if (!isWorkspaceReady) {
+            notify('Loading workspace...');
+            while (!isWorkspaceReady) {
+                await new Promise((resolve) => setTimeout(resolve, 200));
+            }
+        }
+        return deployPlayground(params, notify);
+    } catch (err) {
+        console.error(err);
+        throw err;
+    }
+});
 
 // Install and import mops package
 connection.onRequest(IMPORT_MOPS_PACKAGE, async (params) => {
