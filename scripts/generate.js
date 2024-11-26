@@ -9,7 +9,7 @@ if (!fs.existsSync(generatedDirectory)) {
 
 https
     .get(
-        'https://raw.githubusercontent.com/dfinity/interface-spec/master/spec/_attachments/ic.did',
+        'https://raw.githubusercontent.com/dfinity/portal/master/docs/references/_attachments/ic.did',
         (response) => {
             if (response.statusCode !== 200) {
                 throw new Error(
