@@ -780,7 +780,7 @@
 			<key>comment</key>
 			<string>loop-statement</string>
 			<key>match</key>
-			<string>\b(while|repeat|for|in|loop)\b</string>
+			<string>\b(while|for|in|loop)\b</string>
 			<key>name</key>
 			<string>keyword.control.loop.motoko</string>
 		</dict>
