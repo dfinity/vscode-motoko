@@ -81,6 +81,7 @@ import {
 } from './syntax';
 import {
     formatMotoko,
+    forwardMessage,
     getFileText,
     getRelativeUri,
     rangeContainsPosition,
@@ -110,7 +111,7 @@ const shouldHideWarnings = (uri: string) =>
 
 export const documents = new TextDocuments(TextDocument);
 
-export const addHandlers = (connection: Connection) => {
+export const addHandlers = (connection: Connection, redirectConsole = true) => {
     const packageSourceCache = new Map();
     async function getPackageSources(
         directory: string,
@@ -572,34 +573,17 @@ export const addHandlers = (connection: Connection) => {
         return Position.create(0, 0);
     }
 
-    const forwardMessage =
-        (send: (message: string) => void) =>
-        (...args: any[]): void => {
-            const toString = (value: any) => {
-                try {
-                    return typeof value === 'string'
-                        ? value
-                        : value instanceof Promise
-                        ? '<Promise>'
-                        : value instanceof Error
-                        ? value.stack || value.message || value
-                        : String(JSON.stringify(value));
-                } catch (err) {
-                    return `<${err}>`;
-                }
-            };
-            send(args.map(toString).join(' '));
-        };
-
-    console.log = forwardMessage(
-        connection.console.log.bind(connection.console),
-    );
-    console.warn = forwardMessage(
-        connection.console.warn.bind(connection.console),
-    );
-    console.error = forwardMessage(
-        connection.console.error.bind(connection.console),
-    );
+    if (redirectConsole) {
+        console.log = forwardMessage(
+            connection.console.log.bind(connection.console),
+        );
+        console.warn = forwardMessage(
+            connection.console.warn.bind(connection.console),
+        );
+        console.error = forwardMessage(
+            connection.console.error.bind(connection.console),
+        );
+    }
 
     let settings: MotokoSettings | undefined;
     let workspaceFolders: WorkspaceFolder[] | undefined;
