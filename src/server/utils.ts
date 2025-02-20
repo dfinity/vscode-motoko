@@ -28,7 +28,7 @@ export function resolveVirtualPath(uri: string, ...parts: string[]): string {
  * Reads a file from the given URI.
  */
 export function getFileText(uri: string): string {
-    const document = require('./server').documents.get(uri);
+    const document = require('./handlers').documents.get(uri);
     if (document) {
         return document.getText();
     } else {
