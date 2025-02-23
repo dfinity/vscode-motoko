@@ -227,7 +227,7 @@
         "test": "jest",
         "package": "npm run generate && vsce package && npm test && npm run --silent lint",
         "publish": "vsce publish",
-        "compile:benchmark": "npm run compile && esbuild ./src/server/bench/benchmark.ts --bundle --outfile=out/benchmark.js --external:vscode --format=cjs --platform=node --minify",
+        "compile:benchmark-did-change": "npm run compile && esbuild ./src/server/bench/benchmark-did-change.ts --bundle --outfile=out/benchmark-did-change.js --external:vscode --format=cjs --platform=node --minify",
         "compile:dev": "npm run compile:pre && run-p compile:snippets compile:formatter compile:rust_ && run-p compile:motoko:dev",
         "compile:motoko:dev": "esbuild motoko --bundle --outfile=out/motoko.js --format=cjs --platform=node --minify=false --sourcemap=inline && shx cp -r src/server/compiler out/compiler",
         "compile:benchmark:dev": "npm run compile:dev && esbuild ./src/server/bench/benchmark.ts --bundle --outfile=out/benchmark.js --external:vscode --format=cjs --platform=node --minify=false --sourcemap=inline"
