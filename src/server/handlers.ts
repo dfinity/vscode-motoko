@@ -374,6 +374,7 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                 loadingPackages = false;
                 notifyWorkspace(); // Update virtual file system
                 notifyDfxChange(); // Reload dfx.json
+                connection.sendNotification('custom/initialized', {});
             } catch (err: any) {
                 loadingPackages = false;
                 console.error(
