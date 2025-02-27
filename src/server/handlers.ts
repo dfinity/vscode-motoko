@@ -1638,7 +1638,6 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
         if (uri === validatingUri) {
             clearTimeout(validatingTimeout);
         }
-        notify(document);
         validatingUri = uri;
         validatingTimeout = setTimeout(() => {
             notify(document);
