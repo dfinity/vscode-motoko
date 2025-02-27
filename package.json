@@ -168,6 +168,7 @@
     "dependencies": {
         "@wasmer/wasi": "1.2.2",
         "change-case": "4.1.2",
+        "dependency-graph": "^1.0.0",
         "execa": "4.1.0",
         "fast-glob": "3.2.12",
         "ic-mops": "0.45.3",
