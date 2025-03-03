@@ -225,7 +225,7 @@ function getTypeSearchPath(node: Node): Search[] {
     );
 }
 
-function followImport(
+export function followImport(
     context: Context,
     reference: Reference,
 ): Definition | undefined {
@@ -412,7 +412,7 @@ function searchTypeBinding(
     );
 }
 
-function searchObject(
+export function searchObject(
     reference: Reference,
     search: Search,
 ): Definition | undefined {
