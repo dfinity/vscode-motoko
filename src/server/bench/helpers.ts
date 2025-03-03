@@ -124,7 +124,7 @@ export async function measureMultipleRequestConcurrent<T>(
     params: object,
     times: number,
 ): Promise<number[]> {
-    assert(times > 1, 'times must be greater than 0');
+    assert(times > 1, 'times must be greater than 1');
     const benchmarks = [...Array(times)].map((_, _i) =>
         measureRequest<T>(client, method, params),
     );
@@ -137,7 +137,7 @@ export async function measureMultipleRequestSequential<T>(
     params: object,
     times: number,
 ): Promise<number[]> {
-    assert(times > 1, 'times must be greater than 0');
+    assert(times > 1, 'times must be greater than 1');
     const results: number[] = [];
     for (let i = 0; i < times; i++) {
         const result = await measureRequest<T>(client, method, params);
@@ -181,7 +181,7 @@ export class Setup {
         this.args = args;
     }
 
-    static async create(name: string, args: any) {
+    static create(name: string, args: any) {
         if (!args.root) {
             console.error(
                 'USAGE: node out/benchmark.js --root <path_to_project> [--verbose]',
@@ -294,7 +294,7 @@ export async function createBenchmark(
 
     const args = minimist(process.argv.slice(2));
 
-    const setup = await Setup.create(name, args);
+    const setup = Setup.create(name, args);
 
     await scenario(setup);
 }
