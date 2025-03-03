@@ -1,7 +1,9 @@
 import { DepGraph as DG } from 'dependency-graph';
 
 export default class DepGraph {
-    private readonly _depGraph = new DG<string>({ circular: false });
+    // Motoko doesn't allow for circular imports, however, we allow it in the
+    // extension to avoid exceptions from this module.
+    private readonly _depGraph = new DG<string>({ circular: true });
 
     clear() {
         for (const node of this._depGraph.overallOrder()) {
