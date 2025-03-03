@@ -1223,9 +1223,7 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                                     label: name,
                                     detail: path,
                                     insertText: name,
-                                    kind: path.startsWith('mo:')
-                                        ? CompletionItemKind.Module
-                                        : CompletionItemKind.Class, // TODO: resolve actors, classes, etc.
+                                    kind: CompletionItemKind.Module,
                                     additionalTextEdits: edits,
                                 });
                             } catch (err) {
