@@ -72,5 +72,26 @@ createBenchmark('didChange', async (setup: Setup) => {
             textDocument: { uri: document.uri },
             position: { line: 39, character: 0 }, // NOTE: doesn't matter
         });
+
+        await setup.sendNotification(
+            'textDocument/didChange',
+            {
+                textDocument: {
+                    uri: document.uri,
+                    version: 1,
+                },
+                contentChanges: [
+                    {
+                        text: document.text,
+                    },
+                ],
+            },
+            100,
+        );
+
+        await setup.benchmark<Hover>('textDocument/hover', {
+            textDocument: { uri: document.uri },
+            position: { line: 39, character: 0 }, // NOTE: doesn't matter
+        });
     });
 });
