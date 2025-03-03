@@ -142,6 +142,16 @@ export default class ImportResolver {
         return [...options].map((option) => getRelativeUri(uri, option));
     }
 
+    getUrisByModuleName(name: string): string[] {
+        const uris = [];
+        for (const [key, value] of this._moduleNameUriMap.entries()) {
+            if (key === name) {
+                uris.push(value + '.mo');
+            }
+        }
+        return uris;
+    }
+
     /**
      * Finds all available module-level imports.
      * @returns Array of `[name, path]` entries
