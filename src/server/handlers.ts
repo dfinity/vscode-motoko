@@ -1042,7 +1042,10 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                 let program: Program | undefined;
                 try {
                     astResolver.notify(uri, content, isVirtualFileSystemReady);
-                    // program = astResolver.request(uri)?.program; // TODO: re-enable for field imports
+                    program = astResolver.request(
+                        uri,
+                        isVirtualFileSystemReady,
+                    )?.program;
                 } catch (err) {
                     console.error(`Error while parsing (${uri}): ${err}`);
                 }
@@ -1672,7 +1675,10 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
             .astResolver.getDependencyGraph()
             .getRawGraph();
         const nodes = graph.overallOrder(false);
-        return nodes.map((node) => [node, graph.directDependenciesOf(node)]);
+        return nodes.map((node: any) => [
+            node,
+            graph.directDependenciesOf(node),
+        ]);
     });
 
     const diagnosticMap = new Map<string, Diagnostic[]>();
