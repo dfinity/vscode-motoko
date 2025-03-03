@@ -19,3 +19,14 @@ node ./out/benchmark-did-change.js --verbose --root=<path_to_root> --file=game-l
 git clone https://github.com/BoomDAO/game-launcher.git
 git clone https://github.com/flowerpowerdao/power-equalizer.git
 ```
+
+# How to profile benchmarks ?
+
+Here is an example how to profile `benchmark-init`:
+
+1. Run `npm run compile:benchmark:dev`
+2. Run `node --inspect-brk=6004 --no-lazy out/benchmark-init.js --root=path_to_game_launcher`
+3. Go to `chrome://inspect` in your chrome-based browser (If you don't see the benchmark process check that "Target discovery settings" contains `6004` port)
+4. Find the process in the `Remote Target` and click `inspect`
+5. In the new window open the `Performance` tab and click on the record button in the left 
+6. You should manually stop recording when benchmark will be completed via checking logs in the shell console.
