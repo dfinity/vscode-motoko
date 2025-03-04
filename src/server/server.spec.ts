@@ -41,7 +41,7 @@ describe('cache', () => {
     }
 
     async function runTest<T>(test: (client: Connection) => Promise<T>) {
-        const [client, _server] = setupClientServer();
+        const [client, _server] = setupClientServer(true);
         await client.sendRequest<InitializeResult>(
             'initialize',
             clientInitParams(rootUri),
