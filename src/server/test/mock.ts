@@ -76,7 +76,9 @@ export const clientInitParams = (rootUri: URI): InitializeParams => {
     };
 };
 
-export const setupClientServer = (): [Connection, Connection] => {
+export const setupClientServer = (
+    redirectConsole: boolean = false,
+): [Connection, Connection] => {
     const up = new MockDuplex();
     const down = new MockDuplex();
 
@@ -88,14 +90,16 @@ export const setupClientServer = (): [Connection, Connection] => {
 
     const server = createConnection(ProposedFeatures.all, up, down);
 
-    server.console.log = forwardMessage(console.log);
-    server.console.warn = forwardMessage(console.warn);
-    server.console.error = forwardMessage(console.error);
+    if (!redirectConsole) {
+        server.console.log = forwardMessage(console.log);
+        server.console.warn = forwardMessage(console.warn);
+        server.console.error = forwardMessage(console.error);
+    }
 
     client.onRequest('client/registerCapability', () => {});
     client.listen();
 
-    addHandlers(server, false);
+    addHandlers(server, redirectConsole);
     server.listen();
 
     return [client, server];
