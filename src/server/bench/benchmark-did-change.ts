@@ -5,13 +5,9 @@ import {
     InitializeResult,
 } from 'vscode-languageserver/node';
 import { URI } from 'vscode-uri';
-import {
-    clientInitParams,
-    createBenchmark,
-    logInitializationTiming,
-    Setup,
-} from './helpers';
+import { createBenchmark, logInitializationTiming, Setup } from './helpers';
 import { join } from 'node:path';
+import { clientInitParams } from '../test/mock';
 
 createBenchmark('didChange', async (setup: Setup) => {
     if (!setup.args.file) {

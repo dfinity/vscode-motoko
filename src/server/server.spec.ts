@@ -4,8 +4,9 @@ import { InitializeResult } from 'vscode-languageclient/node';
 import { Connection } from 'vscode-languageserver/node';
 import { URI } from 'vscode-uri';
 import * as fs from 'node:fs';
-import { clientInitParams, setupClientServer, wait } from './bench/helpers';
 import { join } from 'node:path';
+import { wait } from './test/helpers';
+import { clientInitParams, setupClientServer } from './test/mock';
 
 describe('server', () => {
     test('generated IC Candid file has expected format', () => {
