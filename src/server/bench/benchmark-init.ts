@@ -1,10 +1,6 @@
 import { InitializeResult } from 'vscode-languageserver/node';
-import {
-    clientInitParams,
-    createBenchmark,
-    logInitializationTiming,
-    Setup,
-} from './helpers';
+import { clientInitParams } from '../test/mock';
+import { createBenchmark, logInitializationTiming, Setup } from './helpers';
 
 createBenchmark('init', async (setup: Setup) => {
     const before = performance.now();
