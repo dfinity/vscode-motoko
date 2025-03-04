@@ -1491,12 +1491,10 @@ connection.onRequest(TEST_FILE_REQUEST, async (event): Promise<TestResult> => {
             console.log('Compile time:', Date.now() - start);
 
             const WebAssembly = (global as any).WebAssembly;
-            const module = await (
-                WebAssembly.compileStreaming || WebAssembly.compile
-            )(wasiResult.wasm);
+            const module = await WebAssembly.compile(wasiResult.wasm);
             await initWASI();
             const wasi = new WASI({});
-            await wasi.instantiate(module, {});
+            wasi.instantiate(module, {});
             const exitCode = wasi.start();
             const stdout = wasi.getStdoutString();
             const stderr = wasi.getStderrString();
