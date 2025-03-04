@@ -1,4 +1,6 @@
 import { AST } from 'motoko/lib/ast';
+import { Scope } from 'motoko/lib/file';
+import DepGraph from './depgraph';
 import { Context } from './context';
 import { Program, fromAST } from './syntax';
 import { resolveVirtualPath, tryGetFileText } from './utils';
@@ -21,12 +23,17 @@ export const globalASTCache = new Map<string, AstStatus>(); // Share non-typed A
 export default class AstResolver {
     private readonly _cache = globalASTCache;
     private readonly _typedCache = new Map<string, AstStatus>();
+    private readonly _depGraph = new DepGraph();
+
+    private _scopeCache = new Map<string, Scope>();
 
     constructor(private readonly context: Context) {}
 
     clear() {
         this._cache.clear();
         this._typedCache.clear();
+        this._depGraph.clear();
+        this._scopeCache.clear();
     }
 
     update(uri: string, typed: boolean): boolean {
@@ -56,17 +63,40 @@ export default class AstResolver {
         } else {
             status.text = text;
         }
+
+        const virtualPath = resolveVirtualPath(uri);
+
+        // Invalidate file and its dependents, remove edges to dependencies to
+        // relink them later
+        this._scopeCache.delete(virtualPath);
+        this._depGraph.add(virtualPath);
+        for (const file of this._depGraph.transitiveDependents(virtualPath)) {
+            this._scopeCache.delete(file);
+        }
+        this._depGraph.removeImmediateDependencies(virtualPath);
+
         try {
             const { motoko } = this.context;
-            const virtualPath = resolveVirtualPath(uri);
             let ast: AST;
+            let immediateImports: string[];
             try {
-                ast = typed
-                    ? motoko.parseMotokoTyped(virtualPath).ast
-                    : motoko.parseMotoko(text);
+                if (typed) {
+                    const [prog, scopeCache] = motoko.parseMotokoTyped(
+                        virtualPath,
+                        this._scopeCache,
+                    );
+                    ast = prog.ast;
+                    immediateImports = prog.immediateImports;
+                    this._scopeCache = scopeCache;
+                } else {
+                    const prog = motoko.parseMotokoWithDeps(text);
+                    ast = prog.ast;
+                    immediateImports = prog.immediateImports;
+                }
             } catch (err) {
                 throw new SyntaxError(String(err));
             }
+            this._depGraph.addImmediateImports(virtualPath, immediateImports);
             status.ast = ast;
             const program = fromAST(ast);
             if (program instanceof Program) {
@@ -121,6 +151,8 @@ export default class AstResolver {
     delete(uri: string): boolean {
         const deleted = this._cache.delete(uri);
         const deletedTyped = this._typedCache.delete(uri);
-        return deleted || deletedTyped;
+        const deletedGraph = this._depGraph.delete(uri);
+        const deletedCache = this._scopeCache.delete(uri);
+        return deleted || deletedTyped || deletedGraph || deletedCache;
     }
 }
