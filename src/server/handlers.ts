@@ -367,6 +367,14 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                 // TODO: possibly refactor into `context.ts`
                 Object.entries(baseLibrary.files).forEach(
                     ([path, { content }]: [string, { content: string }]) => {
+                        writeVirtual(
+                            resolveVirtualPath(`mo:base/${path}`),
+                            content,
+                        );
+                    },
+                );
+                Object.entries(baseLibrary.files).forEach(
+                    ([path, { content }]: [string, { content: string }]) => {
                         notifyWriteUri(`mo:base/${path}`, content);
                     },
                 );
@@ -706,27 +714,47 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
         }
         workspaceFolders.forEach((folder) => {
             const folderPath = resolveFilePath(folder.uri);
-            glob.sync(virtualFilePattern, {
+            const relativePaths = glob.sync(virtualFilePattern, {
                 cwd: folderPath,
                 dot: true,
                 ignore: ignoreGlobPatterns,
                 followSymbolicLinks: false,
-            }).forEach((relativePath) => {
+            });
+            // Write all file contents and then notify, since notifying triggers
+            // dependency analysis and we need all files to be written before
+            // that.
+            const contents: [string, string, string][] = [];
+            relativePaths.forEach((relativePath) => {
                 const path = join(folderPath, relativePath);
+                try {
+                    const content = readFileSync(path, 'utf8');
+                    contents.push([relativePath, path, content]);
+                } catch (err) {
+                    console.error(`Error while reading Motoko file ${path}:`);
+                    console.error(err);
+                }
+            });
+            contents.forEach(([relativePath, path, content]) => {
                 try {
                     const virtualPath = resolveVirtualPath(
                         folder.uri,
                         relativePath,
                     );
                     // console.log('*', virtualPath, `(${allContexts().length})`);
-                    const content = readFileSync(path, 'utf8');
                     writeVirtual(virtualPath, content);
+                } catch (err) {
+                    console.error(`Error while writing Motoko file ${path}:`);
+                    console.error(err);
+                }
+            });
+            contents.forEach(([relativePath, path, content]) => {
+                try {
                     const uri = URI.file(
                         resolveFilePath(folder.uri, relativePath),
                     ).toString();
                     notifyWriteUri(uri, content);
                 } catch (err) {
-                    console.error(`Error while adding Motoko file ${path}:`);
+                    console.error(`Error while notifying Motoko file ${path}:`);
                     console.error(err);
                 }
             });
