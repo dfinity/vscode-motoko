@@ -51,7 +51,7 @@ export default class AstResolver {
         typed: boolean,
     ): boolean {
         const cache = typed ? this._typedCache : this._cache;
-        let status = cache.get(uri)!;
+        let status = cache.get(uri);
         // this._cache.clear();
         if (!status) {
             status = {
@@ -89,7 +89,7 @@ export default class AstResolver {
                     immediateImports = prog.immediateImports;
                     this._scopeCache = scopeCache;
                 } else {
-                    const prog = motoko.parseMotokoWithDeps(text);
+                    const prog = motoko.parseMotokoWithDeps(virtualPath, text);
                     ast = prog.ast;
                     immediateImports = prog.immediateImports;
                 }
