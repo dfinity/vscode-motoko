@@ -16,19 +16,6 @@ export async function measureRequest<T>(
     return performance.now() - start;
 }
 
-export async function measureMultipleRequestConcurrent<T>(
-    client: Connection,
-    method: string,
-    params: object,
-    times: number,
-): Promise<number[]> {
-    assert(times > 1, 'times must be greater than 1');
-    const benchmarks = [...Array(times)].map((_, _i) =>
-        measureRequest<T>(client, method, params),
-    );
-    return await Promise.all(benchmarks);
-}
-
 export async function measureMultipleRequestSequential<T>(
     client: Connection,
     method: string,
@@ -42,11 +29,6 @@ export async function measureMultipleRequestSequential<T>(
         results.push(result);
     }
     return results;
-}
-
-export enum Mode {
-    Concurrent,
-    Sequential,
 }
 
 export function logMemoryUsage() {
@@ -130,25 +112,14 @@ export class Setup {
         method: string,
         params: object,
         times?: number,
-        mode: Mode = Mode.Concurrent,
     ): Promise<void> {
         if (times) {
-            let timings: number[];
-            if (mode === Mode.Concurrent) {
-                timings = await measureMultipleRequestConcurrent<T>(
-                    this.client,
-                    method,
-                    params,
-                    times,
-                );
-            } else {
-                timings = await measureMultipleRequestSequential<T>(
-                    this.client,
-                    method,
-                    params,
-                    times,
-                );
-            }
+            const timings = await measureMultipleRequestSequential<T>(
+                this.client,
+                method,
+                params,
+                times,
+            );
             const total = timings.reduce((acc, t) => acc + t, 0);
             const mean = total / times;
             timings.sort((a, b) => a - b);
@@ -157,11 +128,9 @@ export class Setup {
                 times % 2 !== 0
                     ? timings[mid]
                     : (timings[mid - 1] + timings[mid]) / 2;
-            const modeStr =
-                mode === Mode.Concurrent ? 'concurrently' : 'sequentially';
             console.log(
                 chalk.yellow(
-                    `BENCHMARK: Request ${method} result (ran ${times} times ${modeStr}):`,
+                    `BENCHMARK: Request ${method} result (ran ${times} times sequentially):`,
                 ),
             );
             console.table({
