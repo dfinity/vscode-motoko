@@ -21,10 +21,12 @@ export async function measureMultipleRequestSequential<T>(
     method: string,
     params: object,
     times: number,
+    prepare?: () => Promise<void>,
 ): Promise<number[]> {
     assert(times > 1, 'times must be greater than 1');
     const results: number[] = [];
     for (let i = 0; i < times; i++) {
+        if (prepare) await prepare();
         const result = await measureRequest<T>(client, method, params);
         results.push(result);
     }
@@ -112,6 +114,7 @@ export class Setup {
         method: string,
         params: object,
         times?: number,
+        prepare?: () => Promise<void>,
     ): Promise<void> {
         if (times) {
             const timings = await measureMultipleRequestSequential<T>(
@@ -119,6 +122,7 @@ export class Setup {
                 method,
                 params,
                 times,
+                prepare,
             );
             const total = timings.reduce((acc, t) => acc + t, 0);
             const mean = total / times;
