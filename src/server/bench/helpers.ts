@@ -5,6 +5,7 @@ import { URI } from 'vscode-uri';
 import { setupClientServer } from '../test/mock';
 const chalk = require('chalk');
 const minimist = require('minimist');
+const util = require('util');
 
 export async function measureRequest<T>(
     client: Connection,
@@ -132,10 +133,8 @@ export class Setup {
                 times % 2 !== 0
                     ? timings[mid]
                     : (timings[mid - 1] + timings[mid]) / 2;
-            console.log(
-                chalk.yellow(
-                    `BENCHMARK: Request ${method} result (ran ${times} times sequentially):`,
-                ),
+            benchLog(
+                `Request ${method} result (ran ${times} times sequentially):`,
             );
             console.table({
                 'Total (ms)': Number(total.toFixed(2)),
@@ -146,12 +145,8 @@ export class Setup {
             });
         } else {
             const result = await measureRequest(this.client, method, params);
-            console.log(
-                chalk.yellow(
-                    `BENCHMARK: Single ${method} request result: ${result.toFixed(
-                        2,
-                    )} ms`,
-                ),
+            benchLog(
+                `Single ${method} request result: ${result.toFixed(2)} ms`,
             );
         }
     }
@@ -172,9 +167,9 @@ export async function createBenchmark(
 
 export const logInitializationTiming = (before: DOMHighResTimeStamp) => {
     const after = performance.now();
-    console.log(
-        chalk.yellow(
-            `BENCHMARK: Initialization time: ${(after - before).toFixed(2)} ms`,
-        ),
-    );
+    benchLog(`Initialization time: ${(after - before).toFixed(2)} ms`);
+};
+
+export const benchLog = (...args: any[]) => {
+    console.log(chalk.yellow(util.format('BENCHMARK:', ...args)));
 };
