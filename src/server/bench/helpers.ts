@@ -111,6 +111,14 @@ export class Setup {
         }
     }
 
+    emitOn<T>(method: string): Promise<T> {
+        return new Promise<T>((resolve) => {
+            this.client.onNotification(method, async (event) => {
+                resolve(event);
+            });
+        });
+    }
+
     async benchmark<T>(
         method: string,
         params: object,
