@@ -43,6 +43,7 @@ import {
     IMPORT_MOPS_PACKAGE,
     TEST_FILE_REQUEST,
     TestResult,
+    TEST_GET_DEPENDENCY_GRAPH,
 } from '../common/connectionTypes';
 import {
     ignoreGlobPatterns,
@@ -232,9 +233,11 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
         return sources;
     }
 
+    let isVirtualFileSystemReady = false;
     let loadingPackages = false;
     let packageConfigChangeTimeout: ReturnType<typeof setTimeout>;
     function notifyPackageConfigChange(reuseCached = false) {
+        isVirtualFileSystemReady = false;
         isWorkspaceReady = false;
         if (!reuseCached) {
             packageSourceCache.clear();
@@ -385,7 +388,9 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                 // NOTE: Useful for tests and benchmarks.
                 // Unknown notifications are ignored by the vscode lsp client.
                 connection.sendNotification('custom/initialized', {});
+                isVirtualFileSystemReady = true;
             } catch (err: any) {
+                isVirtualFileSystemReady = false;
                 loadingPackages = false;
                 console.error(
                     `Error while loading packages: ${err?.message || err}`,
@@ -547,7 +552,10 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
         context: Context,
         importPath: string,
     ): Position {
-        const imports = context.astResolver.request(uri)?.program?.imports;
+        const imports = context.astResolver.request(
+            uri,
+            isVirtualFileSystemReady,
+        )?.program?.imports;
         if (imports?.length) {
             let lastImport = imports[imports.length - 1];
 
@@ -1033,7 +1041,7 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                 const { astResolver, importResolver } = context;
                 let program: Program | undefined;
                 try {
-                    astResolver.notify(uri, content);
+                    astResolver.notify(uri, content, isVirtualFileSystemReady);
                     // program = astResolver.request(uri)?.program; // TODO: re-enable for field imports
                 } catch (err) {
                     console.error(`Error while parsing (${uri}): ${err}`);
@@ -1064,7 +1072,10 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
         const results: CodeAction[] = [];
 
         // Organize imports
-        const status = getContext(uri).astResolver.request(uri);
+        const status = getContext(uri).astResolver.request(
+            uri,
+            isVirtualFileSystemReady,
+        );
         const imports = status?.program?.imports;
         if (imports?.length) {
             const start = rangeFromNode(asNode(imports[0].ast))?.start;
@@ -1142,7 +1153,11 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
             const text = getFileText(uri);
             const lines = text.split(/\r?\n/g);
             const context = getContext(uri);
-            const program = context.astResolver.request(uri)?.program;
+            const status = context.astResolver.request(
+                uri,
+                isVirtualFileSystemReady,
+            );
+            const program = status?.program;
 
             const [dot, identStart] = /(\s*\.\s*)?([a-zA-Z_]?[a-zA-Z0-9_]*)$/
                 .exec(lines[position.line].substring(0, position.character))
@@ -1158,8 +1173,6 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                                 const path = importPath.startsWith('mo:')
                                     ? importPath
                                     : getRelativeUri(uri, importPath);
-
-                                const status = context.astResolver.request(uri);
                                 const existingImport =
                                     status?.program?.imports.find(
                                         (i) =>
@@ -1480,7 +1493,10 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
     connection.onDocumentSymbol((event) => {
         const { uri } = event.textDocument;
         const results: DocumentSymbol[] = [];
-        const status = getContext(uri).astResolver.request(uri);
+        const status = getContext(uri).astResolver.request(
+            uri,
+            isVirtualFileSystemReady,
+        );
         status?.program?.exportFields.forEach((field) => {
             results.push(...getDocumentSymbols(field, false));
         });
@@ -1646,6 +1662,15 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
         } else {
             return [];
         }
+    });
+
+    // Install and import mops package
+    connection.onRequest(TEST_GET_DEPENDENCY_GRAPH, (params) => {
+        const graph = getContext(params.uri)
+            .astResolver.getDependencyGraph()
+            .getRawGraph();
+        const nodes = graph.overallOrder(false);
+        return nodes.map((node) => [node, graph.directDependenciesOf(node)]);
     });
 
     const diagnosticMap = new Map<string, Diagnostic[]>();

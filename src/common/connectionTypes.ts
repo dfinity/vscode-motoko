@@ -54,3 +54,11 @@ export const IMPORT_MOPS_PACKAGE = new RequestType<
     Promise<TextEdit[]>,
     any
 >('vscode-motoko/install-mops-package');
+
+export const TEST_GET_DEPENDENCY_GRAPH = new RequestType<
+    {
+        uri: string;
+    },
+    [string, string[]][],
+    any
+>('vscode-motoko/test-get-dependency-graph');
