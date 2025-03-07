@@ -145,11 +145,11 @@ export class Setup {
                 `Request ${method} result (ran ${times} times sequentially):`,
             );
             console.table({
-                'Total (ms)': Number(total.toFixed(2)),
-                'Min (ms)': Number(timings[0].toFixed(2)),
-                'Max (ms)': Number(timings[timings.length - 1].toFixed(2)),
                 'Mean (ms)': Number(mean.toFixed(2)),
                 'Median (ms)': Number(median.toFixed(2)),
+                'Min (ms)': Number(timings[0].toFixed(2)),
+                'Max (ms)': Number(timings[timings.length - 1].toFixed(2)),
+                'Total (ms)': Number(total.toFixed(2)),
             });
         } else {
             const result = await measureRequest(this.client, method, params);
