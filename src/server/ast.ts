@@ -95,9 +95,22 @@ export default class AstResolver {
                     immediateImports = prog.immediateImports;
                     this._scopeCache = scopeCache;
                 } else if (withDeps) {
-                    const prog = motoko.parseMotokoWithDeps(virtualPath, text);
-                    ast = prog.ast;
-                    immediateImports = prog.immediateImports;
+                    try {
+                        const prog = motoko.parseMotokoWithDeps(
+                            virtualPath,
+                            text,
+                        );
+                        ast = prog.ast;
+                        immediateImports = prog.immediateImports;
+                    } catch (err) {
+                        console.error(
+                            'Error while parsing Motoko with deps, retrying',
+                        );
+                        console.error(err);
+                        const prog = motoko.parseMotoko(text);
+                        ast = prog;
+                        immediateImports = [];
+                    }
                 } else {
                     const prog = motoko.parseMotoko(text);
                     ast = prog;
