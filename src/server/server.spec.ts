@@ -7,6 +7,7 @@ import * as fs from 'node:fs';
 import { join } from 'node:path';
 import { wait } from './test/helpers';
 import { clientInitParams, setupClientServer } from './test/mock';
+import { TEST_GET_DEPENDENCY_GRAPH } from '../common/connectionTypes';
 
 describe('server', () => {
     test('generated IC Candid file has expected format', () => {
@@ -171,5 +172,26 @@ describe('cache', () => {
             kind: 'markdown',
             value: '```motoko\n{ bar : () -> (); foo : Nat }\n\n```',
         });
+    });
+
+    test('The server has a correct dependency graph after loading the workspace', async () => {
+        // Hover will get the typed AST
+        const actual = await runTest(async (client) => {
+            const textDocument = makeTextDocument('Top.mo');
+            await client.sendNotification('textDocument/didOpen', {
+                textDocument,
+            });
+            await wait(1); // wait for loading to complete
+            return await client.sendRequest(TEST_GET_DEPENDENCY_GRAPH, {
+                uri: textDocument.uri,
+            });
+        });
+        const root = rootUri.fsPath;
+        expect(actual).toEqual(
+            expect.arrayContaining([
+                [join(root, 'Top.mo'), [join(root, 'Bottom.mo')]],
+                [join(root, 'Bottom.mo'), []],
+            ]),
+        );
     });
 });

@@ -41,4 +41,8 @@ export default class DepGraph {
             this._depGraph.removeDependency(node, file);
         }
     }
+
+    getRawGraph(): DG<string> {
+        return this._depGraph;
+    }
 }
