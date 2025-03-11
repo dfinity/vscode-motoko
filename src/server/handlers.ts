@@ -51,7 +51,7 @@ import {
     watchGlob as virtualFilePattern,
 } from '../common/watchConfig';
 import icCandid from '../generated/aaaaa-aa.did';
-import { globalASTCache } from './ast';
+import { AstStatus, globalASTCache } from './ast';
 import {
     Context,
     addContext,
@@ -63,13 +63,17 @@ import DfxResolver from './dfx';
 import { extractFields, organizeImports } from './imports';
 import { getAstInformation } from './information';
 import {
+    Definition,
     defaultRange,
     findDefinition,
     findMostSpecificNodeForPosition,
     followImport,
     locationFromDefinition,
+    locationFromUriAndRange,
     rangeFromNode,
     searchObject,
+    sameDefinition,
+    sameLocation,
 } from './navigation';
 import { deployPlayground } from './playground';
 import {
@@ -621,7 +625,7 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                 },
                 definitionProvider: true,
                 // declarationProvider: true,
-                // referencesProvider: true,
+                referencesProvider: true,
                 codeActionProvider: {
                     codeActionKinds: [
                         CodeActionKind.QuickFix,
@@ -1644,12 +1648,115 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
         ];
     }
 
-    connection.onReferences(
-        async (_event: ReferenceParams): Promise<Location[]> => {
-            console.log('[References]');
-            return [];
-        },
-    );
+    connection.onReferences((event: ReferenceParams): Location[] => {
+        console.log('[References]');
+
+        function searchAstStatus(
+            origin: Location,
+            definition: Definition,
+            status: AstStatus,
+        ): Set<Location> {
+            const references = new Set<Location>();
+            if (!status.ast) {
+                throw new Error(`AST for ${status.uri} not found`);
+            }
+            const varNodes = findNodes(
+                status.ast,
+                (node, _parents) =>
+                    (node.name === 'VarE' ||
+                        node.name === 'VarP' ||
+                        node.name === 'VarD') &&
+                    node.args?.[0] === definition.name,
+            );
+            const dotNodes = findNodes(
+                status.ast,
+                (node, _parents) =>
+                    node.name === 'DotE' && node.args?.[1] === definition.name,
+            ).map((ast) => {
+                if (!ast.args) {
+                    return ast;
+                }
+                const right = ast.args[1] as string;
+                return {
+                    name: 'VarE',
+                    type: ast.type,
+                    args: [right],
+                    start: ast.end
+                        ? [ast.end[0], ast.end[1] - right.length]
+                        : undefined,
+                    end: ast.end,
+                } as Node;
+            });
+            const nodes = [...varNodes, ...dotNodes];
+            for (const node of nodes) {
+                try {
+                    const range = rangeFromNode(node);
+                    if (!range) {
+                        continue;
+                    }
+                    const referenceDefinition = findDefinition(
+                        status.uri,
+                        range.start,
+                    );
+                    if (!referenceDefinition) {
+                        continue;
+                    }
+                    if (sameDefinition(definition, referenceDefinition)) {
+                        const referenceLocation = locationFromUriAndRange(
+                            status.uri,
+                            range,
+                        );
+                        if (
+                            event.context.includeDeclaration ||
+                            !sameLocation(origin, referenceLocation)
+                        ) {
+                            references.add(referenceLocation);
+                        }
+                    }
+                } catch (err) {
+                    console.error(
+                        `Error while finding references for node of ${status.uri}:`,
+                    );
+                    console.error(err);
+                }
+            }
+            return references;
+        }
+
+        const references = new Set<Location>();
+        const uri = event.textDocument.uri;
+        try {
+            const definition = findDefinition(uri, event.position);
+            if (!definition) {
+                console.log(
+                    `No definition for (${event.position.line}, ${event.position.character}) at ${uri}`,
+                );
+                return Array.from(references.values());
+            }
+
+            const origin = locationFromDefinition(definition);
+            const context = getContext(uri);
+            const statuses = context.astResolver.requestAllTyped();
+            for (const status of statuses) {
+                try {
+                    searchAstStatus(origin, definition, status).forEach((ref) =>
+                        references.add(ref),
+                    );
+                } catch (err) {
+                    console.error(
+                        `Error while finding references for ${status.uri}:`,
+                    );
+                    console.error(err);
+                }
+            }
+        } catch (err) {
+            console.error('Error while finding references:');
+            console.error(err);
+            // throw err;
+        }
+
+        return Array.from(references.values());
+    });
 
     // Run a file which is recognized as a unit test
     connection.onRequest(
