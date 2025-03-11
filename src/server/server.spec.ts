@@ -1,12 +1,8 @@
 import icCandid from '../generated/aaaaa-aa.did';
 import { Hover } from 'vscode';
-import { InitializeResult } from 'vscode-languageclient/node';
-import { Connection } from 'vscode-languageserver/node';
 import { URI } from 'vscode-uri';
-import * as fs from 'node:fs';
 import { join } from 'node:path';
-import { wait } from './test/helpers';
-import { clientInitParams, setupClientServer } from './test/mock';
+import { makeTextDocument, runTest, wait } from './test/helpers';
 import { TEST_GET_DEPENDENCY_GRAPH } from '../common/connectionTypes';
 
 describe('server', () => {
@@ -23,41 +19,9 @@ describe('cache', () => {
 
     const rootUri = URI.parse(join(__dirname, '..', '..', 'test', 'cache'));
 
-    function makeTextDocument(
-        file: string,
-        version: number = 1,
-    ): {
-        uri: string;
-        version: number;
-        text: string;
-        languageId: string;
-    } {
-        const uri = join(rootUri.fsPath, file);
-        return {
-            uri,
-            version,
-            text: fs.readFileSync(uri, 'utf-8'),
-            languageId: 'motoko',
-        };
-    }
-
-    async function runTest<T>(test: (client: Connection) => Promise<T>) {
-        const [client, _server] = setupClientServer(true);
-        await client.sendRequest<InitializeResult>(
-            'initialize',
-            clientInitParams(rootUri),
-        );
-        await client.sendNotification('initialized', {});
-        await wait(1); // wait for initialization
-        const result = await test(client);
-        await client.sendRequest('shutdown');
-        await wait(1); // wait for shutdown
-        return result;
-    }
-
     test('Top.mo has correct hover', async () => {
-        const hover = await runTest(async (client) => {
-            const textDocument = makeTextDocument('Top.mo');
+        const hover = await runTest(rootUri, async (client) => {
+            const textDocument = makeTextDocument(rootUri, 'Top.mo');
             await client.sendNotification('textDocument/didOpen', {
                 textDocument,
             });
@@ -73,8 +37,8 @@ describe('cache', () => {
     });
 
     test('Top.mo has correct hover after changing value', async () => {
-        const hover = await runTest(async (client) => {
-            const textDocument = makeTextDocument('Top.mo');
+        const hover = await runTest(rootUri, async (client) => {
+            const textDocument = makeTextDocument(rootUri, 'Top.mo');
             await client.sendNotification('textDocument/didOpen', {
                 textDocument,
             });
@@ -101,12 +65,12 @@ describe('cache', () => {
 
     test('Top.mo has correct hover for changed dependency', async () => {
         // Hover will get the typed AST
-        const hover = await runTest(async (client) => {
-            const textDocumentTop = makeTextDocument('Top.mo');
+        const hover = await runTest(rootUri, async (client) => {
+            const textDocumentTop = makeTextDocument(rootUri, 'Top.mo');
             await client.sendNotification('textDocument/didOpen', {
                 textDocument: textDocumentTop,
             });
-            const textDocumentBottom = makeTextDocument('Bottom.mo');
+            const textDocumentBottom = makeTextDocument(rootUri, 'Bottom.mo');
             await client.sendNotification('textDocument/didOpen', {
                 textDocument: textDocumentBottom,
             });
@@ -142,12 +106,12 @@ describe('cache', () => {
 
     test('Top.mo has correct hover for changed dependency without changing itself', async () => {
         // Hover will get the typed AST
-        const hover = await runTest(async (client) => {
-            const textDocumentTop = makeTextDocument('Top.mo');
+        const hover = await runTest(rootUri, async (client) => {
+            const textDocumentTop = makeTextDocument(rootUri, 'Top.mo');
             await client.sendNotification('textDocument/didOpen', {
                 textDocument: textDocumentTop,
             });
-            const textDocumentBottom = makeTextDocument('Bottom.mo');
+            const textDocumentBottom = makeTextDocument(rootUri, 'Bottom.mo');
             await client.sendNotification('textDocument/didOpen', {
                 textDocument: textDocumentBottom,
             });
@@ -176,8 +140,8 @@ describe('cache', () => {
 
     test('The server has a correct dependency graph after loading the workspace', async () => {
         // Hover will get the typed AST
-        const actual = await runTest(async (client) => {
-            const textDocument = makeTextDocument('Top.mo');
+        const actual = await runTest(rootUri, async (client) => {
+            const textDocument = makeTextDocument(rootUri, 'Top.mo');
             await client.sendNotification('textDocument/didOpen', {
                 textDocument,
             });
@@ -196,8 +160,8 @@ describe('cache', () => {
     });
 
     test('We can get typed AST for second hover (regression test for issue #340)', async () => {
-        const [hover0, hover1] = await runTest(async (client) => {
-            const textDocument = makeTextDocument('issue-340.mo');
+        const [hover0, hover1] = await runTest(rootUri, async (client) => {
+            const textDocument = makeTextDocument(rootUri, 'issue-340.mo');
             await client.sendNotification('textDocument/didOpen', {
                 textDocument,
             });

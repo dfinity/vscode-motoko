@@ -88,12 +88,11 @@ export default class AstResolver {
             let immediateImports: string[];
             try {
                 if (typed) {
-                    const [prog, scopeCache] =
-                        motoko.parseMotokoTypedWithScopeCache(
-                            virtualPath,
-                            this._scopeCache,
-                            enableRecovery /* TODO: not fully supported in the compiler */,
-                        );
+                    const [prog, scopeCache] = motoko.parseMotokoTypedWithScopeCache(
+                        virtualPath,
+                        this._scopeCache,
+                        enableRecovery /* TODO: not fully supported in the compiler */,
+                    );
                     ast = prog.ast;
                     immediateImports = prog.immediateImports;
                     this._scopeCache = scopeCache;
@@ -145,6 +144,18 @@ export default class AstResolver {
             status.outdated = true;
             return false;
         }
+    }
+
+    requestAll(withDeps: boolean): AstStatus[] {
+        return Array.from(this._cache.keys())
+            .map((uri) => this.request(uri, withDeps))
+            .filter((status): status is AstStatus => status !== undefined);
+    }
+
+    requestAllTyped(): AstStatus[] {
+        return Array.from(this._cache.keys())
+            .map((uri) => this.requestTyped(uri))
+            .filter((status): status is AstStatus => status !== undefined);
     }
 
     request(uri: string, withDeps: boolean): AstStatus | undefined {
