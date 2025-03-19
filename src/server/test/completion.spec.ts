@@ -27,6 +27,14 @@ let e = Array.
 let f =     B.g
 let g =     B.f
 let h =     C.Cell
+let i =     C
+             .
+              // comment to avoid trailing line
+let j =     A.(B.)
+let k =     A
+             .(
+            B.)
+}
 `;
 
 const rootUri = URI.file(`${cwd()}/test/completion`);
@@ -46,8 +54,6 @@ describe('completion', () => {
     let server: Connection;
 
     beforeAll(async () => {
-        console.log(`Running test on ${rootUri}`);
-
         [client, server] = setupClientServer(true);
 
         const serverInitialized = waitForNotification(
@@ -292,6 +298,146 @@ describe('completion', () => {
 
         const expected = [
             { label: 'Cell', detail: 'c.mo', insertText: 'Cell', kind: 8 },
+        ];
+
+        expect(completion.items).toEqual(expected);
+    });
+
+    test('multiline completions work', async () => {
+        // let i = ...
+        const completion = await client.sendRequest<CompletionList>(
+            'textDocument/completion',
+            {
+                textDocument: {
+                    uri: `${file.uri}`,
+                },
+                position: {
+                    line: 15,
+                    character: 14,
+                },
+                context: {
+                    triggerKind: 2,
+                    triggerCharacter: '.',
+                },
+            },
+        );
+
+        const expected = [
+            { label: 'Cell', detail: 'c.mo', insertText: 'Cell', kind: 8 },
+            { label: 'State', detail: 'c.mo', insertText: 'State', kind: 8 },
+            { label: 'new', detail: 'c.mo', insertText: 'new', kind: 3 },
+        ];
+
+        expect(completion.items).toEqual(expected);
+    });
+
+    test('two dots in one line work -- first dot', async () => {
+        // let j = ...
+        const completion = await client.sendRequest<CompletionList>(
+            'textDocument/completion',
+            {
+                textDocument: {
+                    uri: `${file.uri}`,
+                },
+                position: {
+                    line: 16,
+                    character: 14,
+                },
+                context: {
+                    triggerKind: 2,
+                    triggerCharacter: '.',
+                },
+            },
+        );
+
+        const expected = [
+            { label: 'new', detail: 'a.mo', insertText: 'new', kind: 3 },
+        ];
+
+        expect(completion.items).toEqual(expected);
+    });
+
+    test('two dots in one line work -- second dot', async () => {
+        // let j = ...
+        const completion = await client.sendRequest<CompletionList>(
+            'textDocument/completion',
+            {
+                textDocument: {
+                    uri: `${file.uri}`,
+                },
+                position: {
+                    line: 16,
+                    character: 17,
+                },
+                context: {
+                    triggerKind: 2,
+                    triggerCharacter: '.',
+                },
+            },
+        );
+
+        const expected = [
+            { label: 'foo', detail: 'b.mo', insertText: 'foo', kind: 3 },
+            { label: 'foobar', detail: 'b.mo', insertText: 'foobar', kind: 3 },
+            { label: 'a', detail: 'b.mo', insertText: 'a', kind: 6 },
+            { label: 'Age', detail: 'b.mo', insertText: 'Age', kind: 8 },
+            { label: 'D', detail: 'b.mo', insertText: 'D', kind: 7 },
+        ];
+
+        expect(completion.items).toEqual(expected);
+    });
+
+    test('two dots in multiple lines work -- first dot', async () => {
+        // let k = ...
+        const completion = await client.sendRequest<CompletionList>(
+            'textDocument/completion',
+            {
+                textDocument: {
+                    uri: `${file.uri}`,
+                },
+                position: {
+                    line: 18,
+                    character: 14,
+                },
+                context: {
+                    triggerKind: 2,
+                    triggerCharacter: '.',
+                },
+            },
+        );
+
+        const expected = [
+            { label: 'new', detail: 'a.mo', insertText: 'new', kind: 3 },
+        ];
+
+        expect(completion.items).toEqual(expected);
+    });
+
+    test('two dots in multiple lines work -- second dot', async () => {
+        // let k = ...
+        const completion = await client.sendRequest<CompletionList>(
+            'textDocument/completion',
+            {
+                textDocument: {
+                    uri: `${file.uri}`,
+                },
+                position: {
+                    line: 19,
+                    character: 14,
+                },
+                context: {
+                    triggerKind: 2,
+                    triggerCharacter: '.',
+                },
+            },
+        );
+
+        const expected = [
+            { label: 'foo', detail: 'b.mo', insertText: 'foo', kind: 3 },
+            { label: 'foobar', detail: 'b.mo', insertText: 'foobar', kind: 3 },
+            { label: 'a', detail: 'b.mo', insertText: 'a', kind: 6 },
+            { label: 'Age', detail: 'b.mo', insertText: 'Age', kind: 8 },
+            { label: 'D', detail: 'b.mo', insertText: 'D', kind: 7 },
         ];
 
         expect(completion.items).toEqual(expected);

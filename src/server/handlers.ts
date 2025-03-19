@@ -1167,6 +1167,25 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
         return undefined;
     }
 
+    function getOffset(text: string, line: number, character: number): number {
+        const lines = text.split('\n');
+
+        if (line >= lines.length) {
+            throw new Error('Line number out of range');
+        }
+
+        let offset = 0;
+        for (let i = 0; i < line; i++) {
+            offset += lines[i].length + 1; // +1 for newline character
+        }
+
+        if (character > lines[line].length) {
+            throw new Error('Character position out of range');
+        }
+
+        return offset + character;
+    }
+
     connection.onCompletion((event) => {
         const { position } = event;
         const { uri } = event.textDocument;
@@ -1174,7 +1193,6 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
         const list = CompletionList.create([], true);
         try {
             const text = getFileText(uri);
-            const lines = text.split(/\r?\n/g);
             const context = getContext(uri);
             const status = context.astResolver.request(
                 uri,
@@ -1182,8 +1200,9 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
             );
             const program = status?.program;
 
+            const offset = getOffset(text, position.line, position.character);
             const [dot, identStart] = /(\s*\.\s*)?([a-zA-Z_]?[a-zA-Z0-9_]*)$/
-                .exec(lines[position.line].substring(0, position.character))
+                .exec(text.substring(0, offset))
                 ?.slice(1) ?? ['', ''];
 
             if (!dot) {
@@ -1272,9 +1291,9 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                 }
             } else {
                 // Check for an identifier before the dot (e.g. `Module.abc`)
-                const end = position.character - dot.length - identStart.length;
+                const end = offset - dot.length - identStart.length;
                 const preMatch = /(\s*\.\s*)?([a-zA-Z_][a-zA-Z0-9_]*)$/.exec(
-                    lines[position.line].substring(0, end),
+                    text.substring(0, end),
                 );
                 if (preMatch) {
                     const [, preDot, preIdent] = preMatch;
