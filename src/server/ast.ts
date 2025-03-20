@@ -82,6 +82,7 @@ export default class AstResolver {
         this._depGraph.removeImmediateDependencies(virtualPath);
 
         try {
+            const enableRecovery = true;
             const { motoko } = this.context;
             let ast: AST;
             let immediateImports: string[];
@@ -91,6 +92,7 @@ export default class AstResolver {
                         motoko.parseMotokoTypedWithScopeCache(
                             virtualPath,
                             this._scopeCache,
+                            enableRecovery /* TODO: not fully supported in the compiler */,
                         );
                     ast = prog.ast;
                     immediateImports = prog.immediateImports;
@@ -100,6 +102,7 @@ export default class AstResolver {
                         const prog = motoko.parseMotokoWithDeps(
                             virtualPath,
                             text,
+                            enableRecovery,
                         );
                         ast = prog.ast;
                         immediateImports = prog.immediateImports;
@@ -108,12 +111,12 @@ export default class AstResolver {
                             'Error while parsing Motoko with deps, retrying',
                         );
                         console.error(err);
-                        const prog = motoko.parseMotoko(text);
+                        const prog = motoko.parseMotoko(text, enableRecovery);
                         ast = prog;
                         immediateImports = [];
                     }
                 } else {
-                    const prog = motoko.parseMotoko(text);
+                    const prog = motoko.parseMotoko(text, enableRecovery);
                     ast = prog;
                     immediateImports = [];
                 }
