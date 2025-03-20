@@ -5,7 +5,7 @@ import * as semver from 'semver';
 import * as glob from 'fast-glob';
 import { existsSync, readFileSync } from 'fs';
 import { add as mopsAdd } from 'ic-mops/commands/add';
-import { Node } from 'motoko/lib/ast';
+import { AST, Node } from 'motoko/lib/ast';
 import { keywords } from 'motoko/lib/keywords';
 import * as baseLibrary from 'motoko/packages/latest/base.json';
 import { join, resolve } from 'path';
@@ -60,7 +60,7 @@ import {
     resetContexts,
 } from './context';
 import DfxResolver from './dfx';
-import { organizeImports } from './imports';
+import { extractFields, organizeImports } from './imports';
 import { getAstInformation } from './information';
 import {
     defaultRange,
@@ -1168,23 +1168,44 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
         return undefined;
     }
 
-    function getOffset(text: string, line: number, character: number): number {
+    function getOffset(text: string, { line, character }: Position): number {
         const lines = text.split('\n');
 
         if (line >= lines.length) {
             throw new Error('Line number out of range');
         }
-
-        let offset = 0;
-        for (let i = 0; i < line; i++) {
-            offset += lines[i].length + 1; // +1 for newline character
-        }
-
         if (character > lines[line].length) {
             throw new Error('Character position out of range');
         }
 
-        return offset + character;
+        // +character for offset into a line, +line for each newline character
+        let offset = character + line;
+        for (let i = 0; i < line; i++) {
+            offset += lines[i].length;
+        }
+
+        return offset;
+    }
+
+    function getLineAndCharacter(text: string, offset: number): Position {
+        if (offset < 0 || offset > text.length) {
+            throw new Error('Offset out of range');
+        }
+
+        let currentOffset = 0;
+        const lines = text.split('\n');
+        for (let line = 0; line < lines.length; line++) {
+            const lineLength = lines[line].length + 1; // +1 for the newline
+
+            if (currentOffset + lineLength > offset) {
+                const character = offset - currentOffset;
+                return { line, character };
+            }
+
+            currentOffset += lineLength;
+        }
+
+        throw new Error('Offset calculation failed');
     }
 
     connection.onCompletion((event) => {
@@ -1201,7 +1222,7 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
             );
             const program = status?.program;
 
-            const offset = getOffset(text, position.line, position.character);
+            const offset = getOffset(text, position);
             const [dot, identStart] = /(\s*\.\s*)?([a-zA-Z_]?[a-zA-Z0-9_]*)$/
                 .exec(text.substring(0, offset))
                 ?.slice(1) ?? ['', ''];
@@ -1296,44 +1317,73 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                 const preMatch = /(\s*\.\s*)?([a-zA-Z_][a-zA-Z0-9_]*)$/.exec(
                     text.substring(0, end),
                 );
-                if (preMatch) {
-                    const [, preDot, preIdent] = preMatch;
-                    if (!preDot) {
-                        const importUri = findImportUri(
-                            context,
-                            event.textDocument.uri,
-                            preIdent,
-                        );
-                        let iter: any;
-                        if (importUri) {
-                            iter = [importUri];
-                        } else {
-                            // NOTE: in case we haven't found import in the ast (it may be outdated)
-                            // we provide fields from all the modules with the basename as the variable
-                            const modules =
-                                context.importResolver.getUrisByModuleName(
-                                    preIdent,
-                                );
-                            iter = modules ? modules : [];
+                if (!preMatch) {
+                    return list;
+                }
+                const [_preMatch, _preDot, preIdent] = preMatch;
+                const start = end - preIdent.length;
+                const indentPosition = getLineAndCharacter(text, start);
+                const definition = findDefinition(uri, indentPosition);
+                if (definition) {
+                    // HACK: Base modules seem to be contained inside an ExpD, so we
+                    // unwrap them.
+                    function tryGetObjBlockEFromExpD(node: Node): AST {
+                        if (node.name === 'ExpD' && node.args && node.args[0]) {
+                            return node.args[0];
                         }
-                        iter.forEach((uri: string) =>
-                            context.importResolver
-                                .getFields(uri)
-                                .forEach(({ name, kind }) => {
-                                    if (name.startsWith(identStart)) {
-                                        list.items.push({
-                                            label: name,
-                                            detail: getRelativeUri(
-                                                event.textDocument.uri,
-                                                uri,
-                                            ),
-                                            insertText: name,
-                                            kind,
-                                        });
-                                    }
-                                }),
-                        );
+                        return node;
                     }
+
+                    const ast = tryGetObjBlockEFromExpD(definition.body);
+                    const fields = extractFields(ast, uri).get(uri);
+                    if (!fields) {
+                        return list;
+                    }
+
+                    Array.from(fields.values()).forEach(({ name, kind }) =>
+                        list.items.push({
+                            label: name,
+                            detail: getRelativeUri(uri, definition.uri),
+                            insertText: name,
+                            kind,
+                        }),
+                    );
+                } else {
+                    // NOTE: in case AST is outdated or no such module in scope
+                    const importUri = findImportUri(
+                        context,
+                        event.textDocument.uri,
+                        preIdent,
+                    );
+                    let iter: any;
+                    if (importUri) {
+                        iter = [importUri];
+                    } else {
+                        // NOTE: in case we haven't found import in the ast (it may be outdated)
+                        // we provide fields from all the modules with the basename as the variable
+                        const modules =
+                            context.importResolver.getUrisByModuleName(
+                                preIdent,
+                            );
+                        iter = modules ? modules : [];
+                    }
+                    iter.forEach((uri: string) =>
+                        context.importResolver
+                            .getFields(uri)
+                            .forEach(({ name, kind }) => {
+                                if (name.startsWith(identStart)) {
+                                    list.items.push({
+                                        label: name,
+                                        detail: getRelativeUri(
+                                            event.textDocument.uri,
+                                            uri,
+                                        ),
+                                        insertText: name,
+                                        kind,
+                                    });
+                                }
+                            }),
+                    );
                 }
             }
         } catch (err) {
