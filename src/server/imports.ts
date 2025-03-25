@@ -205,10 +205,6 @@ function getImportInfo(
         return;
     }
     uri = uri.slice(0, -'.mo'.length);
-    // Account for `lib.mo` files
-    if (uri.endsWith('/lib')) {
-        uri = uri.slice(0, -'/lib'.length);
-    }
     // Resolve package import paths
     for (const regex of [
         /\.vessel\/([^\/]+)\/[^\/]+\/src\/(.+)/,
