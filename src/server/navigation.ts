@@ -429,13 +429,13 @@ function searchTypeBinding(
     dec: Node,
 ): Definition | undefined {
     return (
-        matchNode(dec, 'TypD', (id: Node, typ: Node) => {
+        matchNode(dec, 'TypD', (id: Node, _: Node) => {
             const name = getIdName(id)!;
             return name === search.name
                 ? {
                       uri: reference.uri,
-                      cursor: typ, // TODO: source location from `name`
-                      body: typ,
+                      cursor: id, // TODO: check it after rebase
+                      body: dec,
                       name,
                   }
                 : undefined;
