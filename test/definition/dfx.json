@@ -1,0 +1,12 @@
+{
+  "canisters": {
+    "A": {
+      "main": "a.mo"
+    }
+  },
+  "defaults": {
+    "build": {
+      "packtool": "mops sources"
+    }
+  }
+}
