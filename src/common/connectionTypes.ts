@@ -62,3 +62,8 @@ export const TEST_GET_DEPENDENCY_GRAPH = new RequestType<
     [string, string[]][],
     any
 >('vscode-motoko/test-get-dependency-graph');
+
+// Server emits this notification when initialized. Useful for benchmarking.
+export const TEST_SERVER_INITIALIZED = new NotificationType<{}>(
+    'custom/initialized',
+);
