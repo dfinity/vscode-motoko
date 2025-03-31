@@ -1,6 +1,7 @@
 import assert = require('node:assert');
 import { resolve } from 'node:path';
 import { Connection } from 'vscode-languageserver/node';
+import { NotificationType } from 'vscode-languageserver';
 import { URI } from 'vscode-uri';
 import { setupClientServer } from '../test/mock';
 const chalk = require('chalk');
@@ -111,7 +112,7 @@ export class Setup {
         }
     }
 
-    emitOn<T>(method: string): Promise<T> {
+    emitOn<T>(method: NotificationType<T>): Promise<T> {
         return new Promise<T>((resolve) => {
             this.client.onNotification(method, async (event) => {
                 resolve(event);

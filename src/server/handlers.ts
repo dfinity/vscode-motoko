@@ -44,6 +44,7 @@ import {
     TEST_FILE_REQUEST,
     TestResult,
     TEST_GET_DEPENDENCY_GRAPH,
+    TEST_SERVER_INITIALIZED,
 } from '../common/connectionTypes';
 import {
     ignoreGlobPatterns,
@@ -387,7 +388,7 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                 notifyDfxChange(); // Reload dfx.json
                 // NOTE: Useful for tests and benchmarks.
                 // Unknown notifications are ignored by the vscode lsp client.
-                connection.sendNotification('custom/initialized', {});
+                connection.sendNotification(TEST_SERVER_INITIALIZED, {});
                 isVirtualFileSystemReady = true;
             } catch (err: any) {
                 isVirtualFileSystemReady = false;

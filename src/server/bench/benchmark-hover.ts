@@ -10,6 +10,7 @@ import {
 import { join } from 'node:path';
 import { clientInitParams } from '../test/mock';
 import { wait } from '../test/helpers';
+import { TEST_SERVER_INITIALIZED } from '../../common/connectionTypes';
 
 createBenchmark('hover', async (setup: Setup) => {
     if (!setup.args.file) {
@@ -30,7 +31,7 @@ createBenchmark('hover', async (setup: Setup) => {
         position: { line: 39, character: 0 }, // NOTE: doesn't matter
     };
 
-    const untilInitialized = setup.emitOn('custom/initialized');
+    const untilInitialized = setup.emitOn(TEST_SERVER_INITIALIZED);
 
     // NOTE: for more accurate measurements
     await setup.sendNotification('custom/disableChecks', {});
