@@ -28,7 +28,7 @@ export function resolveVirtualPath(uri: string, ...parts: string[]): string {
  * Reads a file from the given URI.
  */
 export function getFileText(uri: string): string {
-    const document = require('./server').documents.get(uri);
+    const document = require('./handlers').documents.get(uri);
     if (document) {
         return document.getText();
     } else {
@@ -108,3 +108,25 @@ export function rangeContainsPosition(
     }
     return true;
 }
+
+/**
+ * Forwards message from one console to another.
+ */
+export const forwardMessage =
+    (send: (message: string) => void) =>
+    (...args: any[]): void => {
+        const toString = (value: any) => {
+            try {
+                return typeof value === 'string'
+                    ? value
+                    : value instanceof Promise
+                    ? '<Promise>'
+                    : value instanceof Error
+                    ? value.stack || value.message || value
+                    : String(JSON.stringify(value));
+            } catch (err) {
+                return `<${err}>`;
+            }
+        };
+        send(args.map(toString).join(' '));
+    };
