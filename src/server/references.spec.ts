@@ -5,6 +5,25 @@ import { TextDocument, makeTextDocument, wait } from './test/helpers';
 import { Connection, Location, Position, Range } from 'vscode-languageserver';
 import { clientInitParams, setupClientServer } from './test/mock';
 
+function compareLocations(a: Location, b: Location): number {
+    if (a.uri < b.uri) return -1;
+    if (a.uri > b.uri) return 1;
+
+    if (a.range.start.line !== b.range.start.line) {
+        return a.range.start.line - b.range.start.line;
+    }
+
+    if (a.range.start.character !== b.range.start.character) {
+        return a.range.start.character - b.range.start.character;
+    }
+
+    if (a.range.end.line !== b.range.end.line) {
+        return a.range.end.line - b.range.end.line;
+    }
+
+    return a.range.end.character - b.range.end.character;
+}
+
 describe('references', () => {
     let client: Connection;
 
@@ -27,6 +46,7 @@ describe('references', () => {
         );
     }
 
+    // Note: the definition is expected to be the last element.
     async function testReferences(expected: Location[]): Promise<void> {
         // Open all files that we plan to test. This is to avoid opening and
         // reading documents multiple times.
@@ -53,15 +73,27 @@ describe('references', () => {
         await Promise.all(
             expected.map(async (loc) => {
                 const textDocument = textDocuments.get(loc.uri);
-                const locations = await client.sendRequest<Location[]>(
-                    'textDocument/references',
-                    {
-                        textDocument,
-                        position: loc.range.start,
-                        context: { includeDeclaration: true },
-                    },
-                );
-                expect(locations).toStrictEqual(expected);
+                for (const includeDeclaration of [false, true]) {
+                    const locations = await client.sendRequest<Location[]>(
+                        'textDocument/references',
+                        {
+                            textDocument,
+                            position: loc.range.start,
+                            context: { includeDeclaration },
+                        },
+                    );
+                    if (includeDeclaration) {
+                        expect(locations.sort(compareLocations)).toStrictEqual(
+                            expected.sort(compareLocations),
+                        );
+                    } else {
+                        // Remove the last element (expected to be the
+                        // definition).
+                        expect(locations.sort(compareLocations)).toStrictEqual(
+                            expected.slice(0, -1).sort(compareLocations),
+                        );
+                    }
+                }
             }),
         );
     }
@@ -76,7 +108,7 @@ describe('references', () => {
 
     afterAll(async () => {
         await client.sendRequest('shutdown');
-        await wait(1); // wait for shutdown
+        await wait(2); // wait for shutdown
     });
 
     test('Can find all references from definition', () =>
@@ -96,18 +128,28 @@ describe('references', () => {
         testReferences([
             location('A.mo', 6, 24, 29), // C.Inner
             location('B.mo', 10, 25, 30), // C.Inner
-            // location('C.mo', 7, 11, 11), // definition of Inner
+            location('C.mo', 7, 18, 23), // definition of Inner (lab)
         ]));
 
     test('Can find all function references', () =>
         testReferences([
             location('B.mo', 5, 17, 20), // C.inc
-            // location('C.mo', 3, 11, 11), // definition of inc
+            location('C.mo', 3, 16, 19), // definition of inc (lab)
         ]));
 
     test('Can find all object method references', () =>
         testReferences([
-            // location('A.mo', 6, 17, 21), // a.meth
-            // location('B.mo', 9, 20, 20), // definition of meth
+            location('A.mo', 6, 17, 21), // a.meth
+            location('B.mo', 9, 20, 24), // definition of meth
         ]));
+
+    test('Can find all references of circular chain', () => {
+        const refs = [12, 14, 16, 18, 20, 22].map(
+            (column) => location('circular.mo', 5, column, column + 1), // /\.o\.?/
+        );
+        return testReferences([
+            ...refs,
+            location('circular.mo', 2, 19, 20), // definition of o
+        ]);
+    }, 20000);
 });
