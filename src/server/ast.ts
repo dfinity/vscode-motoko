@@ -88,11 +88,12 @@ export default class AstResolver {
             let immediateImports: string[];
             try {
                 if (typed) {
-                    const [prog, scopeCache] = motoko.parseMotokoTypedWithScopeCache(
-                        virtualPath,
-                        this._scopeCache,
-                        enableRecovery /* TODO: not fully supported in the compiler */,
-                    );
+                    const [prog, scopeCache] =
+                        motoko.parseMotokoTypedWithScopeCache(
+                            virtualPath,
+                            this._scopeCache,
+                            enableRecovery /* TODO: not fully supported in the compiler */,
+                        );
                     ast = prog.ast;
                     immediateImports = prog.immediateImports;
                     this._scopeCache = scopeCache;

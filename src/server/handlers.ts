@@ -51,7 +51,7 @@ import {
     watchGlob as virtualFilePattern,
 } from '../common/watchConfig';
 import icCandid from '../generated/aaaaa-aa.did';
-import { AstStatus, globalASTCache } from './ast';
+import { globalASTCache } from './ast';
 import {
     Context,
     addContext,
@@ -73,7 +73,6 @@ import {
     rangeFromNode,
     searchObject,
     sameDefinition,
-    sameLocation,
 } from './navigation';
 import { deployPlayground } from './playground';
 import {
@@ -87,8 +86,10 @@ import {
     asNode,
     findNodes,
     getIdName,
+    matchNode,
 } from './syntax';
 import {
+    LocationSet,
     formatMotoko,
     forwardMessage,
     getFileText,
@@ -1652,25 +1653,28 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
     connection.onReferences((event: ReferenceParams): Location[] => {
         console.log('[References]');
 
+        function idOfVar(node: AST): Node | undefined {
+            return (
+                matchNode(node, 'VarE', (id: Node) => id) ||
+                matchNode(node, 'VarP', (id: Node) => id) ||
+                matchNode(node, 'VarD', (id: Node) => id) ||
+                undefined
+            );
+        }
+
         function searchAstStatus(
-            origin: Location,
             definition: Definition,
-            status: AstStatus,
-        ): Set<Location> {
-            const references = new Set<Location>();
-            if (!status.ast) {
-                throw new Error(`AST for ${status.uri} not found`);
-            }
+            uri: string,
+            ast: AST,
+        ): LocationSet {
+            const references = new LocationSet();
             const varNodes = findNodes(
-                status.ast,
+                ast,
                 (node, _parents) =>
-                    (node.name === 'VarE' ||
-                        node.name === 'VarP' ||
-                        node.name === 'VarD') &&
-                    getIdName(node.args?.[0]) === definition.name,
+                    getIdName(idOfVar(node)) === definition.name,
             );
             const dotNodes = findNodes(
-                status.ast,
+                ast,
                 (node, _parents) =>
                     node.name === 'DotE' &&
                     getIdName(node.args?.[1]) === definition.name,
@@ -1682,6 +1686,7 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                 return {
                     name: 'VarE',
                     type: ast.type,
+                    typeRep: ast.typeRep,
                     args: [right],
                     start: right.start,
                     end: right.end,
@@ -1695,52 +1700,54 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                         continue;
                     }
                     const referenceDefinition = findDefinition(
-                        status.uri,
+                        uri,
                         range.start,
                     );
-                    if (!referenceDefinition) {
+                    if (
+                        !referenceDefinition ||
+                        !sameDefinition(definition, referenceDefinition)
+                    ) {
                         continue;
                     }
-                    if (sameDefinition(definition, referenceDefinition)) {
-                        const referenceLocation = locationFromUriAndRange(
-                            status.uri,
-                            range,
-                        );
-                        if (
-                            event.context.includeDeclaration ||
-                            !sameLocation(origin, referenceLocation)
-                        ) {
-                            references.add(referenceLocation);
-                        }
-                    }
+                    // We might get a definition that includes the entire body
+                    // of the declaration but we only want the range for its ID.
+                    const reference = rangeFromNode(idOfVar(node));
+                    references.add(locationFromUriAndRange(uri, reference!));
                 } catch (err) {
                     console.error(
-                        `Error while finding references for node of ${status.uri}:`,
+                        `Error while finding references for node of ${uri}:`,
                     );
                     console.error(err);
                 }
             }
+
             return references;
         }
 
-        const references = new Set<Location>();
-        const uri = event.textDocument.uri;
-        try {
+        function astReferences(
+            uri: string,
+            event: ReferenceParams,
+        ): LocationSet {
+            const references = new LocationSet();
             const definition = findDefinition(uri, event.position);
             if (!definition) {
                 console.log(
                     `No definition for (${event.position.line}, ${event.position.character}) at ${uri}`,
                 );
-                return Array.from(references.values());
+                return references;
             }
 
-            const origin = locationFromDefinition(definition);
             const context = getContext(uri);
-            const statuses = context.astResolver.requestAllTyped();
+            const statuses = context.astResolver.requestAll(
+                isVirtualFileSystemReady,
+            );
             for (const status of statuses) {
                 try {
-                    searchAstStatus(origin, definition, status).forEach((ref) =>
-                        references.add(ref),
+                    if (!status.ast) {
+                        throw new Error(`AST for ${status.uri} not found`);
+                    }
+                    references.union(
+                        searchAstStatus(definition, status.uri, status.ast),
                     );
                 } catch (err) {
                     console.error(
@@ -1749,6 +1756,18 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                     console.error(err);
                 }
             }
+
+            if (!event.context.includeDeclaration) {
+                references.delete(locationFromDefinition(definition));
+            }
+
+            return references;
+        }
+
+        const references = new LocationSet();
+        const uri = event.textDocument.uri;
+        try {
+            references.union(astReferences(uri, event));
         } catch (err) {
             console.error('Error while finding references:');
             console.error(err);

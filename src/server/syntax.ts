@@ -44,6 +44,13 @@ function findNodes_(
             throw new Error('Unexpected parent node in stack');
         }
     }
+    if (ast.typeRep) {
+        parents.push(ast);
+        findNodes_(ast.typeRep, condition, nodes, parents);
+        if (parents.pop() !== ast) {
+            throw new Error('Unexpected parent node in stack');
+        }
+    }
 }
 
 export function fromAST(ast: AST): Syntax {
@@ -205,8 +212,7 @@ export function findInPattern<T>(
     };
     const match = (arg: Node) => findInPattern(arg, fn);
     return (
-        matchNode(pat, 'ID', (name: string) => fn(name, pat)) ||
-        matchNode(pat, 'VarP', match) ||
+        matchNode(pat, 'VarP', (id: Node) => fn(getIdName(id)!, id)) ||
         matchNode(pat, 'ObjP', (...args: Node[]) => {
             for (const field of args) {
                 const fieldPat = field.args![0] as Node;

@@ -1,5 +1,6 @@
 import { AST, Node, Span } from 'motoko/lib/ast';
 import { Location, Position, Range } from 'vscode-languageserver';
+import { URI } from 'vscode-uri';
 import { Context, getContext } from './context';
 import {
     findNodes,
@@ -8,7 +9,7 @@ import {
     asNode,
     findInPattern,
 } from './syntax';
-import { getAbsoluteUri } from './utils';
+import { getAbsoluteUri, LocationSet } from './utils';
 
 export interface Reference {
     uri: string;
@@ -53,6 +54,10 @@ export function sameLocation(a: Location, b: Location): boolean {
 
 export function sameDefinition(a: Definition, b: Definition): boolean {
     return sameLocation(locationFromDefinition(a), locationFromDefinition(b));
+}
+
+export function scoreFromNodePriorities(node: Node): number | boolean {
+    return nodePriorities[node.name] || 0;
 }
 
 export function findMostSpecificNodeForPosition(
@@ -156,7 +161,6 @@ function findNameInPattern(
 const nodePriorities: Record<string, number> = {
     DotE: 3, // qulified variable
     VarE: 2, // variable
-    ID: 1, // name
     PathT: 2, // type reference
     ImportE: 1, // module import
     VarP: 2, // field import
@@ -169,7 +173,9 @@ export function findDefinition(
 ): Definition | undefined {
     // Get relevant AST node
     const context = getContext(uri);
-    const status = context.astResolver.request(uri, false);
+    const status =
+        context.astResolver.requestTyped(uri) ||
+        context.astResolver.request(uri, false);
     if (!status?.ast) {
         console.warn('Missing AST for', uri);
         return;
@@ -178,13 +184,12 @@ export function findDefinition(
         console.log('Outdated AST for', uri);
         return;
     }
-    const foundNode = findMostSpecificNodeForPosition(
+    const node = findMostSpecificNodeForPosition(
         status.ast,
         position,
-        (node) => nodePriorities[node.name] || 0,
+        scoreFromNodePriorities,
         isMouseCursor,
     );
-    const node = foundNode?.name === 'ID' ? foundNode.parent : foundNode;
     if (!node) {
         return;
     }
@@ -202,7 +207,7 @@ export function findDefinition(
         firstUnrelated !== -1 ? firstUnrelated : path.length,
     );
 
-    if (!path.length) {
+    if (!relatedPath.length) {
         console.log('Reference not found from AST node:', node.name);
         return;
     }
@@ -369,6 +374,67 @@ export function followImport(
     });
 }
 
+function gatherFieldLocations(lab: string, node: Node): LocationSet {
+    const references = new LocationSet();
+    if (node.name !== 'Obj' || !node.args) {
+        return references;
+    }
+    const [_sort, ...fields] = node.args;
+    for (const field of fields as Node[]) {
+        if (field.name !== lab) {
+            continue;
+        }
+        const [_type, _depr, _region, ...srcs] = field.args!;
+        for (const src of srcs as Node[]) {
+            if (!src.file || !src.start || !src.end) {
+                continue;
+            }
+            references.add(
+                locationFromUriAndRange(
+                    URI.parse(src.file).toString(),
+                    rangeFromNode(src)!,
+                ),
+            );
+        }
+    }
+    return references;
+}
+
+function searchType(
+    reference: Reference,
+    search: Search,
+): Definition | undefined {
+    function searchDotE(node: Node): Definition | undefined {
+        return matchNode(node, 'DotE', (qual: Node, id: Node) => {
+            const lab = getIdName(id);
+            if (!lab) {
+                console.warn(
+                    'Unexpected AST format: DotE has no ID node on RHS.',
+                );
+                return;
+            }
+            // We need to check whether we are in the LHS (qual) or RHS (id) of
+            // the DotE expression.
+            if (search.name !== lab) {
+                return searchDotE(qual);
+            }
+            if (!qual.typeRep) {
+                return;
+            }
+            const locations = Array.from(
+                gatherFieldLocations(lab, qual.typeRep).values(),
+            );
+            if (!locations.length) {
+                return;
+            }
+            // TODO: Support multiple definitions.
+            const location = locations[0];
+            return findDefinition(location.uri, location.range.start);
+        });
+    }
+    return searchDotE(reference.node);
+}
+
 function search(
     context: Context,
     reference: Reference,
@@ -377,9 +443,14 @@ function search(
     if (!path.length) {
         return;
     }
+    // If we have a DotE, search for the reference in the type.
+    let definition = searchType(reference, path[path.length - 1]);
+    if (definition) {
+        return definition;
+    }
     const [base] = path;
     // Search for the base reference in the local scope
-    let definition = searchInScope(reference, base);
+    definition = searchInScope(reference, base);
     if (definition) {
         // Follow an import
         definition =
