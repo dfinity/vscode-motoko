@@ -86,6 +86,7 @@ import {
     Type,
     asNode,
     findNodes,
+    getIdName,
 } from './syntax';
 import {
     formatMotoko,
@@ -1300,9 +1301,9 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                     const idents = new Set<string>();
                     findNodes(
                         program.ast,
-                        (node) => node.name === 'VarP' || node.name === 'VarD',
+                        (node) => node.name === 'ID',
                     ).forEach((node) => {
-                        const ident = node.args?.[0]; // First arg for both `VarP` and `VarD`
+                        const ident = node.args?.[0];
                         if (typeof ident === 'string') {
                             idents.add(ident);
                         }
@@ -1666,25 +1667,24 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                     (node.name === 'VarE' ||
                         node.name === 'VarP' ||
                         node.name === 'VarD') &&
-                    node.args?.[0] === definition.name,
+                    getIdName(node.args?.[0]) === definition.name,
             );
             const dotNodes = findNodes(
                 status.ast,
                 (node, _parents) =>
-                    node.name === 'DotE' && node.args?.[1] === definition.name,
+                    node.name === 'DotE' &&
+                    getIdName(node.args?.[1]) === definition.name,
             ).map((ast) => {
                 if (!ast.args) {
                     return ast;
                 }
-                const right = ast.args[1] as string;
+                const right = ast.args[1] as Node;
                 return {
                     name: 'VarE',
                     type: ast.type,
                     args: [right],
-                    start: ast.end
-                        ? [ast.end[0], ast.end[1] - right.length]
-                        : undefined,
-                    end: ast.end,
+                    start: right.start,
+                    end: right.end,
                 } as Node;
             });
             const nodes = [...varNodes, ...dotNodes];

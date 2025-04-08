@@ -1,7 +1,13 @@
 import { AST, Node, Span } from 'motoko/lib/ast';
 import { Location, Position, Range } from 'vscode-languageserver';
 import { Context, getContext } from './context';
-import { findNodes, matchNode, asNode, findInPattern } from './syntax';
+import {
+    findNodes,
+    getIdName,
+    matchNode,
+    asNode,
+    findInPattern,
+} from './syntax';
 import { getAbsoluteUri } from './utils';
 
 export interface Reference {
@@ -134,6 +140,7 @@ function findNameInPattern(
 const nodePriorities: Record<string, number> = {
     DotE: 3, // qulified variable
     VarE: 2, // variable
+    ID: 1, // name
     PathT: 2, // type reference
     ImportE: 1, // module import
     VarP: 2, // field import
@@ -155,12 +162,13 @@ export function findDefinition(
         console.log('Outdated AST for', uri);
         return;
     }
-    const node = findMostSpecificNodeForPosition(
+    const foundNode = findMostSpecificNodeForPosition(
         status.ast,
         position,
         (node) => nodePriorities[node.name] || 0,
         isMouseCursor,
     );
+    const node = foundNode?.name === 'ID' ? foundNode.parent : foundNode;
     if (!node) {
         return;
     }
@@ -188,29 +196,29 @@ export function findDefinition(
 
 function getSearchPath(node: Node): Search[] {
     return (
-        matchNode(node, 'DotE', (qual: Node, name: string) => [
+        matchNode(node, 'DotE', (qual: Node, id: Node) => [
             ...getSearchPath(qual),
             {
                 type: 'variable',
-                name,
+                name: getIdName(id)!,
             },
         ]) ||
-        matchNode(node, 'VarE', (name: string) => [
+        matchNode(node, 'VarE', (id: Node) => [
             {
                 type: 'variable',
-                name,
+                name: getIdName(id)!,
             },
         ]) ||
-        matchNode(node, 'VarD', (name: string) => [
+        matchNode(node, 'VarD', (id: Node) => [
             {
                 type: 'variable',
-                name,
+                name: getIdName(id)!,
             },
         ]) ||
-        matchNode(node, 'VarP', (name: string) => [
+        matchNode(node, 'VarP', (id: Node) => [
             {
                 type: 'variable',
-                name,
+                name: getIdName(id)!,
             },
         ]) ||
         matchNode(node, 'PathT', (path: Node) => getTypeSearchPath(path)) ||
@@ -221,34 +229,34 @@ function getSearchPath(node: Node): Search[] {
 function getTypeSearchPath(node: Node): Search[] {
     function getQualifierSearchPath(node: Node): Search[] {
         return (
-            matchNode(node, 'IdH', (name) => [
+            matchNode(node, 'IdH', (id: Node) => [
                 {
                     type: 'variable',
-                    name,
+                    name: getIdName(id)!,
                 },
             ]) ||
-            matchNode(node, 'DotH', (qual: Node, name: string) => [
+            matchNode(node, 'DotH', (qual: Node, id: Node) => [
                 ...getQualifierSearchPath(qual),
                 {
                     type: 'variable',
-                    name,
+                    name: getIdName(id)!,
                 },
             ]) ||
             []
         );
     }
     return (
-        matchNode(node, 'IdH', (name) => [
+        matchNode(node, 'IdH', (id: Node) => [
             {
                 type: 'type',
-                name,
+                name: getIdName(id)!,
             },
         ]) ||
-        matchNode(node, 'DotH', (qual: Node, name: string) => [
+        matchNode(node, 'DotH', (qual: Node, id: Node) => [
             ...getQualifierSearchPath(qual),
             {
                 type: 'type',
-                name,
+                name: getIdName(id)!,
             },
         ]) ||
         []
@@ -390,26 +398,28 @@ function searchDeclaration(
                 }
             );
         }) ||
-        matchNode(dec, 'VarD', (name: string, body: Node) =>
-            name === search.name
+        matchNode(dec, 'VarD', (pat: Node, body: Node) => {
+            const [name, varNode] = findNameInPattern(search, pat) || [];
+            return varNode && name === search.name
                 ? {
                       uri: reference.uri,
-                      cursor: dec, // TODO: cursor on variable name
+                      cursor: varNode,
                       body,
                       name,
                   }
-                : undefined,
-        ) ||
-        matchNode(dec, 'ClassD', (_sharedPat: any, name: string) =>
-            name === search.name
+                : undefined;
+        }) ||
+        matchNode(dec, 'ClassD', (_sharedPat: any, pat: Node) => {
+            const [name, varNode] = findNameInPattern(search, pat) || [];
+            return varNode && name === search.name
                 ? {
                       uri: reference.uri,
-                      cursor: dec, // TODO: cursor on variable name
+                      cursor: varNode,
                       body: dec,
                       name,
                   }
-                : undefined,
-        )
+                : undefined;
+        })
     );
 }
 
@@ -419,26 +429,28 @@ function searchTypeBinding(
     dec: Node,
 ): Definition | undefined {
     return (
-        matchNode(dec, 'TypD', (name: string, typ: Node) =>
-            name === search.name
+        matchNode(dec, 'TypD', (id: Node, typ: Node) => {
+            const name = getIdName(id)!;
+            return name === search.name
                 ? {
                       uri: reference.uri,
                       cursor: typ, // TODO: source location from `name`
                       body: typ,
                       name,
                   }
-                : undefined,
-        ) ||
-        matchNode(dec, 'ClassD', (_sharedPat: any, name: string) =>
-            name === search.name
+                : undefined;
+        }) ||
+        matchNode(dec, 'ClassD', (_sharedPat: any, id: Node) => {
+            const name = getIdName(id)!;
+            return name === search.name
                 ? {
                       uri: reference.uri,
                       cursor: dec, // TODO: cursor on variable name
                       body: dec,
                       name,
                   }
-                : undefined,
-        )
+                : undefined;
+        })
     );
 }
 
@@ -460,17 +472,17 @@ export function searchObject(
         if (search.type === 'variable') {
             definition =
                 searchDeclaration(reference, search, arg) ||
-                matchNode(
-                    arg,
-                    'ExpField',
-                    (_mut, name, body) =>
+                matchNode(arg, 'ExpField', (_mut, id, body) => {
+                    const name = getIdName(id)!;
+                    return (
                         name === search.name && {
                             uri: reference.uri,
                             cursor: arg,
                             body,
                             name,
-                        },
-                ) ||
+                        }
+                    );
+                }) ||
                 matchNode(arg, 'DecField', (dec: Node) =>
                     searchDeclaration(reference, search, dec),
                 ) ||

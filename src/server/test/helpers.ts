@@ -43,8 +43,9 @@ export function makeTextDocument(
 export async function runTest<T>(
     rootUri: URI,
     test: (client: Connection) => Promise<T>,
+    redirectConsole: boolean = true,
 ): Promise<T> {
-    const [client, _server] = setupClientServer(true);
+    const [client, _server] = setupClientServer(redirectConsole);
     await client.sendRequest<InitializeResult>(
         'initialize',
         clientInitParams(rootUri),
