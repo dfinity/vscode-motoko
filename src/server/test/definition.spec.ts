@@ -96,12 +96,12 @@ describe('go to definition', () => {
     ])('base:Array-%#', testGoToDefinition);
 
     // public func init<X>(...
-    //       ^^
+    //            ^^
     const baseArrayInitDelcPos = {
         uri: `${arrayUri}`,
         range: {
-            start: { line: 28, character: 9 },
-            end: { line: 28, character: 96 },
+            start: { line: 28, character: 14 },
+            end: { line: 28, character: 18 },
         },
     };
     test.each([
@@ -142,12 +142,12 @@ describe('go to definition', () => {
     ])('vector:Vector-%#', testGoToDefinition);
 
     // public type Vector<X> = {
-    //       ^^
+    //            ^^
     const vectorTypeDeclPos = {
         uri: `${vectorUri}`,
         range: {
-            start: { line: 27, character: 9 },
-            end: { line: 27, character: 9 },
+            start: { line: 27, character: 14 },
+            end: { line: 27, character: 20 },
         },
     };
     test.each([

@@ -25,6 +25,20 @@ export interface Definition {
 interface Search {
     type: 'variable' | 'type';
     name: string;
+    start?: Position;
+    end?: Position;
+}
+
+function spanToPos(span: Span | undefined): Position | undefined {
+    if (!span) return undefined;
+    return { line: span[0] - 1, character: span[1] };
+}
+
+function posBefore(pos1: Position, pos2: Position): Boolean {
+    return (
+        pos1.line < pos2.line ||
+        (pos1.line == pos2.line && pos1.character < pos2.character)
+    );
 }
 
 export function sameLocation(a: Location, b: Location): boolean {
@@ -71,8 +85,10 @@ export function findMostSpecificNodeForPosition(
         if (
             !node ||
             scoreFn(n) > scoreFn(node) ||
-            nLines < nodeLines ||
-            (nLines == nodeLines && nChars < nodeChars)
+            (scoreFn(n) == scoreFn(node) && nLines < nodeLines) ||
+            (scoreFn(n) == scoreFn(node) &&
+                nLines == nodeLines &&
+                nChars < nodeChars)
         ) {
             node = n;
             nodeLines = nLines;
@@ -178,15 +194,23 @@ export function findDefinition(
         return importDefinition;
     }
     const path = getSearchPath(node);
+    const firstUnrelated = path.findIndex(
+        (s) => s.start !== undefined && posBefore(position, s.start),
+    );
+    const relatedPath = path.slice(
+        0,
+        firstUnrelated !== -1 ? firstUnrelated : path.length,
+    );
+
     if (!path.length) {
         console.log('Reference not found from AST node:', node.name);
         return;
     }
-    const definition = search(context, reference, path);
-    if (!definition) {
+    const definition = search(context, reference, relatedPath);
+    if (!definition || (Array.isArray(definition) && !definition.length)) {
         console.log(
             'Definition not found for reference path:',
-            path,
+            relatedPath,
             `(${node.name})`,
         );
         return;
@@ -201,24 +225,32 @@ function getSearchPath(node: Node): Search[] {
             {
                 type: 'variable',
                 name: getIdName(id)!,
+                start: spanToPos(id.start),
+                end: spanToPos(id.end),
             },
         ]) ||
         matchNode(node, 'VarE', (id: Node) => [
             {
                 type: 'variable',
                 name: getIdName(id)!,
+                start: spanToPos(id.start),
+                end: spanToPos(id.end),
             },
         ]) ||
         matchNode(node, 'VarD', (id: Node) => [
             {
                 type: 'variable',
                 name: getIdName(id)!,
+                start: spanToPos(id.start),
+                end: spanToPos(id.end),
             },
         ]) ||
         matchNode(node, 'VarP', (id: Node) => [
             {
                 type: 'variable',
                 name: getIdName(id)!,
+                start: spanToPos(id.start),
+                end: spanToPos(id.end),
             },
         ]) ||
         matchNode(node, 'PathT', (path: Node) => getTypeSearchPath(path)) ||
@@ -233,6 +265,8 @@ function getTypeSearchPath(node: Node): Search[] {
                 {
                     type: 'variable',
                     name: getIdName(id)!,
+                    start: spanToPos(id.start),
+                    end: spanToPos(id.end),
                 },
             ]) ||
             matchNode(node, 'DotH', (qual: Node, id: Node) => [
@@ -240,6 +274,8 @@ function getTypeSearchPath(node: Node): Search[] {
                 {
                     type: 'variable',
                     name: getIdName(id)!,
+                    start: spanToPos(id.start),
+                    end: spanToPos(id.end),
                 },
             ]) ||
             []
@@ -250,6 +286,8 @@ function getTypeSearchPath(node: Node): Search[] {
             {
                 type: 'type',
                 name: getIdName(id)!,
+                start: spanToPos(id.start),
+                end: spanToPos(id.end),
             },
         ]) ||
         matchNode(node, 'DotH', (qual: Node, id: Node) => [
@@ -257,6 +295,8 @@ function getTypeSearchPath(node: Node): Search[] {
             {
                 type: 'type',
                 name: getIdName(id)!,
+                start: spanToPos(id.start),
+                end: spanToPos(id.end),
             },
         ]) ||
         []
@@ -434,7 +474,7 @@ function searchTypeBinding(
             return name === search.name
                 ? {
                       uri: reference.uri,
-                      cursor: id, // TODO: check it after rebase
+                      cursor: id,
                       body: dec,
                       name,
                   }
@@ -445,7 +485,7 @@ function searchTypeBinding(
             return name === search.name
                 ? {
                       uri: reference.uri,
-                      cursor: dec, // TODO: cursor on variable name
+                      cursor: id,
                       body: dec,
                       name,
                   }
