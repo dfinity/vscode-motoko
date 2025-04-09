@@ -29,14 +29,13 @@ describe('definitions', () => {
 
     async function testDefinition(
         reference: Location,
-        expected: Location | Location[],
+        expected: Location[],
     ): Promise<void> {
         // Open all files that we plan to test. This is to avoid opening and
         // reading documents multiple times.
         const textDocuments = new Map<string, TextDocument>();
-        const expectedArr = Array.isArray(expected) ? expected : [expected];
         await Promise.all(
-            [reference, ...expectedArr].map(async (loc) => {
+            [reference, ...expected].map(async (loc) => {
                 const uri = loc.uri;
                 if (!textDocuments.has(uri)) {
                     const textDocument = makeTextDocument(
@@ -55,7 +54,7 @@ describe('definitions', () => {
         // Test that finding all references from every expected reference will
         // be equal.
         const textDocument = textDocuments.get(reference.uri);
-        const locations = await client.sendRequest<Location | Location[]>(
+        const locations = await client.sendRequest<Location[]>(
             'textDocument/definition',
             {
                 textDocument,
@@ -81,48 +80,48 @@ describe('definitions', () => {
     test('Can find object method definition', () =>
         testDefinition(
             location('A.mo', 6, 17, 21), // a.meth
-            location('B.mo', 9, 20, 24), // definition of meth
+            [location('B.mo', 9, 20, 24)], // definition of meth
         ));
 
     test('Definition of value points to itself', () =>
         testDefinition(
             location('chain.mo', 7, 27, 28), // definition of x
-            location('chain.mo', 7, 27, 28), // definition of x
+            [location('chain.mo', 7, 27, 28)], // definition of x
         ));
 
     test('Can find nested value definition', () =>
         testDefinition(
             location('chain.mo', 12, 31, 32), // x in a.b.c.x
-            location('chain.mo', 7, 27, 28), // definition of x
+            [location('chain.mo', 7, 27, 28)], // definition of x
         ));
 
     test('Can find nested object definition (left)', () =>
         testDefinition(
             location('chain.mo', 12, 25, 26), // a in a.b.c.x
-            location('chain.mo', 2, 18, 19), // definition of a
+            [location('chain.mo', 2, 18, 19)], // definition of a
         ));
 
     test('Can find nested object definition (middle)', () =>
         testDefinition(
             location('chain.mo', 12, 27, 28), // b in a.b.c.x
-            location('chain.mo', 4, 22, 23), // definition of b
+            [location('chain.mo', 4, 22, 23)], // definition of b
         ));
 
     test('Can find nested object definition (right)', () =>
         testDefinition(
             location('chain.mo', 12, 29, 30), // c in a.b.c.x
-            location('chain.mo', 6, 26, 27), // definition of c
+            [location('chain.mo', 6, 26, 27)], // definition of c
         ));
 
     test('Can find circular object definition', async () => {
         await testDefinition(
             location('circular.mo', 2, 19, 20), // definition of o
-            location('circular.mo', 2, 19, 20), // definition of o
+            [location('circular.mo', 2, 19, 20)], // definition of o
         );
         for (const column of [12, 14, 16, 18, 20, 22]) {
             await testDefinition(
                 location('circular.mo', 5, column, column + 1), // /\.o\.?/
-                location('circular.mo', 2, 19, 20), // definition of o
+                [location('circular.mo', 2, 19, 20)], // definition of o
             );
         }
     }, 20000);

@@ -72,7 +72,7 @@ describe('go to definition', () => {
             position: pos,
         });
 
-        expect(response).toEqual(declPos);
+        expect(response).toEqual([declPos]);
     };
 
     // module {

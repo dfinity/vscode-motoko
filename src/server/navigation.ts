@@ -166,11 +166,11 @@ const nodePriorities: Record<string, number> = {
     VarP: 2, // field import
 };
 
-export function findDefinition(
+export function findDefinitions(
     uri: string,
     position: Position,
     isMouseCursor = false,
-): Definition | undefined {
+): Definition[] | undefined {
     // Get relevant AST node
     const context = getContext(uri);
     const status =
@@ -196,7 +196,7 @@ export function findDefinition(
     const reference: Reference = { uri, node };
     const importDefinition = followImport(context, reference);
     if (importDefinition) {
-        return importDefinition;
+        return [importDefinition];
     }
     const path = getSearchPath(node);
     const firstUnrelated = path.findIndex(
@@ -220,7 +220,7 @@ export function findDefinition(
         );
         return;
     }
-    return definition;
+    return Array.isArray(definition) ? definition : [definition];
 }
 
 function getSearchPath(node: Node): Search[] {
@@ -403,8 +403,8 @@ function gatherFieldLocations(lab: string, node: Node): LocationSet {
 function searchType(
     reference: Reference,
     search: Search,
-): Definition | undefined {
-    function searchDotE(node: Node): Definition | undefined {
+): Definition[] | undefined {
+    function searchDotE(node: Node): Definition[] | undefined {
         return matchNode(node, 'DotE', (qual: Node, id: Node) => {
             const lab = getIdName(id);
             if (!lab) {
@@ -424,12 +424,17 @@ function searchType(
             const locations = Array.from(
                 gatherFieldLocations(lab, qual.typeRep).values(),
             );
-            if (!locations.length) {
-                return;
+            let definitions: Definition[] = [];
+            for (const location of locations) {
+                const follow = findDefinitions(
+                    location.uri,
+                    location.range.start,
+                );
+                if (follow) {
+                    definitions = definitions.concat(follow);
+                }
             }
-            // TODO: Support multiple definitions.
-            const location = locations[0];
-            return findDefinition(location.uri, location.range.start);
+            return definitions;
         });
     }
     return searchDotE(reference.node);
@@ -439,18 +444,18 @@ function search(
     context: Context,
     reference: Reference,
     path: Search[],
-): Definition | undefined {
+): Definition | Definition[] | undefined {
     if (!path.length) {
         return;
     }
     // If we have a DotE, search for the reference in the type.
-    let definition = searchType(reference, path[path.length - 1]);
-    if (definition) {
-        return definition;
+    const definitions = searchType(reference, path[path.length - 1]);
+    if (definitions && definitions.length) {
+        return definitions;
     }
     const [base] = path;
     // Search for the base reference in the local scope
-    definition = searchInScope(reference, base);
+    let definition = searchInScope(reference, base);
     if (definition) {
         // Follow an import
         definition =
