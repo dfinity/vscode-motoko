@@ -5,7 +5,7 @@ import * as semver from 'semver';
 import * as glob from 'fast-glob';
 import { existsSync, readFileSync } from 'fs';
 import { add as mopsAdd } from 'ic-mops/commands/add';
-import { Node } from 'motoko/lib/ast';
+import { AST, Node } from 'motoko/lib/ast';
 import { keywords } from 'motoko/lib/keywords';
 import * as baseLibrary from 'motoko/packages/latest/base.json';
 import { join, resolve } from 'path';
@@ -60,14 +60,16 @@ import {
     resetContexts,
 } from './context';
 import DfxResolver from './dfx';
-import { organizeImports } from './imports';
+import { extractFields, organizeImports } from './imports';
 import { getAstInformation } from './information';
 import {
     defaultRange,
     findDefinition,
     findMostSpecificNodeForPosition,
+    followImport,
     locationFromDefinition,
     rangeFromNode,
+    searchObject,
 } from './navigation';
 import { deployPlayground } from './playground';
 import {
@@ -1043,7 +1045,10 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                 let program: Program | undefined;
                 try {
                     astResolver.notify(uri, content, isVirtualFileSystemReady);
-                    // program = astResolver.request(uri)?.program; // TODO: re-enable for field imports
+                    program = astResolver.request(
+                        uri,
+                        isVirtualFileSystemReady,
+                    )?.program;
                 } catch (err) {
                     console.error(`Error while parsing (${uri}): ${err}`);
                 }
@@ -1145,6 +1150,64 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
         return null;
     });
 
+    function findImportUri(
+        context: Context,
+        uri: string,
+        name: string,
+    ): string | undefined {
+        const node = context.astResolver.request(uri, isVirtualFileSystemReady)
+            ?.ast as Node;
+        const reference = { uri, node };
+        const imprt = searchObject(reference, { type: 'variable', name });
+        if (imprt) {
+            return followImport(context, {
+                uri: imprt.uri,
+                node: imprt.cursor,
+            })?.uri;
+        }
+        return undefined;
+    }
+
+    function getOffset(text: string, { line, character }: Position): number {
+        const lines = text.split('\n');
+
+        if (line >= lines.length) {
+            throw new Error('Line number out of range');
+        }
+        if (character > lines[line].length) {
+            throw new Error('Character position out of range');
+        }
+
+        // +character for offset into a line, +line for each newline character
+        let offset = character + line;
+        for (let i = 0; i < line; i++) {
+            offset += lines[i].length;
+        }
+
+        return offset;
+    }
+
+    function getLineAndCharacter(text: string, offset: number): Position {
+        if (offset < 0 || offset > text.length) {
+            throw new Error('Offset out of range');
+        }
+
+        let currentOffset = 0;
+        const lines = text.split('\n');
+        for (let line = 0; line < lines.length; line++) {
+            const lineLength = lines[line].length + 1; // +1 for the newline
+
+            if (currentOffset + lineLength > offset) {
+                const character = offset - currentOffset;
+                return { line, character };
+            }
+
+            currentOffset += lineLength;
+        }
+
+        throw new Error('Offset calculation failed');
+    }
+
     connection.onCompletion((event) => {
         const { position } = event;
         const { uri } = event.textDocument;
@@ -1152,7 +1215,6 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
         const list = CompletionList.create([], true);
         try {
             const text = getFileText(uri);
-            const lines = text.split(/\r?\n/g);
             const context = getContext(uri);
             const status = context.astResolver.request(
                 uri,
@@ -1160,8 +1222,9 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
             );
             const program = status?.program;
 
+            const offset = getOffset(text, position);
             const [dot, identStart] = /(\s*\.\s*)?([a-zA-Z_]?[a-zA-Z0-9_]*)$/
-                .exec(lines[position.line].substring(0, position.character))
+                .exec(text.substring(0, offset))
                 ?.slice(1) ?? ['', ''];
 
             if (!dot) {
@@ -1200,9 +1263,7 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                                     label: name,
                                     detail: path,
                                     insertText: name,
-                                    kind: path.startsWith('mo:')
-                                        ? CompletionItemKind.Module
-                                        : CompletionItemKind.Class, // TODO: resolve actors, classes, etc.
+                                    kind: CompletionItemKind.Module,
                                     additionalTextEdits: edits,
                                 });
                             } catch (err) {
@@ -1250,39 +1311,81 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                         });
                     });
                 }
+            } else {
+                // Check for an identifier before the dot (e.g. `Module.abc`)
+                const end = offset - dot.length - identStart.length;
+                const preMatch = /(\s*\.\s*)?([a-zA-Z_][a-zA-Z0-9_]*)$/.exec(
+                    text.substring(0, end),
+                );
+                if (!preMatch) {
+                    return list;
+                }
+                const [_preMatch, _preDot, preIdent] = preMatch;
+                const start = end - preIdent.length;
+                const indentPosition = getLineAndCharacter(text, start);
+                const definition = findDefinition(uri, indentPosition);
+                if (definition) {
+                    // HACK: Base modules seem to be contained inside an ExpD, so we
+                    // unwrap them.
+                    function tryGetObjBlockEFromExpD(node: Node): AST {
+                        if (node.name === 'ExpD' && node.args && node.args[0]) {
+                            return node.args[0];
+                        }
+                        return node;
+                    }
+
+                    const ast = tryGetObjBlockEFromExpD(definition.body);
+                    const fields = extractFields(ast, uri).get(uri);
+                    if (!fields) {
+                        return list;
+                    }
+
+                    Array.from(fields.values()).forEach(({ name, kind }) =>
+                        list.items.push({
+                            label: name,
+                            detail: getRelativeUri(uri, definition.uri),
+                            insertText: name,
+                            kind,
+                        }),
+                    );
+                } else {
+                    // NOTE: in case AST is outdated or no such module in scope
+                    const importUri = findImportUri(
+                        context,
+                        event.textDocument.uri,
+                        preIdent,
+                    );
+                    let iter: any;
+                    if (importUri) {
+                        iter = [importUri];
+                    } else {
+                        // NOTE: in case we haven't found import in the ast (it may be outdated)
+                        // we provide fields from all the modules with the basename as the variable
+                        const modules =
+                            context.importResolver.getUrisByModuleName(
+                                preIdent,
+                            );
+                        iter = modules ? modules : [];
+                    }
+                    iter.forEach((uri: string) =>
+                        context.importResolver
+                            .getFields(uri)
+                            .forEach(({ name, kind }) => {
+                                if (name.startsWith(identStart)) {
+                                    list.items.push({
+                                        label: name,
+                                        detail: getRelativeUri(
+                                            event.textDocument.uri,
+                                            uri,
+                                        ),
+                                        insertText: name,
+                                        kind,
+                                    });
+                                }
+                            }),
+                    );
+                }
             }
-            // else {
-            //     // Check for an identifier before the dot (e.g. `Module.abc`)
-            //     const end = position.character - dot.length - identStart.length;
-            //     const preMatch = /(\s*\.\s*)?([a-zA-Z_][a-zA-Z0-9_]*)$/.exec(
-            //         lines[position.line].substring(0, end),
-            //     );
-            //     if (preMatch) {
-            //         const [, preDot, preIdent] = preMatch;
-            //         if (!preDot) {
-            //             importResolver
-            //                 .getNameEntries(preIdent)
-            //                 .forEach(([name, uri]) => {
-            //                     const importUri = program?.imports.find()?.path;
-            //                     importResolver
-            //                         .getFields(uri)
-            //                         .forEach(([{ name }, path]) => {
-            //                             if (name.startsWith(identStart)) {
-            //                                 list.items.push({
-            //                                     label: name,
-            //                                     detail: path,
-            //                                     insertText: name,
-            //                                     kind: path.startsWith('mo:')
-            //                                         ? CompletionItemKind.Module
-            //                                         : CompletionItemKind.Class, // TODO: resolve actors, classes, etc.
-            //                                     // additionalTextEdits: import
-            //                                 });
-            //                             }
-            //                         });
-            //                 });
-            //         }
-            //     }
-            // }
         } catch (err) {
             console.error('Error during autocompletion:');
             console.error(err);
@@ -1671,7 +1774,10 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
             .astResolver.getDependencyGraph()
             .getRawGraph();
         const nodes = graph.overallOrder(false);
-        return nodes.map((node) => [node, graph.directDependenciesOf(node)]);
+        return nodes.map((node: any) => [
+            node,
+            graph.directDependenciesOf(node),
+        ]);
     });
 
     const diagnosticMap = new Map<string, Diagnostic[]>();
