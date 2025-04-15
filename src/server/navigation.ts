@@ -37,7 +37,7 @@ function spanToPos(span: Span | undefined): Position | undefined {
 function posBefore(pos1: Position, pos2: Position): Boolean {
     return (
         pos1.line < pos2.line ||
-        (pos1.line == pos2.line && pos1.character < pos2.character)
+        (pos1.line === pos2.line && pos1.character < pos2.character)
     );
 }
 
@@ -85,9 +85,9 @@ export function findMostSpecificNodeForPosition(
         if (
             !node ||
             scoreFn(n) > scoreFn(node) ||
-            (scoreFn(n) == scoreFn(node) && nLines < nodeLines) ||
-            (scoreFn(n) == scoreFn(node) &&
-                nLines == nodeLines &&
+            (scoreFn(n) === scoreFn(node) && nLines < nodeLines) ||
+            (scoreFn(n) === scoreFn(node) &&
+                nLines === nodeLines &&
                 nChars < nodeChars)
         ) {
             node = n;
