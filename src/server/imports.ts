@@ -1,14 +1,83 @@
 import { pascalCase } from 'change-case';
 import { MultiMap } from 'mnemonist';
 import { AST, Node } from 'motoko/lib/ast';
+import { CompletionItemKind } from 'vscode-languageserver/node';
 import { Context, getContext } from './context';
 import { Import, Program, matchNode } from './syntax';
 import { formatMotoko, getRelativeUri } from './utils';
 
-interface ResolvedField {
+export interface ResolvedField {
     name: string;
     visibility: string;
+    kind: CompletionItemKind;
     ast: AST;
+}
+
+export function extractFields(
+    ast: AST,
+    uri: string,
+): MultiMap<string, ResolvedField, Set<ResolvedField>> {
+    const fieldMap = new MultiMap<string, ResolvedField>(Set);
+    matchNode(ast, 'ObjBlockE', (_s: string, _t: string, ...fields: Node[]) =>
+        fields.forEach((field) => {
+            if (field.name !== 'DecField') {
+                console.error(
+                    'Error: expected `DecField`, received',
+                    field.name,
+                );
+                return;
+            }
+            const [dec, visibility] = field.args!;
+            if (visibility !== 'Public') {
+                return;
+            }
+            matchNode(dec, 'LetD', (pat: Node, exp: Node) => {
+                const name = matchNode(pat, 'VarP', (field: string) => field);
+                if (name) {
+                    fieldMap.set(uri, {
+                        name,
+                        visibility,
+                        kind:
+                            exp.name === 'FuncE'
+                                ? CompletionItemKind.Function
+                                : CompletionItemKind.Variable,
+                        ast: exp,
+                    });
+                }
+            });
+            matchNode(dec, 'ClassD', (_local: string, name: string) => {
+                if (name) {
+                    fieldMap.set(uri, {
+                        name,
+                        visibility,
+                        kind: CompletionItemKind.Class,
+                        ast: null,
+                    });
+                }
+            });
+            matchNode(dec, 'VarD', (name: string, exp: Node) => {
+                if (name) {
+                    fieldMap.set(uri, {
+                        name,
+                        visibility,
+                        kind: CompletionItemKind.Variable,
+                        ast: exp,
+                    });
+                }
+            });
+            matchNode(dec, 'TypD', (name: string, exp: Node) => {
+                if (name) {
+                    fieldMap.set(uri, {
+                        name,
+                        visibility,
+                        kind: CompletionItemKind.Interface,
+                        ast: exp,
+                    });
+                }
+            });
+        }),
+    );
+    return fieldMap;
 }
 
 export default class ImportResolver {
@@ -33,50 +102,18 @@ export default class ImportResolver {
         const [name, importUri] = info;
         this._moduleNameUriMap.set(name, importUri);
         this._fileSystemMap.set(importUri, uri);
-        if (program?.export) {
-            // Resolve field names
-            const { ast } = program.export;
-            const node =
-                matchNode(ast, 'LetD', (_pat: Node, exp: Node) => exp) || // Named
-                matchNode(ast, 'ExpD', (exp: Node) => exp); // Unnamed
-            if (node) {
-                matchNode(
-                    node,
-                    'ObjBlockE',
-                    (_type: string, ...fields: Node[]) => {
-                        this._fieldMap.delete(uri);
-                        fields.forEach((field) => {
-                            if (field.name !== 'DecField') {
-                                console.error(
-                                    'Error: expected `DecField`, received',
-                                    field.name,
-                                );
-                                return;
-                            }
-                            const [dec, visibility] = field.args!;
-                            if (visibility !== 'Public') {
-                                return;
-                            }
-                            matchNode(dec, 'LetD', (pat: Node, exp: Node) => {
-                                const name = matchNode(
-                                    pat,
-                                    'VarP',
-                                    (field: string) => field,
-                                );
-                                if (name) {
-                                    this._fieldMap.set(uri, {
-                                        name,
-                                        visibility,
-                                        ast: exp,
-                                    });
-                                }
-                            });
-                        });
-                    },
-                );
-            }
-        }
+        this._updateFields(uri, program);
         return true;
+    }
+
+    _updateFields(uri: string, program: Program | undefined) {
+        this._fieldMap.delete(uri);
+        program?.exportFields.forEach(({ exp }) => {
+            const fieldMap = extractFields(exp.ast, uri);
+            fieldMap.forEach((value, key, _map) =>
+                this._fieldMap.set(key, value),
+            );
+        });
     }
 
     delete(uri: string): boolean {
@@ -104,6 +141,16 @@ export default class ImportResolver {
             return [];
         }
         return [...options].map((option) => getRelativeUri(uri, option));
+    }
+
+    getUrisByModuleName(name: string): string[] {
+        const uris = [];
+        for (const [key, value] of this._moduleNameUriMap.entries()) {
+            if (key === name) {
+                uris.push(value + '.mo');
+            }
+        }
+        return uris;
     }
 
     /**
