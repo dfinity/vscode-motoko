@@ -4,7 +4,7 @@ import { Field, Program, Syntax, SyntaxWithFields, fromAST } from './syntax';
 /* eslint jest/expect-expect: ["off", { "assertFunctionNames": ["expect"] }] */
 
 const parse = (source: string): Program => {
-    const ast = motoko.parseMotoko(source);
+    const ast = motoko.parseMotoko(source, /*recovery=*/ true);
     const prog = fromAST(ast) as Program;
     expect(prog).toBeInstanceOf(Program);
     return prog;
@@ -27,7 +27,7 @@ const expectWithFields = (
     return obj.fields;
 };
 
-describe('syntax', () => {
+describe('correct syntax', () => {
     test('let field', () => {
         const prog = parse('module { let x = 0; }');
         expectWithFields(prog.exportFields[0].exp, ['x']);
@@ -106,5 +106,17 @@ describe('syntax', () => {
         );
         expectFields(prog.exportFields, [undefined]);
         expectWithFields(prog.exportFields[0].exp, ['a', 'c']);
+    });
+});
+
+describe('incorrect syntax', () => {
+    test('missing semicolon', () => {
+        const prog = parse('module { let x = 0 let y = 0}');
+        expectWithFields(prog.exportFields[0].exp, ['x', 'y']);
+    });
+    test('missing end curly bracket', () => {
+        const prog = parse('actor { let x = 0; }');
+        expectFields(prog.exportFields, [undefined]);
+        expectWithFields(prog.exportFields[0].exp, ['x']);
     });
 });

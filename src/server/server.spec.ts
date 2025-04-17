@@ -194,4 +194,35 @@ describe('cache', () => {
             ]),
         );
     });
+
+    test('We can get typed AST for second hover (regression test for issue #340)', async () => {
+        const [hover0, hover1] = await runTest(async (client) => {
+            const textDocument = makeTextDocument('issue-340.mo');
+            await client.sendNotification('textDocument/didOpen', {
+                textDocument,
+            });
+            await wait(1);
+            const hover0 = await client.sendRequest<Hover>(
+                'textDocument/hover',
+                {
+                    textDocument,
+                    position: { line: 2, character: 24 },
+                },
+            );
+            await wait(2);
+            const hover1 = await client.sendRequest<Hover>(
+                'textDocument/hover',
+                {
+                    textDocument,
+                    position: { line: 2, character: 24 },
+                },
+            );
+            return [hover0, hover1];
+        });
+        expect(hover0.contents).toStrictEqual({
+            kind: 'markdown',
+            value: '```motoko\nInt\n\n```',
+        });
+        expect(hover1).toStrictEqual(hover0);
+    }, 10000);
 });
