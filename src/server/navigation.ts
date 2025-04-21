@@ -162,8 +162,8 @@ const nodePriorities: Record<string, number> = {
     DotE: 3, // qulified variable
     VarE: 2, // variable
     PathT: 2, // type reference
-    ImportE: 1, // module import
     VarP: 2, // field import
+    ImportE: 1, // module import
 };
 
 export function findDefinitions(
