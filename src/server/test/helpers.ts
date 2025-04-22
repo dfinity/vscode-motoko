@@ -57,3 +57,60 @@ export async function runTest<T>(
     await wait(1); // wait for shutdown
     return result;
 }
+
+// Use if you don't care about having server state between tests.
+export async function defaultBeforeAll(
+    rootUri: URI,
+): Promise<[Connection, Connection]> {
+    const [client, server] = setupClientServer(true);
+
+    const serverInitialized = waitForNotification('custom/initialized', client);
+
+    await client.sendRequest<InitializeResult>(
+        'initialize',
+        clientInitParams(rootUri),
+    );
+
+    await client.sendNotification('initialized', {});
+
+    await serverInitialized;
+
+    return [client, server];
+}
+
+export async function defaultAfterAll(
+    client: Connection,
+    server: Connection,
+): Promise<void> {
+    await client.sendRequest('shutdown');
+    await wait(2);
+    client.dispose();
+    server.dispose();
+}
+
+export async function openTextDocuments(
+    client: Connection,
+    textDocuments: Map<string, TextDocument>,
+    rootUri: URI,
+    uris: string[],
+) {
+    const needToWait = false;
+    await Promise.all(
+        uris.map(async (uri) => {
+            if (!textDocuments.has(uri)) {
+                const basename = uri.startsWith(rootUri.toString())
+                    ? uri.slice(rootUri.toString().length)
+                    : uri;
+                const textDocument = makeTextDocument(rootUri, basename);
+                textDocuments.set(uri, textDocument);
+                await client.sendNotification('textDocument/didOpen', {
+                    textDocument,
+                });
+            }
+        }),
+    );
+    if (needToWait) {
+        // Wait for everything to open.
+        await wait(1);
+    }
+}

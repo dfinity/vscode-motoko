@@ -1,89 +1,90 @@
 /* eslint-disable jest/expect-expect */
-
-jest.mock('ic-mops/commands/add');
-import { readFileSync } from 'node:fs';
+import { URI } from 'vscode-uri';
 import { join } from 'node:path';
 import { cwd } from 'node:process';
-import { Connection, InitializeResult } from 'vscode-languageserver/node';
-import { URI } from 'vscode-uri';
-import { wait, waitForNotification } from './helpers';
-import { clientInitParams, setupClientServer } from './mock';
+import {
+    TextDocument,
+    defaultBeforeAll,
+    defaultAfterAll,
+    openTextDocuments,
+} from './helpers';
+import { Connection, Location, Position, Range } from 'vscode-languageserver';
 
-const rootPath = `${cwd()}/test/definition`;
-const rootUri = URI.file(rootPath);
-const filePath = join(rootPath, 'a.mo');
-const fileUri = URI.file(filePath);
-const file = {
-    uri: `${fileUri}`,
-    textDocument: {
-        uri: `${fileUri}`,
-        languageId: 'motoko',
-        version: 1,
-        text: readFileSync(filePath, 'utf-8'),
-    },
-};
-const vectorUri = URI.file(
-    join(rootPath, '.mops', 'vector@0.4.1', 'src/lib.mo'),
-);
-const arrayUri = URI.file(
-    join(rootPath, '.mops', 'base@0.13.4', 'src/Array.mo'),
-);
+const rootPath = join(cwd(), 'test', 'definition');
+const rootUri = URI.parse(rootPath);
+const vectorPath = join('.mops', 'vector@0.4.1', 'src', 'lib.mo');
+const arrayPath = join('.mops', 'base@0.13.4', 'src', 'Array.mo');
 
 jest.setTimeout(10000);
+
+function location(
+    path: string,
+    line: number,
+    startCharacter: number,
+    endCharacter: number,
+): Location {
+    return Location.create(
+        URI.parse(join(rootUri.fsPath, path)).toString(),
+        Range.create(
+            Position.create(line, startCharacter),
+            Position.create(line, endCharacter),
+        ),
+    );
+}
 
 describe('go to definition', () => {
     let client: Connection;
     let server: Connection;
 
-    beforeAll(async () => {
-        [client, server] = setupClientServer(true);
+    const textDocuments = new Map<string, TextDocument>();
 
-        const serverInitialized = waitForNotification(
-            'custom/initialized',
-            client,
+    async function testDefinition(
+        reference: Location,
+        expected: Location[],
+    ): Promise<void> {
+        await openTextDocuments(client, textDocuments, rootUri, [
+            reference.uri,
+        ]);
+        const textDocument = textDocuments.get(reference.uri);
+        const locations = await client.sendRequest<Location[]>(
+            'textDocument/definition',
+            {
+                textDocument,
+                position: reference.range.start,
+            },
         );
+        expect(locations).toStrictEqual(expected);
+    }
 
-        await client.sendRequest<InitializeResult>(
-            'initialize',
-            clientInitParams(rootUri),
-        );
-
-        await client.sendNotification('initialized', {});
-
-        await serverInitialized;
-
-        await client.sendNotification('textDocument/didOpen', {
-            textDocument: file.textDocument,
+    async function testDefinitionSimple({
+        pos,
+        declPos,
+    }: {
+        pos: Position;
+        declPos: Location;
+    }): Promise<void> {
+        const filePath = join(rootPath, 'a.mo');
+        const fileUri = URI.parse(filePath).toString();
+        await openTextDocuments(client, textDocuments, rootUri, [fileUri]);
+        const textDocument = textDocuments.get(fileUri);
+        const response = await client.sendRequest('textDocument/definition', {
+            textDocument,
+            position: pos,
         });
+        expect(response).toStrictEqual([declPos]);
+    }
 
-        await wait(0.6);
+    beforeAll(async () => {
+        [client, server] = await defaultBeforeAll(rootUri);
     });
 
     afterAll(async () => {
-        await client.sendRequest('shutdown');
-        await wait(2);
-        client.dispose();
-        server.dispose();
+        await defaultAfterAll(client, server);
     });
-
-    const testGoToDefinition = async ({ pos, declPos }: any) => {
-        const response = await client.sendRequest('textDocument/definition', {
-            textDocument: file.textDocument,
-            position: pos,
-        });
-
-        expect(response).toEqual([declPos]);
-    };
 
     // module {
     //^^
-    const baseArrayModuleDelcPos = {
-        uri: `${arrayUri}`,
-        range: {
-            start: { line: 19, character: 0 },
-            end: { line: 19, character: 0 },
-        },
-    };
+    const baseArrayModuleDelcPos = location(arrayPath, 19, 0, 0);
     test.each([
         // Jump from:
         // let b : [var Int] = Array.init();
@@ -93,17 +94,11 @@ describe('go to definition', () => {
         { pos: { line: 5, character: 24 }, declPos: baseArrayModuleDelcPos },
         { pos: { line: 5, character: 25 }, declPos: baseArrayModuleDelcPos },
         { pos: { line: 5, character: 29 }, declPos: baseArrayModuleDelcPos },
-    ])('base:Array-%#', testGoToDefinition);
+    ])('base:Array-%#', testDefinitionSimple);
 
     // public func init<X>(...
     //            ^^
-    const baseArrayInitDelcPos = {
-        uri: `${arrayUri}`,
-        range: {
-            start: { line: 28, character: 14 },
-            end: { line: 28, character: 18 },
-        },
-    };
+    const baseArrayInitDelcPos = location(arrayPath, 28, 14, 18);
     test.each([
         // Jump from:
         // let b : [var Int] = Array.init();
@@ -113,17 +108,11 @@ describe('go to definition', () => {
         { pos: { line: 5, character: 30 }, declPos: baseArrayInitDelcPos },
         { pos: { line: 5, character: 31 }, declPos: baseArrayInitDelcPos },
         { pos: { line: 5, character: 34 }, declPos: baseArrayInitDelcPos },
-    ])('base:Array.init-%#', testGoToDefinition);
+    ])('base:Array.init-%#', testDefinitionSimple);
 
     // module {
     //^^
-    const vectorModuleDeclPos = {
-        uri: `${vectorUri}`,
-        range: {
-            start: { line: 19, character: 0 },
-            end: { line: 19, character: 0 },
-        },
-    };
+    const vectorModuleDeclPos = location(vectorPath, 19, 0, 0);
     test.each([
         // Jump from:
         // let a : Vector.Vector<Int> = Vector.new();
@@ -139,17 +128,11 @@ describe('go to definition', () => {
         { pos: { line: 4, character: 33 }, declPos: vectorModuleDeclPos },
         { pos: { line: 4, character: 34 }, declPos: vectorModuleDeclPos },
         { pos: { line: 4, character: 39 }, declPos: vectorModuleDeclPos },
-    ])('vector:Vector-%#', testGoToDefinition);
+    ])('vector:Vector-%#', testDefinitionSimple);
 
     // public type Vector<X> = {
     //            ^^
-    const vectorTypeDeclPos = {
-        uri: `${vectorUri}`,
-        range: {
-            start: { line: 27, character: 14 },
-            end: { line: 27, character: 20 },
-        },
-    };
+    const vectorTypeDeclPos = location(vectorPath, 27, 14, 20);
     test.each([
         // Jump from:
         // let a : Vector.Vector<Int> = Vector.new();
@@ -161,7 +144,7 @@ describe('go to definition', () => {
         { pos: { line: 4, character: 20 }, declPos: vectorTypeDeclPos },
         { pos: { line: 4, character: 25 }, declPos: vectorTypeDeclPos },
         { pos: { line: 4, character: 30 }, declPos: vectorTypeDeclPos },
-    ])('vector:Vector.Vector-%#', testGoToDefinition);
+    ])('vector:Vector.Vector-%#', testDefinitionSimple);
 
     test.each([
         // Jump from:
@@ -173,5 +156,54 @@ describe('go to definition', () => {
         { pos: { line: 7, character: 12 }, declPos: vectorTypeDeclPos },
         { pos: { line: 7, character: 13 }, declPos: vectorTypeDeclPos },
         { pos: { line: 7, character: 18 }, declPos: vectorTypeDeclPos },
-    ])('multiline-%#', testGoToDefinition);
+    ])('multiline-%#', testDefinitionSimple);
+
+    test('Can find object method definition', () =>
+        testDefinition(
+            location('A.mo', 6, 17, 21), // a.meth
+            [location('B.mo', 9, 20, 24)], // definition of meth
+        ));
+
+    test('Definition of value points to itself', () =>
+        testDefinition(
+            location('chain.mo', 7, 27, 28), // definition of x
+            [location('chain.mo', 7, 27, 28)], // definition of x
+        ));
+
+    test('Can find nested value definition', () =>
+        testDefinition(
+            location('chain.mo', 12, 31, 32), // x in a.b.c.x
+            [location('chain.mo', 7, 27, 28)], // definition of x
+        ));
+
+    test('Can find nested object definition (left)', () =>
+        testDefinition(
+            location('chain.mo', 12, 25, 26), // a in a.b.c.x
+            [location('chain.mo', 2, 18, 19)], // definition of a
+        ));
+
+    test('Can find nested object definition (middle)', () =>
+        testDefinition(
+            location('chain.mo', 12, 27, 28), // b in a.b.c.x
+            [location('chain.mo', 4, 22, 23)], // definition of b
+        ));
+
+    test('Can find nested object definition (right)', () =>
+        testDefinition(
+            location('chain.mo', 12, 29, 30), // c in a.b.c.x
+            [location('chain.mo', 6, 26, 27)], // definition of c
+        ));
+
+    test('Can find circular object definition', async () => {
+        await testDefinition(
+            location('circular.mo', 2, 19, 20), // definition of o
+            [location('circular.mo', 2, 19, 20)], // definition of o
+        );
+        for (const column of [12, 14, 16, 18, 20, 22]) {
+            await testDefinition(
+                location('circular.mo', 5, column, column + 1), // /\.o\.?/
+                [location('circular.mo', 2, 19, 20)], // definition of o
+            );
+        }
+    }, 20000);
 });
