@@ -1672,6 +1672,7 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                 matchNode(node, 'VarE', (id: Node) => id) ||
                 matchNode(node, 'VarP', (id: Node) => id) ||
                 matchNode(node, 'VarD', (id: Node) => id) ||
+                matchNode(node, 'ID', (_id: string) => node as Node) ||
                 undefined
             );
         }
@@ -1735,6 +1736,18 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                     // of the declaration but we only want the range for its ID.
                     const reference = rangeFromNode(idOfVar(node));
                     references.add(locationFromUriAndRange(uri, reference!));
+                    if (event.context.includeDeclaration) {
+                        referenceDefinitions.forEach((refDef) => {
+                            const range = rangeFromNode(
+                                idOfVar(refDef.cursor),
+                            )!;
+                            const location = locationFromUriAndRange(
+                                refDef.uri,
+                                range,
+                            );
+                            references.add(location);
+                        });
+                    }
                 } catch (err) {
                     console.error(
                         `Error while finding references for node of ${uri}:`,
