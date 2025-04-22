@@ -1,9 +1,14 @@
 /* eslint-disable jest/expect-expect */
 import { URI } from 'vscode-uri';
-import { basename, join } from 'node:path';
-import { TextDocument, makeTextDocument, wait } from './test/helpers';
+import { join } from 'node:path';
+import { cwd } from 'node:process';
+import {
+    TextDocument,
+    defaultBeforeAll,
+    defaultAfterAll,
+    openTextDocuments,
+} from './helpers';
 import { Connection, Location, Position, Range } from 'vscode-languageserver';
-import { clientInitParams, setupClientServer } from './test/mock';
 
 function compareLocations(a: Location, b: Location): number {
     if (a.uri < b.uri) return -1;
@@ -29,12 +34,13 @@ type LocationWithMetadata = {
     isDefinition: boolean;
 };
 
+jest.setTimeout(10000);
+
 describe('references', () => {
     let client: Connection;
+    let server: Connection;
 
-    const rootUri = URI.parse(
-        join(__dirname, '..', '..', 'test', 'references'),
-    );
+    const rootUri = URI.parse(join(cwd(), 'test', 'definition'));
 
     function location(
         path: string,
@@ -53,29 +59,19 @@ describe('references', () => {
         return { location, isDefinition };
     }
 
+    const textDocuments = new Map<string, TextDocument>();
+
     async function testReferences(
         expected: LocationWithMetadata[],
     ): Promise<void> {
         // Open all files that we plan to test. This is to avoid opening and
         // reading documents multiple times.
-        const textDocuments = new Map<string, TextDocument>();
-        await Promise.all(
-            expected.map(async (loc) => {
-                const uri = loc.location.uri;
-                if (!textDocuments.has(uri)) {
-                    const textDocument = makeTextDocument(
-                        rootUri,
-                        basename(uri),
-                    );
-                    await client.sendNotification('textDocument/didOpen', {
-                        textDocument,
-                    });
-                    textDocuments.set(uri, textDocument);
-                }
-            }),
+        await openTextDocuments(
+            client,
+            textDocuments,
+            rootUri,
+            expected.map((l) => l.location.uri),
         );
-        // Wait for everything to open.
-        await wait(1);
         // Test that finding all references from every expected reference will
         // be equal.
         await Promise.all(
@@ -102,16 +98,11 @@ describe('references', () => {
     }
 
     beforeAll(async () => {
-        // We don't care about having server state between reference tests.
-        client = setupClientServer(true)[0];
-        await client.sendRequest('initialize', clientInitParams(rootUri));
-        await client.sendNotification('initialized');
-        await wait(1); // wait for initialization
+        [client, server] = await defaultBeforeAll(rootUri);
     });
 
     afterAll(async () => {
-        await client.sendRequest('shutdown');
-        await wait(2); // wait for shutdown
+        await defaultAfterAll(client, server);
     });
 
     test('Can find all references from definition', () =>
