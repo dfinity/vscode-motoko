@@ -24,6 +24,11 @@ function compareLocations(a: Location, b: Location): number {
     return a.range.end.character - b.range.end.character;
 }
 
+type LocationWithMetadata = {
+    location: Location;
+    isDefinition: boolean;
+};
+
 describe('references', () => {
     let client: Connection;
 
@@ -36,24 +41,27 @@ describe('references', () => {
         line: number,
         startCharacter: number,
         endCharacter: number,
-    ): Location {
-        return Location.create(
+        isDefinition = true,
+    ): LocationWithMetadata {
+        const location = Location.create(
             URI.parse(join(rootUri.fsPath, path)).toString(),
             Range.create(
                 Position.create(line, startCharacter),
                 Position.create(line, endCharacter),
             ),
         );
+        return { location, isDefinition };
     }
 
-    // Note: the definition is expected to be the last element.
-    async function testReferences(expected: Location[]): Promise<void> {
+    async function testReferences(
+        expected: LocationWithMetadata[],
+    ): Promise<void> {
         // Open all files that we plan to test. This is to avoid opening and
         // reading documents multiple times.
         const textDocuments = new Map<string, TextDocument>();
         await Promise.all(
             expected.map(async (loc) => {
-                const uri = loc.uri;
+                const uri = loc.location.uri;
                 if (!textDocuments.has(uri)) {
                     const textDocument = makeTextDocument(
                         rootUri,
@@ -72,27 +80,22 @@ describe('references', () => {
         // be equal.
         await Promise.all(
             expected.map(async (loc) => {
-                const textDocument = textDocuments.get(loc.uri);
+                const textDocument = textDocuments.get(loc.location.uri);
                 for (const includeDeclaration of [false, true]) {
                     const locations = await client.sendRequest<Location[]>(
                         'textDocument/references',
                         {
                             textDocument,
-                            position: loc.range.start,
+                            position: loc.location.range.start,
                             context: { includeDeclaration },
                         },
                     );
-                    if (includeDeclaration) {
-                        expect(locations.sort(compareLocations)).toStrictEqual(
-                            expected.sort(compareLocations),
-                        );
-                    } else {
-                        // Remove the last element (expected to be the
-                        // definition).
-                        expect(locations.sort(compareLocations)).toStrictEqual(
-                            expected.slice(0, -1).sort(compareLocations),
-                        );
-                    }
+                    const expected2 = includeDeclaration
+                        ? expected
+                        : expected.filter((l) => !l.isDefinition);
+                    expect(locations.sort(compareLocations)).toStrictEqual(
+                        expected2.map((l) => l.location).sort(compareLocations),
+                    );
                 }
             }),
         );
@@ -113,43 +116,50 @@ describe('references', () => {
 
     test('Can find all references from definition', () =>
         testReferences([
-            location('B.mo', 3, 25, 30), // C.other
-            location('C.mo', 2, 15, 20), // definition of other
+            location('B.mo', 3, 25, 30, false), // C.other
+            location('C.mo', 2, 15, 20, true), // definition of other
         ]));
 
     test('Can find all references in nested path', () =>
         testReferences([
-            location('A.mo', 6, 30, 35), // C.Inner.inner
-            location('B.mo', 10, 31, 36), // C.Inner.inner
-            location('C.mo', 8, 19, 24), // definition of inner
+            location('A.mo', 6, 30, 35, false), // C.Inner.inner
+            location('B.mo', 10, 31, 36, false), // C.Inner.inner
+            location('C.mo', 8, 19, 24, true), // definition of inner
         ]));
 
     test('Can find all references of nested path', () =>
         testReferences([
-            location('A.mo', 6, 24, 29), // C.Inner
-            location('B.mo', 10, 25, 30), // C.Inner
-            location('C.mo', 7, 18, 23), // definition of Inner (lab)
+            location('A.mo', 6, 24, 29, false), // C.Inner
+            location('B.mo', 10, 25, 30, false), // C.Inner
+            location('C.mo', 7, 18, 23, true), // definition of Inner (lab)
         ]));
 
     test('Can find all function references', () =>
         testReferences([
-            location('B.mo', 5, 17, 20), // C.inc
-            location('C.mo', 3, 16, 19), // definition of inc (lab)
+            location('B.mo', 5, 17, 20, false), // C.inc
+            location('C.mo', 3, 16, 19, true), // definition of inc (lab)
         ]));
 
     test('Can find all object method references', () =>
         testReferences([
-            location('A.mo', 6, 17, 21), // a.meth
-            location('B.mo', 9, 20, 24), // definition of meth
+            location('A.mo', 6, 17, 21, false), // a.meth
+            location('B.mo', 9, 20, 24, true), // definition of meth
         ]));
 
     test('Can find all references of circular chain', () => {
         const refs = [12, 14, 16, 18, 20, 22].map(
-            (column) => location('circular.mo', 5, column, column + 1), // /\.o\.?/
+            (column) => location('circular.mo', 5, column, column + 1, false), // /\.o\.?/
         );
         return testReferences([
             ...refs,
-            location('circular.mo', 2, 19, 20), // definition of o
+            location('circular.mo', 2, 19, 20, true), // definition of o
         ]);
     }, 20000);
+
+    test('Can find all references of method (subtype and supertype)', () =>
+        testReferences([
+            location('sub.mo', 15, 6, 10, false), // c.meth
+            location('sub.mo', 2, 16, 20, true), // definition of Class1.meth
+            location('sub.mo', 8, 16, 20, true), // definition of Class2.meth
+        ]));
 });
