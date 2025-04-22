@@ -34,7 +34,7 @@ Below are the default key bindings for commonly used features supported in the e
 ## Other Features
 
 - Deploy to the Internet Computer mainnet using a right-click context menu action.
-- [Vessel](https://github.com/dfinity/vessel) and [MOPS](https://mops.one/) (the two most popular Motoko package managers) are supported out-of-the-box in this extension.
+- [Mops](https://mops.one/) and [Vessel](https://github.com/dfinity/vessel) (the two most popular Motoko package managers) are supported out-of-the-box in this extension.
 - Quickly convert between Motoko types using code snippets such as `array-2-buffer` or `principal-2-text`.
 - In case you're hoping to learn Motoko without installing `dfx`, the Motoko VS Code extension works standalone on all major operating systems (including Windows).
 - This extension also provides schema validation and autocompletion for `dfx.json` config files.
@@ -77,7 +77,7 @@ If you want VS Code to automatically format Motoko files on save, consider addin
 
 ### Set up your local development environment:
 
-Ensure that [Node.js >= 16.x](https://nodejs.org/en/) and [Cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html) are installed on your system.
+Ensure that [Node.js >= 20.x](https://nodejs.org/en/) and [Cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html) are installed on your system.
 
 ```bash
 git clone https://github.com/dfinity/vscode-motoko
