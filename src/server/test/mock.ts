@@ -22,7 +22,6 @@ export const configParams = {
     settings: {
         motoko: {
             dfx: 'dfx',
-            legacyLanguageServer: true,
             maxNumberOfProblems: 100,
             hideWarningRegex: '',
             trace: {
