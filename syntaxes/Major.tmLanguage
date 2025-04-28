@@ -736,7 +736,7 @@
 					<key>comment</key>
 					<string>other keyword</string>
 					<key>match</key>
-					<string>\b(flexible|query|stable|composite)\b</string>
+					<string>\b(query|composite|stable|flexible|persistent|transient)\b</string>
 					<key>name</key>
 					<string>keyword.other.motoko</string>
 				</dict>
@@ -780,7 +780,7 @@
 			<key>comment</key>
 			<string>loop-statement</string>
 			<key>match</key>
-			<string>\b(while|repeat|for|in|loop)\b</string>
+			<string>\b(while|for|in|loop)\b</string>
 			<key>name</key>
 			<string>keyword.control.loop.motoko</string>
 		</dict>

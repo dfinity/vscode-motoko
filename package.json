@@ -2,7 +2,7 @@
     "name": "vscode-motoko",
     "displayName": "Motoko",
     "description": "Motoko language support",
-    "version": "0.16.11",
+    "version": "0.17.2",
     "publisher": "dfinity-foundation",
     "repository": "https://github.com/dfinity/vscode-motoko",
     "engines": {
@@ -168,14 +168,15 @@
     "dependencies": {
         "@wasmer/wasi": "1.2.2",
         "change-case": "4.1.2",
+        "dependency-graph": "^1.0.0",
         "execa": "4.1.0",
         "fast-glob": "3.2.12",
         "ic-mops": "0.45.3",
-        "ic0": "0.2.7",
+        "ic0": "0.3.1",
         "mnemonist": "0.39.5",
-        "motoko": "3.8.4",
+        "motoko": "3.12.2",
         "prettier": "2.8.0",
-        "prettier-plugin-motoko": "0.9.2",
+        "prettier-plugin-motoko": "0.10.5",
         "semver": "7.6.3",
         "url-relative": "1.0.0",
         "vscode-languageclient": "8.0.2",
@@ -186,13 +187,15 @@
     },
     "devDependencies": {
         "@types/jest": "^29.1.1",
+        "@types/minimist": "^1.2.5",
         "@types/node": "^14",
         "@types/prettier": "^2.7.0",
         "@types/vscode": "^1.53.0",
         "@types/which": "^2.0.1",
         "@typescript-eslint/eslint-plugin": "^5.46.1",
         "@typescript-eslint/parser": "^5.46.1",
-        "esbuild": "^0.16.7",
+        "@vscode/vsce": "^2.15.0",
+        "esbuild": "^0.25.0",
         "eslint": "^8.29.0",
         "eslint-plugin-jest": "^27.1.6",
         "husky": "^8.0.2",
@@ -201,8 +204,7 @@
         "npm-run-all": "^4.1.5",
         "shx": "^0.3.4",
         "ts-jest": "^29.0.3",
-        "typescript": "^4.9.3",
-        "vsce": "^2.15.0"
+        "typescript": "^4.9.3"
     },
     "scripts": {
         "prepare": "husky install && cd rust && npm install",
@@ -225,7 +227,12 @@
         "generate": "node scripts/generate",
         "test": "jest",
         "package": "npm run generate && vsce package && npm test && npm run --silent lint",
-        "publish": "vsce publish"
+        "publish": "vsce publish",
+        "compile:benchmark-hover": "npm run compile && esbuild ./src/server/bench/benchmark-hover.ts --bundle --outfile=out/benchmark-hover.js --external:vscode --format=cjs --platform=node --minify",
+        "compile:benchmark-init": "npm run compile && esbuild ./src/server/bench/benchmark-init.ts --bundle --outfile=out/benchmark-init.js --external:vscode --format=cjs --platform=node --minify",
+        "compile:dev": "npm run compile:pre && run-p compile:snippets compile:formatter compile:rust_ && run-p compile:motoko:dev",
+        "compile:motoko:dev": "esbuild motoko --bundle --outfile=out/motoko.js --format=cjs --platform=node --minify=false --sourcemap=inline && shx cp -r src/server/compiler out/compiler",
+        "compile:benchmark:dev": "npm run compile:dev && esbuild ./src/server/bench/benchmark.ts --bundle --outfile=out/benchmark.js --external:vscode --format=cjs --platform=node --minify=false --sourcemap=inline"
     },
     "lint-staged": {
         "src/**/*.{js,ts,jsx,tsx}": [

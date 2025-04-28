@@ -128,7 +128,7 @@ export function findDefinition(
 ): Definition | undefined {
     // Get relevant AST node
     const context = getContext(uri);
-    const status = context.astResolver.request(uri);
+    const status = context.astResolver.request(uri, false);
     if (!status?.ast) {
         console.warn('Missing AST for', uri);
         return;
@@ -225,7 +225,7 @@ function getTypeSearchPath(node: Node): Search[] {
     );
 }
 
-function followImport(
+export function followImport(
     context: Context,
     reference: Reference,
 ): Definition | undefined {
@@ -261,7 +261,7 @@ function followImport(
             console.log('Unknown file system URI for path:', path);
             return;
         }
-        const status = context.astResolver.request(uri);
+        const status = context.astResolver.request(uri, false);
         if (!status?.program?.export?.ast) {
             console.log('Missing export for', uri);
             return;
@@ -412,7 +412,7 @@ function searchTypeBinding(
     );
 }
 
-function searchObject(
+export function searchObject(
     reference: Reference,
     search: Search,
 ): Definition | undefined {
