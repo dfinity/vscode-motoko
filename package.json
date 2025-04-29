@@ -69,12 +69,6 @@
                     "default": "dfx",
                     "description": "Location of the dfx executable"
                 },
-                "motoko.legacyLanguageServer": {
-                    "scope": "resource",
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Use the legacy OCaml language server when `dfx <= 0.11.0`."
-                },
                 "motoko.maxNumberOfProblems": {
                     "scope": "resource",
                     "type": "integer",
