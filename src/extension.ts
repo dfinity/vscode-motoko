@@ -261,14 +261,6 @@ function setupTests(context: ExtensionContext) {
 }
 
 export function startServer(context: ExtensionContext) {
-    // Legacy dfx language server
-    const dfxConfig = getDfxConfig();
-    if (dfxConfig && getDfxPath()) {
-        launchDfxProject(context, dfxConfig);
-        return;
-    }
-
-    // Cross-platform language server
     const module = context.asAbsolutePath(path.join('out', 'server.js'));
     const execArgv = ['--stack-size=1361']; // TODO: reduce after improving moc.js WASI compilation
     restartLanguageServer(context, {
@@ -279,44 +271,6 @@ export function startServer(context: ExtensionContext) {
             transport: TransportKind.ipc,
         },
     });
-}
-
-function launchDfxProject(context: ExtensionContext, dfxConfig: DfxConfig) {
-    const start = (canister: string) => {
-        const dfxPath = getDfxPath();
-        if (!fs.existsSync(dfxPath)) {
-            window.showErrorMessage(
-                `Failed to locate dfx at ${dfxPath}. Check that dfx is installed or try changing motoko.dfx in settings`,
-            );
-            throw Error('Failed to locate dfx');
-        }
-        const serverCommand = {
-            command: getDfxPath(),
-            args: ['_language-service', canister],
-        };
-        restartLanguageServer(context, {
-            run: serverCommand,
-            debug: serverCommand,
-        });
-    };
-
-    const canister = config.get<string>('canister');
-    const canisters = Object.keys(dfxConfig.canisters);
-
-    if (canister) {
-        start(canister);
-    } else if (canisters.length === 1) {
-        start(canisters[0]);
-    } else {
-        window
-            .showQuickPick(canisters, {
-                canPickMany: false,
-                placeHolder: 'What canister do you want to work on?',
-            })
-            .then((c) => {
-                if (c) start(c);
-            });
-    }
 }
 
 function restartLanguageServer(
@@ -356,47 +310,6 @@ function restartLanguageServer(
     });
     client.start().catch((err) => console.error(err.stack || err));
     context.subscriptions.push(client);
-}
-
-interface DfxCanisters {
-    [key: string]: { main: string };
-}
-
-type DfxConfig = {
-    canisters: DfxCanisters;
-};
-
-function getDfxConfig(): DfxConfig | undefined {
-    if (!config.get('legacyLanguageServer')) {
-        return;
-    }
-    const wsf = workspace.workspaceFolders;
-    if (!wsf) {
-        return;
-    }
-    try {
-        const dfxConfig = JSON.parse(
-            fs
-                .readFileSync(path.join(wsf[0].uri.fsPath, 'dfx.json'))
-                .toString('utf8'),
-        );
-        // Require TS language server for newer versions of `dfx`
-        if (!dfxConfig?.dfx || dfxConfig.dfx >= '0.11.1') {
-            return;
-        }
-        return dfxConfig;
-    } catch {
-        return; // TODO: warning?
-    }
-}
-
-function getDfxPath(): string {
-    const dfx = config.get<string>('dfx') || 'dfx';
-    try {
-        return which.sync(dfx);
-    } catch {
-        return dfx;
-    }
 }
 
 const deployingSet = new Set<string>();
