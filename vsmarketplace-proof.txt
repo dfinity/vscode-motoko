@@ -1,2 +1,0 @@
-Dummy commit for VS Marketplace publisher recovery.
-Created by Dominik Ayyildiz to verify ownership.
