@@ -1448,7 +1448,7 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
 
         const text = getFileText(uri);
         const lines = text.split(/\r?\n/g);
-        let docs: string[] = [];
+        const docs: string[] = [];
         let range: Range | undefined;
 
         // Error code explanations
@@ -1505,7 +1505,7 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                     } else if (!isSameLine) {
                         docs.push(codeSnippet(source));
                     }
-                    docs = docs.concat(nodeDocs);
+                    docs.push(...nodeDocs);
                     if (lineIndex !== -1) {
                         docs.push(
                             `*Type definition:*\n${codeSnippet(typeInfo)}`,
