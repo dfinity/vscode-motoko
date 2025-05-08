@@ -75,7 +75,7 @@ describe('go to definition', () => {
     }
 
     beforeAll(async () => {
-        [client, server] = await defaultBeforeAll(rootUri);
+        [client, server] = await defaultBeforeAll(rootUri, true);
     });
 
     afterAll(async () => {

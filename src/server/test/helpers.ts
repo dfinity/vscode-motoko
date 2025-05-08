@@ -61,8 +61,9 @@ export async function runTest<T>(
 // Use if you don't care about having server state between tests.
 export async function defaultBeforeAll(
     rootUri: URI,
+    redirectConsole: boolean = true,
 ): Promise<[Connection, Connection]> {
-    const [client, server] = setupClientServer(true);
+    const [client, server] = setupClientServer(redirectConsole);
 
     const serverInitialized = waitForNotification('custom/initialized', client);
 
