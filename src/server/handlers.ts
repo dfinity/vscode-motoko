@@ -1683,35 +1683,12 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
             ast: AST,
         ): LocationSet {
             const references = new LocationSet();
-            const varNodes = findNodes(ast, (node, _parents) =>
+            const nodes = findNodes(ast, (node, _parents) =>
                 definitions.some(
                     (definition) =>
                         getIdName(idOfVar(node)) === definition.name,
                 ),
             );
-            const dotNodes = findNodes(
-                ast,
-                (node, _parents) =>
-                    node.name === 'DotE' &&
-                    definitions.some(
-                        (definition) =>
-                            getIdName(node.args?.[1]) === definition.name,
-                    ),
-            ).map((ast) => {
-                if (!ast.args) {
-                    return ast;
-                }
-                const right = ast.args[1] as Node;
-                return {
-                    name: 'VarE',
-                    type: ast.type,
-                    typeRep: ast.typeRep,
-                    args: [right],
-                    start: right.start,
-                    end: right.end,
-                } as Node;
-            });
-            const nodes = [...varNodes, ...dotNodes];
             for (const node of nodes) {
                 try {
                     const range = rangeFromNode(node);
