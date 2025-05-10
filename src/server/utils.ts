@@ -2,7 +2,7 @@ import { readFileSync } from 'fs';
 import { join, sep } from 'path';
 import * as motokoPlugin from 'prettier-plugin-motoko';
 import * as prettier from 'prettier/standalone';
-import { Position, Range } from 'vscode-languageserver/node';
+import { Location, Position, Range } from 'vscode-languageserver/node';
 import { URI, Utils } from 'vscode-uri';
 
 const fileSeparatorPattern = new RegExp(sep.replace(/[/\\]/g, '\\$&'), 'g');
@@ -130,3 +130,47 @@ export const forwardMessage =
         };
         send(args.map(toString).join(' '));
     };
+
+// Because JS sets can only compare whether two objects are equal by reference
+// or using some datatype like string, we define our own.
+type LocationSetRepr = string;
+export class LocationSet {
+    private readonly _set: Set<LocationSetRepr>;
+
+    constructor() {
+        this._set = new Set<LocationSetRepr>();
+    }
+
+    private toRepr(value: Location): LocationSetRepr {
+        return JSON.stringify(value);
+    }
+
+    private fromRepr(value: LocationSetRepr): Location {
+        return JSON.parse(value);
+    }
+
+    add(value: Location): void {
+        this._set.add(this.toRepr(value));
+    }
+
+    delete(value: Location): boolean {
+        return this._set.delete(this.toRepr(value));
+    }
+
+    union(that: LocationSet) {
+        that._set.forEach((value) => this._set.add(value));
+    }
+
+    *values(): IterableIterator<Location> {
+        for (const value of this._set.values()) {
+            yield this.fromRepr(value);
+        }
+    }
+
+    forEach(callbackfn: (value: Location) => void, thisArg?: any): void {
+        return this._set.forEach(
+            (value, _value2, _set) => callbackfn(this.fromRepr(value)),
+            thisArg,
+        );
+    }
+}

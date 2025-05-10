@@ -32,10 +32,10 @@ export function extractFields(
                 return;
             }
             matchNode(dec, 'LetD', (pat: Node, exp: Node) => {
-                const name = matchNode(pat, 'VarP', (field: string) => field);
+                const name = matchNode(pat, 'VarP', (field: Node) => field);
                 if (name) {
                     fieldMap.set(uri, {
-                        name,
+                        name: matchNode(name, 'ID', (name: string) => name)!,
                         visibility,
                         kind:
                             exp.name === 'FuncE'
@@ -45,30 +45,30 @@ export function extractFields(
                     });
                 }
             });
-            matchNode(dec, 'ClassD', (_local: string, name: string) => {
+            matchNode(dec, 'ClassD', (_local: string, name: Node) => {
                 if (name) {
                     fieldMap.set(uri, {
-                        name,
+                        name: matchNode(name, 'ID', (name: string) => name)!,
                         visibility,
                         kind: CompletionItemKind.Class,
                         ast: null,
                     });
                 }
             });
-            matchNode(dec, 'VarD', (name: string, exp: Node) => {
+            matchNode(dec, 'VarD', (name: Node, exp: Node) => {
                 if (name) {
                     fieldMap.set(uri, {
-                        name,
+                        name: matchNode(name, 'ID', (name: string) => name)!,
                         visibility,
                         kind: CompletionItemKind.Variable,
                         ast: exp,
                     });
                 }
             });
-            matchNode(dec, 'TypD', (name: string, exp: Node) => {
+            matchNode(dec, 'TypD', (name: Node, exp: Node) => {
                 if (name) {
                     fieldMap.set(uri, {
-                        name,
+                        name: matchNode(name, 'ID', (name: string) => name)!,
                         visibility,
                         kind: CompletionItemKind.Interface,
                         ast: exp,
@@ -205,10 +205,6 @@ function getImportInfo(
         return;
     }
     uri = uri.slice(0, -'.mo'.length);
-    // Account for `lib.mo` files
-    if (uri.endsWith('/lib')) {
-        uri = uri.slice(0, -'/lib'.length);
-    }
     // Resolve package import paths
     for (const regex of [
         /\.vessel\/([^\/]+)\/[^\/]+\/src\/(.+)/,
