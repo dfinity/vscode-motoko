@@ -1358,7 +1358,7 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                     return list;
                 }
 
-                if (definitions) {
+                if (definitions.length) {
                     definitions.forEach(completionsFromDefinition);
                 } else {
                     // NOTE: in case AST is outdated or no such module in scope
@@ -1406,11 +1406,8 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
     });
 
     connection.onHover((event) => {
-        function findDocComments(node: Node): string[] | undefined {
+        function findDocComments(node: Node): string[] {
             const definitions = findDefinitions(uri, event.position, true);
-            if (!definitions) {
-                return;
-            }
             const docs: string[] = [];
             for (const definition of definitions) {
                 let docNode: Node | undefined = definition?.cursor || node;
@@ -1493,7 +1490,7 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
 
                 // Doc comments
                 const nodeDocs = findDocComments(node);
-                if (nodeDocs && nodeDocs.length) {
+                if (nodeDocs.length) {
                     const typeInfo = node.type
                         ? formatMotoko(node.type).trim()
                         : '';
@@ -1563,9 +1560,6 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                 event.textDocument.uri,
                 event.position,
             );
-            if (!definitions) {
-                return [];
-            }
             return definitions.map(locationFromDefinition);
         } catch (err) {
             console.error('Error while finding definition:');
@@ -1700,7 +1694,6 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                         range.start,
                     );
                     if (
-                        !referenceDefinitions ||
                         !definitions.some((definition) =>
                             referenceDefinitions.some((referenceDefinition) =>
                                 sameDefinition(definition, referenceDefinition),
@@ -1742,7 +1735,7 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
         ): LocationSet {
             const references = new LocationSet();
             const definitions = findDefinitions(uri, event.position);
-            if (!definitions) {
+            if (!definitions.length) {
                 console.log(
                     `No definitions for (${event.position.line}, ${event.position.character}) at ${uri}`,
                 );
