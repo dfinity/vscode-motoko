@@ -170,7 +170,7 @@ export function findDefinitions(
     uri: string,
     position: Position,
     isMouseCursor = false,
-): Definition[] | undefined {
+): Definition[] {
     // Get relevant AST node
     const context = getContext(uri);
     const status =
@@ -178,11 +178,11 @@ export function findDefinitions(
         context.astResolver.request(uri, false);
     if (!status?.ast) {
         console.warn('Missing AST for', uri);
-        return;
+        return [];
     }
     if (status.outdated) {
         console.log('Outdated AST for', uri);
-        return;
+        return [];
     }
     const node = findMostSpecificNodeForPosition(
         status.ast,
@@ -191,7 +191,7 @@ export function findDefinitions(
         isMouseCursor,
     );
     if (!node) {
-        return;
+        return [];
     }
     const reference: Reference = { uri, node };
     const importDefinition = followImport(context, reference);
@@ -209,18 +209,18 @@ export function findDefinitions(
 
     if (!relatedPath.length) {
         console.log('Reference not found from AST node:', node.name);
-        return;
+        return [];
     }
-    const definition = search(context, reference, relatedPath);
-    if (!definition || (Array.isArray(definition) && !definition.length)) {
+    const definitions = search(context, reference, relatedPath);
+    if (!definitions.length) {
         console.log(
             'Definition not found for reference path:',
             relatedPath,
             `(${node.name})`,
         );
-        return;
+        return [];
     }
-    return Array.isArray(definition) ? definition : [definition];
+    return definitions;
 }
 
 function getSearchPath(node: Node): Search[] {
@@ -400,42 +400,41 @@ function gatherFieldLocations(lab: string, node: Node): LocationSet {
     return references;
 }
 
-function searchType(
-    reference: Reference,
-    search: Search,
-): Definition[] | undefined {
-    function searchDotE(node: Node): Definition[] | undefined {
-        return matchNode(node, 'DotE', (qual: Node, id: Node) => {
-            const lab = getIdName(id);
-            if (!lab) {
-                console.warn(
-                    'Unexpected AST format: DotE has no ID node on RHS.',
-                );
-                return;
-            }
-            // We need to check whether we are in the LHS (qual) or RHS (id) of
-            // the DotE expression.
-            if (search.name !== lab) {
-                return searchDotE(qual);
-            }
-            if (!qual.typeRep) {
-                return;
-            }
-            const locations = Array.from(
-                gatherFieldLocations(lab, qual.typeRep).values(),
-            );
-            let definitions: Definition[] = [];
-            for (const location of locations) {
-                const follow = findDefinitions(
-                    location.uri,
-                    location.range.start,
-                );
-                if (follow) {
-                    definitions = definitions.concat(follow);
+function searchType(reference: Reference, search: Search): Definition[] {
+    function searchDotE(node: Node): Definition[] {
+        return (
+            matchNode(node, 'DotE', (qual: Node, id: Node) => {
+                const lab = getIdName(id);
+                if (!lab) {
+                    console.warn(
+                        'Unexpected AST format: DotE has no ID node on RHS.',
+                    );
+                    return [];
                 }
-            }
-            return definitions;
-        });
+                // We need to check whether we are in the LHS (qual) or RHS (id) of
+                // the DotE expression.
+                if (search.name !== lab) {
+                    return searchDotE(qual);
+                }
+                if (!qual.typeRep) {
+                    return [];
+                }
+                const locations = Array.from(
+                    gatherFieldLocations(lab, qual.typeRep).values(),
+                );
+                let definitions: Definition[] = [];
+                for (const location of locations) {
+                    const follow = findDefinitions(
+                        location.uri,
+                        location.range.start,
+                    );
+                    if (follow) {
+                        definitions = definitions.concat(follow);
+                    }
+                }
+                return definitions;
+            }) || []
+        );
     }
     return searchDotE(reference.node);
 }
@@ -444,13 +443,13 @@ function search(
     context: Context,
     reference: Reference,
     path: Search[],
-): Definition | Definition[] | undefined {
+): Definition[] {
     if (!path.length) {
-        return;
+        return [];
     }
     // If we have a DotE, search for the reference in the type.
     const definitions = searchType(reference, path[path.length - 1]);
-    if (definitions && definitions.length) {
+    if (definitions.length) {
         return definitions;
     }
     const [base] = path;
@@ -476,7 +475,7 @@ function search(
         //     console.log('LOST:', next, nextSource);
         // }
     }
-    return definition;
+    return definition ? [definition] : [];
 }
 
 function searchInScope(
