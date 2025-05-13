@@ -84,20 +84,22 @@ export function findMostSpecificNodeForPosition(
     let node: Node | undefined;
     let nodeLines: number;
     let nodeChars: number;
+    let nodeScore: number | boolean;
     nodes.forEach((n: Node) => {
         const nLines = n.end![0] - n.start![0];
         const nChars = n.end![1] - n.start![1];
+        const nScore = scoreFn(n);
+
         if (
             !node ||
-            scoreFn(n) > scoreFn(node) ||
-            (scoreFn(n) === scoreFn(node) && nLines < nodeLines) ||
-            (scoreFn(n) === scoreFn(node) &&
-                nLines === nodeLines &&
-                nChars < nodeChars)
+            nScore > nodeScore ||
+            (nScore === nodeScore && nLines < nodeLines) ||
+            (nScore === nodeScore && nLines === nodeLines && nChars < nodeChars)
         ) {
             node = n;
             nodeLines = nLines;
             nodeChars = nChars;
+            nodeScore = nScore;
         }
     });
     return node as (Node & { start: Span; end: Span }) | undefined;
