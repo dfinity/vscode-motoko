@@ -11,7 +11,7 @@ import { join } from 'path';
 import { getCurrentWorkspaceRootFsPath } from './utils';
 import * as motokoPlugin from 'prettier-plugin-motoko';
 
-const candidConfigOverrides: prettier.Options = {
+const candidOptions: prettier.Options = {
     semi: false,
     trailingComma: 'none',
 };
@@ -53,7 +53,7 @@ export function formatDocument(
                         plugins: [motokoPlugin],
                     };
                     if (document.fileName.endsWith('.did')) {
-                        Object.assign(prettierOptions, candidConfigOverrides);
+                        Object.assign(prettierOptions, candidOptions);
                     }
                     const firstLine = document.lineAt(0);
                     const lastLine = document.lineAt(document.lineCount - 1);
