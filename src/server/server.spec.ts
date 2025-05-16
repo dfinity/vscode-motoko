@@ -12,9 +12,10 @@ describe('server', () => {
 });
 
 describe('cache', () => {
+    jest.setTimeout(60000);
+
     beforeAll(() => {
         jest.mock('ic-mops/commands/add');
-        jest.setTimeout(60000);
     });
 
     const rootUri = URI.parse(join(__dirname, '..', '..', 'test', 'cache'));
@@ -188,5 +189,5 @@ describe('cache', () => {
             value: '```motoko\nInt\n\n```',
         });
         expect(hover1).toStrictEqual(hover0);
-    }, 10000);
+    });
 });
