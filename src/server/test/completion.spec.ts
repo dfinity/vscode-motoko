@@ -113,7 +113,7 @@ describe('completion', () => {
         );
 
         const expected = [
-            { label: 'new', detail: 'simple.mo', insertText: 'new', kind: 3 },
+            { label: 'new', detail: 'a.mo', insertText: 'new', kind: 3 },
         ];
 
         expect(completion.items).toEqual(expected);
@@ -351,7 +351,7 @@ describe('completion', () => {
         );
 
         const expected = [
-            { label: 'new', detail: 'simple.mo', insertText: 'new', kind: 3 },
+            { label: 'new', detail: 'a.mo', insertText: 'new', kind: 3 },
         ];
 
         expect(completion.items).toEqual(expected);
@@ -407,7 +407,7 @@ describe('completion', () => {
         );
 
         const expected = [
-            { label: 'new', detail: 'simple.mo', insertText: 'new', kind: 3 },
+            { label: 'new', detail: 'a.mo', insertText: 'new', kind: 3 },
         ];
 
         expect(completion.items).toEqual(expected);
