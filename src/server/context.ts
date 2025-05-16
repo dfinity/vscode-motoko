@@ -69,6 +69,7 @@ function requestMotokoInstance(uri: string, version: Version): Motoko {
             motoko = require('motoko/lib').default(compiler);
         } else {
             motoko = require(motokoPath).default;
+            motoko.setTypecheckerCombineSrcs(true);
         }
     }
     // Required for deploying to Motoko Playground

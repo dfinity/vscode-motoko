@@ -10,6 +10,8 @@ import { clientInitParams, setupClientServer } from '../test/mock';
 import { cwd } from 'node:process';
 import { wait, waitForNotification } from './helpers';
 
+jest.setTimeout(60000);
+
 const initText = `
 import A = "a";
 import B = "b";

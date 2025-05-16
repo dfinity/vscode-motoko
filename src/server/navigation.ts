@@ -1,15 +1,22 @@
 import { AST, Node, Span } from 'motoko/lib/ast';
 import { Location, Position, Range } from 'vscode-languageserver';
+import { URI } from 'vscode-uri';
 import { Context, getContext } from './context';
-import { findNodes, matchNode, asNode, findInPattern } from './syntax';
-import { getAbsoluteUri } from './utils';
+import {
+    findNodes,
+    getIdName,
+    matchNode,
+    asNode,
+    findInPattern,
+} from './syntax';
+import { getAbsoluteUri, LocationSet } from './utils';
 
-interface Reference {
+export interface Reference {
     uri: string;
     node: Node;
 }
 
-interface Definition {
+export interface Definition {
     uri: string;
     cursor: Node;
     body: Node;
@@ -19,6 +26,38 @@ interface Definition {
 interface Search {
     type: 'variable' | 'type';
     name: string;
+    start?: Position;
+    end?: Position;
+}
+
+function spanToPos(span: Span | undefined): Position | undefined {
+    if (!span) return undefined;
+    return { line: span[0] - 1, character: span[1] };
+}
+
+function posBefore(pos1: Position, pos2: Position): Boolean {
+    return (
+        pos1.line < pos2.line ||
+        (pos1.line === pos2.line && pos1.character < pos2.character)
+    );
+}
+
+export function sameLocation(a: Location, b: Location): boolean {
+    return (
+        a.uri === b.uri &&
+        a.range.start.line === b.range.start.line &&
+        a.range.start.character === b.range.start.character &&
+        a.range.end.line === b.range.end.line &&
+        a.range.end.character === b.range.end.character
+    );
+}
+
+export function sameDefinition(a: Definition, b: Definition): boolean {
+    return sameLocation(locationFromDefinition(a), locationFromDefinition(b));
+}
+
+export function scoreFromNodePriorities(node: Node): number | boolean {
+    return nodePriorities[node.name] || 0;
 }
 
 export function findMostSpecificNodeForPosition(
@@ -45,18 +84,22 @@ export function findMostSpecificNodeForPosition(
     let node: Node | undefined;
     let nodeLines: number;
     let nodeChars: number;
+    let nodeScore: number | boolean;
     nodes.forEach((n: Node) => {
         const nLines = n.end![0] - n.start![0];
         const nChars = n.end![1] - n.start![1];
+        const nScore = scoreFn(n);
+
         if (
             !node ||
-            scoreFn(n) > scoreFn(node) ||
-            nLines < nodeLines ||
-            (nLines == nodeLines && nChars < nodeChars)
+            nScore > nodeScore ||
+            (nScore === nodeScore && nLines < nodeLines) ||
+            (nScore === nodeScore && nLines === nodeLines && nChars < nodeChars)
         ) {
             node = n;
             nodeLines = nLines;
             nodeChars = nChars;
+            nodeScore = nScore;
         }
     });
     return node as (Node & { start: Span; end: Span }) | undefined;
@@ -91,12 +134,16 @@ export function rangeFromNode(
     };
 }
 
-export function locationFromDefinition(definition: Definition) {
+export function locationFromDefinition(definition: Definition): Location {
     const range = rangeFromNode(definition.cursor);
     if (!range) {
         throw new Error(`Missing range for definition in ${definition.uri}`);
     }
-    const location = Location.create(definition.uri, range);
+    return locationFromUriAndRange(definition.uri, range);
+}
+
+export function locationFromUriAndRange(uri: string, range: Range): Location {
+    const location = Location.create(uri, range);
     if (location && location.range.end.line > location.range.start.line) {
         // Remove highlight for multi-line definitions
         location.range.end = location.range.start;
@@ -117,70 +164,100 @@ const nodePriorities: Record<string, number> = {
     DotE: 3, // qulified variable
     VarE: 2, // variable
     PathT: 2, // type reference
-    ImportE: 1, // module import
     VarP: 2, // field import
+    ImportE: 1, // module import
 };
 
-export function findDefinition(
+export function findDefinitions(
     uri: string,
     position: Position,
     isMouseCursor = false,
-): Definition | undefined {
+): Definition[] {
     // Get relevant AST node
     const context = getContext(uri);
-    const status = context.astResolver.request(uri, false);
+    const status =
+        context.astResolver.requestTyped(uri) ||
+        context.astResolver.request(uri, false);
     if (!status?.ast) {
         console.warn('Missing AST for', uri);
-        return;
+        return [];
     }
     if (status.outdated) {
         console.log('Outdated AST for', uri);
-        return;
+        return [];
     }
     const node = findMostSpecificNodeForPosition(
         status.ast,
         position,
-        (node) => nodePriorities[node.name] || 0,
+        scoreFromNodePriorities,
         isMouseCursor,
     );
     if (!node) {
-        return;
+        return [];
     }
     const reference: Reference = { uri, node };
     const importDefinition = followImport(context, reference);
     if (importDefinition) {
-        return importDefinition;
+        return [importDefinition];
     }
     const path = getSearchPath(node);
-    if (!path.length) {
+    const firstUnrelated = path.findIndex(
+        (s) => s.start !== undefined && posBefore(position, s.start),
+    );
+    const relatedPath = path.slice(
+        0,
+        firstUnrelated !== -1 ? firstUnrelated : path.length,
+    );
+
+    if (!relatedPath.length) {
         console.log('Reference not found from AST node:', node.name);
-        return;
+        return [];
     }
-    const definition = search(context, reference, path);
-    if (!definition) {
+    const definitions = search(context, reference, relatedPath);
+    if (!definitions.length) {
         console.log(
             'Definition not found for reference path:',
-            path,
+            relatedPath,
             `(${node.name})`,
         );
-        return;
+        return [];
     }
-    return definition;
+    return definitions;
 }
 
 function getSearchPath(node: Node): Search[] {
     return (
-        matchNode(node, 'DotE', (qual: Node, name: string) => [
+        matchNode(node, 'DotE', (qual: Node, id: Node) => [
             ...getSearchPath(qual),
             {
                 type: 'variable',
-                name,
+                name: getIdName(id)!,
+                start: spanToPos(id.start),
+                end: spanToPos(id.end),
             },
         ]) ||
-        matchNode(node, 'VarE', (name: string) => [
+        matchNode(node, 'VarE', (id: Node) => [
             {
                 type: 'variable',
-                name,
+                name: getIdName(id)!,
+                start: spanToPos(id.start),
+                end: spanToPos(id.end),
+            },
+        ]) ||
+        matchNode(node, 'VarD', (id: Node) => [
+            {
+                type: 'variable',
+                name: getIdName(id)!,
+                start: spanToPos(id.start),
+                end: spanToPos(id.end),
+            },
+        ]) ||
+        matchNode(node, 'VarP', (id: Node) => [
+            {
+                type: 'variable',
+                name: getIdName(id)!,
+                start: spanToPos(id.start),
+                end: spanToPos(id.end),
             },
         ]) ||
         matchNode(node, 'PathT', (path: Node) => getTypeSearchPath(path)) ||
@@ -191,34 +268,42 @@ function getSearchPath(node: Node): Search[] {
 function getTypeSearchPath(node: Node): Search[] {
     function getQualifierSearchPath(node: Node): Search[] {
         return (
-            matchNode(node, 'IdH', (name) => [
+            matchNode(node, 'IdH', (id: Node) => [
                 {
                     type: 'variable',
-                    name,
+                    name: getIdName(id)!,
+                    start: spanToPos(id.start),
+                    end: spanToPos(id.end),
                 },
             ]) ||
-            matchNode(node, 'DotH', (qual: Node, name: string) => [
+            matchNode(node, 'DotH', (qual: Node, id: Node) => [
                 ...getQualifierSearchPath(qual),
                 {
                     type: 'variable',
-                    name,
+                    name: getIdName(id)!,
+                    start: spanToPos(id.start),
+                    end: spanToPos(id.end),
                 },
             ]) ||
             []
         );
     }
     return (
-        matchNode(node, 'IdH', (name) => [
+        matchNode(node, 'IdH', (id: Node) => [
             {
                 type: 'type',
-                name,
+                name: getIdName(id)!,
+                start: spanToPos(id.start),
+                end: spanToPos(id.end),
             },
         ]) ||
-        matchNode(node, 'DotH', (qual: Node, name: string) => [
+        matchNode(node, 'DotH', (qual: Node, id: Node) => [
             ...getQualifierSearchPath(qual),
             {
                 type: 'type',
-                name,
+                name: getIdName(id)!,
+                start: spanToPos(id.start),
+                end: spanToPos(id.end),
             },
         ]) ||
         []
@@ -291,13 +376,83 @@ export function followImport(
     });
 }
 
+function gatherFieldLocations(lab: string, node: Node): LocationSet {
+    const references = new LocationSet();
+    if (node.name !== 'Obj' || !node.args) {
+        return references;
+    }
+    const [_sort, ...fields] = node.args;
+    for (const field of fields as Node[]) {
+        if (field.name !== lab) {
+            continue;
+        }
+        const [_type, _depr, _region, ...srcs] = field.args!;
+        for (const src of srcs as Node[]) {
+            if (!src.file || !src.start || !src.end) {
+                continue;
+            }
+            references.add(
+                locationFromUriAndRange(
+                    URI.parse(src.file).toString(),
+                    rangeFromNode(src)!,
+                ),
+            );
+        }
+    }
+    return references;
+}
+
+function searchType(reference: Reference, search: Search): Definition[] {
+    function searchDotE(node: Node): Definition[] {
+        return (
+            matchNode(node, 'DotE', (qual: Node, id: Node) => {
+                const lab = getIdName(id);
+                if (!lab) {
+                    console.warn(
+                        'Unexpected AST format: DotE has no ID node on RHS.',
+                    );
+                    return [];
+                }
+                // We need to check whether we are in the LHS (qual) or RHS (id) of
+                // the DotE expression.
+                if (search.name !== lab) {
+                    return searchDotE(qual);
+                }
+                if (!qual.typeRep) {
+                    return [];
+                }
+                const locations = Array.from(
+                    gatherFieldLocations(lab, qual.typeRep).values(),
+                );
+                let definitions: Definition[] = [];
+                for (const location of locations) {
+                    const follow = findDefinitions(
+                        location.uri,
+                        location.range.start,
+                    );
+                    if (follow) {
+                        definitions = definitions.concat(follow);
+                    }
+                }
+                return definitions;
+            }) || []
+        );
+    }
+    return searchDotE(reference.node);
+}
+
 function search(
     context: Context,
     reference: Reference,
     path: Search[],
-): Definition | undefined {
+): Definition[] {
     if (!path.length) {
-        return;
+        return [];
+    }
+    // If we have a DotE, search for the reference in the type.
+    const definitions = searchType(reference, path[path.length - 1]);
+    if (definitions.length) {
+        return definitions;
     }
     const [base] = path;
     // Search for the base reference in the local scope
@@ -322,7 +477,7 @@ function search(
         //     console.log('LOST:', next, nextSource);
         // }
     }
-    return definition;
+    return definition ? [definition] : [];
 }
 
 function searchInScope(
@@ -360,26 +515,28 @@ function searchDeclaration(
                 }
             );
         }) ||
-        matchNode(dec, 'VarD', (name: string, body: Node) =>
-            name === search.name
+        matchNode(dec, 'VarD', (pat: Node, body: Node) => {
+            const [name, varNode] = findNameInPattern(search, pat) || [];
+            return varNode && name === search.name
                 ? {
                       uri: reference.uri,
-                      cursor: dec, // TODO: cursor on variable name
+                      cursor: varNode,
                       body,
                       name,
                   }
-                : undefined,
-        ) ||
-        matchNode(dec, 'ClassD', (_sharedPat: any, name: string) =>
-            name === search.name
+                : undefined;
+        }) ||
+        matchNode(dec, 'ClassD', (_sharedPat: any, pat: Node) => {
+            const [name, varNode] = findNameInPattern(search, pat) || [];
+            return varNode && name === search.name
                 ? {
                       uri: reference.uri,
-                      cursor: dec, // TODO: cursor on variable name
+                      cursor: varNode,
                       body: dec,
                       name,
                   }
-                : undefined,
-        )
+                : undefined;
+        })
     );
 }
 
@@ -389,26 +546,28 @@ function searchTypeBinding(
     dec: Node,
 ): Definition | undefined {
     return (
-        matchNode(dec, 'TypD', (name: string, typ: Node) =>
-            name === search.name
+        matchNode(dec, 'TypD', (id: Node, _: Node) => {
+            const name = getIdName(id)!;
+            return name === search.name
                 ? {
                       uri: reference.uri,
-                      cursor: typ, // TODO: source location from `name`
-                      body: typ,
-                      name,
-                  }
-                : undefined,
-        ) ||
-        matchNode(dec, 'ClassD', (_sharedPat: any, name: string) =>
-            name === search.name
-                ? {
-                      uri: reference.uri,
-                      cursor: dec, // TODO: cursor on variable name
+                      cursor: id,
                       body: dec,
                       name,
                   }
-                : undefined,
-        )
+                : undefined;
+        }) ||
+        matchNode(dec, 'ClassD', (_sharedPat: any, id: Node) => {
+            const name = getIdName(id)!;
+            return name === search.name
+                ? {
+                      uri: reference.uri,
+                      cursor: id,
+                      body: dec,
+                      name,
+                  }
+                : undefined;
+        })
     );
 }
 
@@ -417,96 +576,89 @@ export function searchObject(
     search: Search,
 ): Definition | undefined {
     const scope = reference.node;
-    if (scope?.args) {
-        for (const arg of scope.args) {
-            if (!arg || typeof arg !== 'object' || Array.isArray(arg)) {
-                // Skip everything except `Node` values
-                continue;
-            }
-            // console.log('Searching:', search.name, scope.name, arg.name);
-            let definition: Definition | undefined;
-            if (search.type === 'variable') {
-                definition =
-                    searchDeclaration(reference, search, arg) ||
-                    matchNode(
-                        arg,
-                        'ExpField',
-                        (_mut, name, body) =>
-                            name === search.name && {
-                                uri: reference.uri,
-                                cursor: arg,
-                                body,
-                                name,
-                            },
-                    ) ||
-                    matchNode(arg, 'DecField', (dec: Node) =>
-                        searchDeclaration(reference, search, dec),
-                    ) ||
-                    matchNode(
-                        arg,
-                        'ObjBlockE',
-                        (_sort: string, ...fields: Node[]) => {
-                            for (const field of fields) {
-                                const definition = matchNode(
-                                    field,
-                                    'DecField',
-                                    (dec: Node) =>
-                                        searchDeclaration(
-                                            reference,
-                                            search,
-                                            dec,
-                                        ),
-                                );
-                                if (definition) {
-                                    return definition;
-                                }
-                            }
-                            return;
-                        },
-                    );
-                if (!definition) {
-                    const [name, pat] = findNameInPattern(search, arg) || []; // Function parameters
-                    if (pat) {
-                        definition = {
+    if (!scope?.args) {
+        return;
+    }
+    for (const arg of scope.args) {
+        if (!arg || typeof arg !== 'object' || Array.isArray(arg)) {
+            // Skip everything except `Node` values
+            continue;
+        }
+        // console.log('Searching:', search.name, scope.name, arg.name);
+        let definition: Definition | undefined;
+        if (search.type === 'variable') {
+            definition =
+                searchDeclaration(reference, search, arg) ||
+                matchNode(arg, 'ExpField', (_mut, id, body) => {
+                    const name = getIdName(id)!;
+                    return (
+                        name === search.name && {
                             uri: reference.uri,
-                            cursor: pat,
-                            body: pat,
+                            cursor: arg,
+                            body,
                             name,
-                        };
-                    }
-                }
-            } else if (search.type === 'type') {
-                definition =
-                    searchTypeBinding(reference, search, arg) ||
-                    matchNode(arg, 'DecField', (dec: Node) =>
-                        searchTypeBinding(reference, search, dec),
-                    ) ||
-                    matchNode(
-                        arg,
-                        'ObjBlockE',
-                        (_sort: string, ...fields: Node[]) => {
-                            for (const field of fields) {
-                                const definition = matchNode(
-                                    field,
-                                    'DecField',
-                                    (dec: Node) =>
-                                        searchTypeBinding(
-                                            reference,
-                                            search,
-                                            dec,
-                                        ),
-                                );
-                                if (definition) {
-                                    return definition;
-                                }
-                            }
-                            return;
-                        },
+                        }
                     );
+                }) ||
+                matchNode(arg, 'DecField', (dec: Node) =>
+                    searchDeclaration(reference, search, dec),
+                ) ||
+                matchNode(
+                    arg,
+                    'ObjBlockE',
+                    (_sort: string, ...fields: Node[]) => {
+                        for (const field of fields) {
+                            const definition = matchNode(
+                                field,
+                                'DecField',
+                                (dec: Node) =>
+                                    searchDeclaration(reference, search, dec),
+                            );
+                            if (definition) {
+                                return definition;
+                            }
+                        }
+                        return;
+                    },
+                );
+            if (!definition) {
+                const [name, pat] = findNameInPattern(search, arg) || []; // Function parameters
+                if (pat) {
+                    definition = {
+                        uri: reference.uri,
+                        cursor: pat,
+                        body: pat,
+                        name,
+                    };
+                }
             }
-            if (definition) {
-                return definition;
-            }
+        } else if (search.type === 'type') {
+            definition =
+                searchTypeBinding(reference, search, arg) ||
+                matchNode(arg, 'DecField', (dec: Node) =>
+                    searchTypeBinding(reference, search, dec),
+                ) ||
+                matchNode(
+                    arg,
+                    'ObjBlockE',
+                    (_sort: string, ...fields: Node[]) => {
+                        for (const field of fields) {
+                            const definition = matchNode(
+                                field,
+                                'DecField',
+                                (dec: Node) =>
+                                    searchTypeBinding(reference, search, dec),
+                            );
+                            if (definition) {
+                                return definition;
+                            }
+                        }
+                        return;
+                    },
+                );
+        }
+        if (definition) {
+            return definition;
         }
     }
     return;

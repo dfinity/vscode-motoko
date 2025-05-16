@@ -1,5 +1,12 @@
 import { AST, Node } from 'motoko/lib/ast';
 
+export function getIdName(
+    ast: AST | undefined,
+    defaultName?: string,
+): string | undefined {
+    return matchNode(ast, 'ID', (name: string) => name) ?? defaultName;
+}
+
 export function findNodes(
     ast: AST,
     condition?: (node: Node, parents: Node[]) => any,
@@ -37,6 +44,13 @@ function findNodes_(
             throw new Error('Unexpected parent node in stack');
         }
     }
+    if (ast.typeRep) {
+        parents.push(ast);
+        findNodes_(ast.typeRep, condition, nodes, parents);
+        if (parents.pop() !== ast) {
+            throw new Error('Unexpected parent node in stack');
+        }
+    }
 }
 
 export function fromAST(ast: AST): Syntax {
@@ -61,7 +75,7 @@ export function fromAST(ast: AST): Syntax {
                     matchNode(exp, 'ImportE', (path) => {
                         const import_ = new Import(exp, path);
                         // Variable pattern name
-                        import_.name = matchNode(pat, 'VarP', (name) => name);
+                        import_.name = getIdName(pat);
                         // Object pattern fields
                         import_.fields = matchNode(
                             pat,
@@ -69,10 +83,8 @@ export function fromAST(ast: AST): Syntax {
                             (...args) =>
                                 args.map((field: Node & { args: [Node] }) => {
                                     const name = field.name;
-                                    const alias = matchNode(
+                                    const alias = getIdName(
                                         field.args[0],
-                                        'VarP',
-                                        (alias) => alias,
                                         name,
                                     );
                                     return [name, alias];
@@ -118,25 +130,25 @@ export function fromAST(ast: AST): Syntax {
 
 function getFieldsFromAST(ast: AST): Field[] {
     const simplyNamedFields =
-        matchNode(ast, 'TypD', (name: string, type: Node) => {
+        matchNode(ast, 'TypD', (id: Node, type: Node) => {
             const field = new Field(ast, new Type(type));
-            field.name = name;
+            field.name = getIdName(id)!;
             return [field];
         }) ||
-        matchNode(ast, 'VarD', (name: string, exp: Node) => {
+        matchNode(ast, 'VarD', (id: Node, exp: Node) => {
             const field = new Field(ast, new Type(exp));
-            field.name = name;
+            field.name = getIdName(id)!;
             return [field];
         }) ||
         matchNode(
             ast,
             'ClassD',
-            (_sharedPat: any, name: string, ...args: any[]) => {
+            (_sharedPat: any, id: Node, ...args: any[]) => {
                 let index = args.length - 1;
                 while (index >= 0 && typeof args[index] !== 'string') {
                     index--;
                 }
-                index -= 3; // [pat, returnType, sort]
+                index -= 2; // [pat, returnType, sort]
                 if (index < 0) {
                     console.warn('Unexpected `ClassD` AST format');
                     return [];
@@ -144,8 +156,9 @@ function getFieldsFromAST(ast: AST): Field[] {
                 // const typeBinds = args.slice(0, index) as Node[];
                 const [_pat, _returnType, sort, _id, ...decs] = args.slice(
                     index,
-                ) as [Node, Node, ObjSort, string, ...Node[]];
+                ) as [Node, Node, ObjSort, Node, ...Node[]];
 
+                const name = getIdName(id)!;
                 const cls = new Class(ast, name, sort);
                 decs.forEach((ast) => {
                     matchNode(ast, 'DecField', (dec: Node) => {
@@ -199,7 +212,7 @@ export function findInPattern<T>(
     };
     const match = (arg: Node) => findInPattern(arg, fn);
     return (
-        matchNode(pat, 'VarP', (name: string) => fn(name, pat)) ||
+        matchNode(pat, 'VarP', (id: Node) => fn(getIdName(id)!, id)) ||
         matchNode(pat, 'ObjP', (...args: Node[]) => {
             for (const field of args) {
                 const fieldPat = field.args![0] as Node;

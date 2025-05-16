@@ -63,13 +63,16 @@ import DfxResolver from './dfx';
 import { extractFields, organizeImports } from './imports';
 import { getAstInformation } from './information';
 import {
+    Definition,
     defaultRange,
-    findDefinition,
+    findDefinitions,
     findMostSpecificNodeForPosition,
     followImport,
     locationFromDefinition,
+    locationFromUriAndRange,
     rangeFromNode,
     searchObject,
+    sameDefinition,
 } from './navigation';
 import { deployPlayground } from './playground';
 import {
@@ -82,8 +85,11 @@ import {
     Type,
     asNode,
     findNodes,
+    getIdName,
+    matchNode,
 } from './syntax';
 import {
+    LocationSet,
     formatMotoko,
     forwardMessage,
     getFileText,
@@ -621,7 +627,7 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                 },
                 definitionProvider: true,
                 // declarationProvider: true,
-                // referencesProvider: true,
+                referencesProvider: true,
                 codeActionProvider: {
                     codeActionKinds: [
                         CodeActionKind.QuickFix,
@@ -1296,9 +1302,9 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                     const idents = new Set<string>();
                     findNodes(
                         program.ast,
-                        (node) => node.name === 'VarP' || node.name === 'VarD',
+                        (node) => node.name === 'ID',
                     ).forEach((node) => {
-                        const ident = node.args?.[0]; // First arg for both `VarP` and `VarD`
+                        const ident = node.args?.[0];
                         if (typeof ident === 'string') {
                             idents.add(ident);
                         }
@@ -1323,8 +1329,9 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                 const [_preMatch, _preDot, preIdent] = preMatch;
                 const start = end - preIdent.length;
                 const indentPosition = getLineAndCharacter(text, start);
-                const definition = findDefinition(uri, indentPosition);
-                if (definition) {
+                const definitions = findDefinitions(uri, indentPosition);
+
+                function completionsFromDefinition(definition: Definition) {
                     // HACK: Base modules seem to be contained inside an ExpD, so we
                     // unwrap them.
                     function tryGetObjBlockEFromExpD(node: Node): AST {
@@ -1348,6 +1355,11 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                             kind,
                         }),
                     );
+                    return list;
+                }
+
+                if (definitions.length) {
+                    definitions.forEach(completionsFromDefinition);
                 } else {
                     // NOTE: in case AST is outdated or no such module in scope
                     const importUri = findImportUri(
@@ -1394,31 +1406,37 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
     });
 
     connection.onHover((event) => {
-        function findDocComment(node: Node): string | undefined {
-            const definition = findDefinition(uri, event.position, true);
-            let docNode: Node | undefined = definition?.cursor || node;
-            let depth = 0; // Max AST depth to display doc comment
-            while (
-                !docNode.doc &&
-                docNode.parent &&
-                // Unresolved import
-                !(
-                    docNode.name === 'LetD' &&
-                    asNode(docNode.args?.[1])?.name === 'ImportE'
-                ) &&
-                depth < 2
-            ) {
-                docNode = docNode.parent;
-                depth++;
-            }
-            if (docNode.name === 'Prog' && !docNode.doc) {
-                // Get doc comment at top of file
-                const doc = asNode(docNode.args?.[0])?.doc;
-                if (doc) {
-                    return doc;
+        function findDocComments(node: Node): string[] {
+            const definitions = findDefinitions(uri, event.position, true);
+            const docs: string[] = [];
+            for (const definition of definitions) {
+                let docNode: Node | undefined = definition?.cursor || node;
+                let depth = 0; // Max AST depth to display doc comment
+                while (
+                    !docNode.doc &&
+                    docNode.parent &&
+                    // Unresolved import
+                    !(
+                        docNode.name === 'LetD' &&
+                        asNode(docNode.args?.[1])?.name === 'ImportE'
+                    ) &&
+                    depth < 2
+                ) {
+                    docNode = docNode.parent;
+                    depth++;
+                }
+                if (docNode.name === 'Prog' && !docNode.doc) {
+                    // Get doc comment at top of file
+                    const doc = asNode(docNode.args?.[0])?.doc;
+                    if (doc) {
+                        docs.push(doc);
+                    }
+                }
+                if (docNode.doc) {
+                    docs.push(docNode.doc);
                 }
             }
-            return docNode.doc;
+            return docs;
         }
 
         const { position } = event;
@@ -1471,8 +1489,8 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                 ).trim();
 
                 // Doc comments
-                const doc = findDocComment(node);
-                if (doc) {
+                const nodeDocs = findDocComments(node);
+                if (nodeDocs.length) {
                     const typeInfo = node.type
                         ? formatMotoko(node.type).trim()
                         : '';
@@ -1484,7 +1502,7 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                     } else if (!isSameLine) {
                         docs.push(codeSnippet(source));
                     }
-                    docs.push(doc);
+                    docs.push(...nodeDocs);
                     if (lineIndex !== -1) {
                         docs.push(
                             `*Type definition:*\n${codeSnippet(typeInfo)}`,
@@ -1535,25 +1553,21 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
         };
     });
 
-    connection.onDefinition(
-        async (
-            event: TextDocumentPositionParams,
-        ): Promise<Location | Location[]> => {
-            console.log('[Definition]');
-            try {
-                const definition = findDefinition(
-                    event.textDocument.uri,
-                    event.position,
-                );
-                return definition ? locationFromDefinition(definition) : [];
-            } catch (err) {
-                console.error('Error while finding definition:');
-                console.error(err);
-                // throw err;
-                return [];
-            }
-        },
-    );
+    connection.onDefinition((event: TextDocumentPositionParams): Location[] => {
+        console.log('[Definition]');
+        try {
+            const definitions = findDefinitions(
+                event.textDocument.uri,
+                event.position,
+            );
+            return definitions.map(locationFromDefinition);
+        } catch (err) {
+            console.error('Error while finding definition:');
+            console.error(err);
+            // throw err;
+            return [];
+        }
+    });
 
     // connection.onDeclaration(
     //     async (
@@ -1644,12 +1658,131 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
         ];
     }
 
-    connection.onReferences(
-        async (_event: ReferenceParams): Promise<Location[]> => {
-            console.log('[References]');
-            return [];
-        },
-    );
+    connection.onReferences((event: ReferenceParams): Location[] => {
+        console.log('[References]');
+
+        function idOfVar(node: AST): Node | undefined {
+            return (
+                matchNode(node, 'VarE', (id: Node) => id) ||
+                matchNode(node, 'VarP', (id: Node) => id) ||
+                matchNode(node, 'VarD', (id: Node) => id) ||
+                matchNode(node, 'ID', (_id: string) => node as Node) ||
+                undefined
+            );
+        }
+
+        function searchAstStatus(
+            definitions: Definition[],
+            uri: string,
+            ast: AST,
+        ): LocationSet {
+            const references = new LocationSet();
+            const nodes = findNodes(ast, (node, _parents) =>
+                definitions.some(
+                    (definition) =>
+                        getIdName(idOfVar(node)) === definition.name,
+                ),
+            );
+            for (const node of nodes) {
+                try {
+                    const range = rangeFromNode(node);
+                    if (!range) {
+                        continue;
+                    }
+                    const referenceDefinitions = findDefinitions(
+                        uri,
+                        range.start,
+                    );
+                    if (
+                        !definitions.some((definition) =>
+                            referenceDefinitions.some((referenceDefinition) =>
+                                sameDefinition(definition, referenceDefinition),
+                            ),
+                        )
+                    ) {
+                        continue;
+                    }
+                    // We might get a definition that includes the entire body
+                    // of the declaration but we only want the range for its ID.
+                    const reference = rangeFromNode(idOfVar(node));
+                    references.add(locationFromUriAndRange(uri, reference!));
+                    if (event.context.includeDeclaration) {
+                        referenceDefinitions.forEach((refDef) => {
+                            const range = rangeFromNode(
+                                idOfVar(refDef.cursor),
+                            )!;
+                            const location = locationFromUriAndRange(
+                                refDef.uri,
+                                range,
+                            );
+                            references.add(location);
+                        });
+                    }
+                } catch (err) {
+                    console.error(
+                        `Error while finding references for node of ${uri}:`,
+                    );
+                    console.error(err);
+                }
+            }
+
+            return references;
+        }
+
+        function astReferences(
+            uri: string,
+            event: ReferenceParams,
+        ): LocationSet {
+            const references = new LocationSet();
+            const definitions = findDefinitions(uri, event.position);
+            if (!definitions.length) {
+                console.log(
+                    `No definitions for (${event.position.line}, ${event.position.character}) at ${uri}`,
+                );
+                return references;
+            }
+
+            const context = getContext(uri);
+            const statuses = context.astResolver.requestAll(
+                isVirtualFileSystemReady,
+            );
+            for (const status of statuses) {
+                try {
+                    if (!status.ast) {
+                        throw new Error(`AST for ${status.uri} not found`);
+                    }
+                    references.union(
+                        searchAstStatus(definitions, status.uri, status.ast),
+                    );
+                } catch (err) {
+                    console.error(
+                        `Error while finding references for ${status.uri}:`,
+                    );
+                    console.error(err);
+                }
+            }
+
+            if (!event.context.includeDeclaration) {
+                for (const definition of definitions) {
+                    references.delete(locationFromDefinition(definition));
+                }
+            }
+
+            return references;
+        }
+
+        const references = new LocationSet();
+        const uri = event.textDocument.uri;
+        try {
+            references.union(astReferences(uri, event));
+        } catch (err) {
+            console.error('Error while finding references:');
+            console.error(err);
+            // throw err;
+        }
+
+        return Array.from(references.values());
+    });
 
     // Run a file which is recognized as a unit test
     connection.onRequest(

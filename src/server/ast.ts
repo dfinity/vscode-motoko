@@ -147,6 +147,18 @@ export default class AstResolver {
         }
     }
 
+    requestAll(withDeps: boolean): AstStatus[] {
+        return Array.from(this._cache.keys())
+            .map((uri) => this.request(uri, withDeps))
+            .filter((status): status is AstStatus => status !== undefined);
+    }
+
+    requestAllTyped(): AstStatus[] {
+        return Array.from(this._cache.keys())
+            .map((uri) => this.requestTyped(uri))
+            .filter((status): status is AstStatus => status !== undefined);
+    }
+
     request(uri: string, withDeps: boolean): AstStatus | undefined {
         const status = this._cache.get(uri);
         if (
