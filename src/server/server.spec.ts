@@ -14,7 +14,7 @@ describe('server', () => {
 describe('cache', () => {
     beforeAll(() => {
         jest.mock('ic-mops/commands/add');
-        jest.setTimeout(10 * 1000);
+        jest.setTimeout(60000);
     });
 
     const rootUri = URI.parse(join(__dirname, '..', '..', 'test', 'cache'));

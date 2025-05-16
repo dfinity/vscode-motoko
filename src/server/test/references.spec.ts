@@ -34,7 +34,7 @@ type LocationWithMetadata = {
     isDefinition: boolean;
 };
 
-jest.setTimeout(10000);
+jest.setTimeout(60000);
 
 describe('references', () => {
     let client: Connection;

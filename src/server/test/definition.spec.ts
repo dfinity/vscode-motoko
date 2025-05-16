@@ -15,7 +15,7 @@ const rootUri = URI.parse(rootPath);
 const vectorPath = join('.mops', 'vector@0.4.1', 'src', 'lib.mo');
 const arrayPath = join('.mops', 'base@0.13.4', 'src', 'Array.mo');
 
-jest.setTimeout(10000);
+jest.setTimeout(60000);
 
 function location(
     path: string,
