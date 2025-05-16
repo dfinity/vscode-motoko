@@ -168,7 +168,7 @@
         "ic-mops": "0.45.3",
         "ic0": "0.3.1",
         "mnemonist": "0.39.5",
-        "motoko": "3.12.3",
+        "motoko": "3.13.0",
         "prettier": "2.8.0",
         "prettier-plugin-motoko": "0.10.5",
         "semver": "7.6.3",
