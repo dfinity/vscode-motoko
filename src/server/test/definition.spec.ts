@@ -63,7 +63,7 @@ describe('go to definition', () => {
         pos: Position;
         declPos: Location;
     }): Promise<void> {
-        const filePath = join(rootPath, 'a.mo');
+        const filePath = join(rootPath, 'simple.mo');
         const fileUri = URI.parse(filePath).toString();
         await openTextDocuments(client, textDocuments, rootUri, [fileUri]);
         const textDocument = textDocuments.get(fileUri);
