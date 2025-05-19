@@ -33,7 +33,7 @@ describe('cache', () => {
         });
         expect(hover.contents).toStrictEqual({
             kind: 'markdown',
-            value: '```motoko\nmodule { top : { foo : () -> () } }\n\n```',
+            value: '```motoko\nmodule { top : { foo : () -> () } }\n```',
         });
     });
 
@@ -60,7 +60,7 @@ describe('cache', () => {
         });
         expect(hover.contents).toStrictEqual({
             kind: 'markdown',
-            value: '```motoko\nmodule { top : { foo : () -> () } }\n\n```',
+            value: '```motoko\nmodule { top : { foo : () -> () } }\n```',
         });
     });
 
@@ -101,7 +101,7 @@ describe('cache', () => {
         });
         expect(hover.contents).toStrictEqual({
             kind: 'markdown',
-            value: '```motoko\nmodule { top : { foo : () -> Nat } }\n\n```',
+            value: '```motoko\nmodule { top : { foo : () -> Nat } }\n```',
         });
     });
 
@@ -135,7 +135,7 @@ describe('cache', () => {
         });
         expect(hover.contents).toStrictEqual({
             kind: 'markdown',
-            value: '```motoko\n{ bar : () -> (); foo : Nat }\n\n```',
+            value: '```motoko\n{ bar : () -> (); foo : Nat }\n```',
         });
     });
 
@@ -186,7 +186,7 @@ describe('cache', () => {
         });
         expect(hover0.contents).toStrictEqual({
             kind: 'markdown',
-            value: '```motoko\nInt\n\n```',
+            value: '```motoko\nInt\n```',
         });
         expect(hover1).toStrictEqual(hover0);
     });
