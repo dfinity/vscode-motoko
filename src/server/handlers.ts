@@ -1481,7 +1481,7 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                 const isSameLine = node.start[0] === node.end[0];
 
                 const codeSnippet = (source: string) =>
-                    `\`\`\`motoko\n${source}\n\`\`\``;
+                    `\`\`\`motoko\n${source.trimEnd()}\n\`\`\``;
                 const source = (
                     isSameLine
                         ? startLine.substring(node.start[1], node.end[1])
