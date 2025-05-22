@@ -36,4 +36,8 @@ It should look like this:
 
 2. Make sure the `.vscodeignore` file is present and contains `../**/*` to ignore bundling `node_modules` from the `node-motoko` directory.
 
-3. Hit `F5` to start debugging the extension, or run `npm run package` to package the extension and install it manually.
+#### 4. Start debugging
+Start debugging the extension using the `Run Extension with Local Motoko` configuration.
+Choose this configuration and hit `F5`.
+
+Alternatively, run `npm run package` to package the extension and install it manually.
