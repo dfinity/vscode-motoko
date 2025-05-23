@@ -1489,9 +1489,9 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
 
                 // Special case: if we're at program level without doc, check first child
                 if (docNode.name === 'Prog' && !docNode.doc) {
-                    const firstChild = asNode(docNode.args?.[0]);
-                    if (firstChild?.doc) {
-                        return firstChild.doc;
+                    const doc = asNode(docNode.args?.[0])?.doc;
+                    if (doc) {
+                        return doc;
                     }
                 }
 
