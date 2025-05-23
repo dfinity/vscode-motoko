@@ -1481,11 +1481,6 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
             let depth = 0;
             const maxDepth = 4;
 
-            // First check if current node has doc
-            if (docNode.doc) {
-                return docNode.doc;
-            }
-
             // Walk up the tree looking for docs
             while (docNode && depth < maxDepth) {
                 if (docNode.doc) {
