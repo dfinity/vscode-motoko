@@ -152,10 +152,32 @@ describe('cache', () => {
             });
         });
         const root = rootUri.fsPath;
-        expect(actual).toEqual(
+
+        // Filter to only include local files (not base library files)
+        const localFiles = actual
+            .filter(([file, _]: [string, string[]]) => file.startsWith(root))
+            .map(([file, deps]: [string, string[]]) => [
+                file,
+                deps.filter((dep) => dep.startsWith(root)),
+            ]);
+
+        // Verify we have exactly the expected local files with correct dependencies
+        expect(localFiles).toHaveLength(3);
+        expect(localFiles).toEqual(
             expect.arrayContaining([
                 [join(root, 'Top.mo'), [join(root, 'Bottom.mo')]],
                 [join(root, 'Bottom.mo'), []],
+                [join(root, 'issue-340.mo'), []],
+            ]),
+        );
+
+        // Ensure no base library dependencies leak into local file dependencies
+        const localFilePaths = localFiles.map(([file]) => file);
+        expect(localFilePaths).toEqual(
+            expect.arrayContaining([
+                join(root, 'Top.mo'),
+                join(root, 'Bottom.mo'),
+                join(root, 'issue-340.mo'),
             ]),
         );
     });

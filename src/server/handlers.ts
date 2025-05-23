@@ -1407,36 +1407,177 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
 
     connection.onHover((event) => {
         function findDocComments(node: Node): string[] {
-            const definitions = findDefinitions(uri, event.position, true);
             const docs: string[] = [];
+
+            if (settings?.debugHover) {
+                console.log(
+                    `[findDocComments] Searching for docs on node:`,
+                    node.name,
+                    `at position`,
+                    event.position,
+                );
+            }
+
+            // Strategy 1: Try to get doc comments from definitions
+            const definitions = findDefinitions(uri, event.position, true);
+            if (settings?.debugHover) {
+                console.log(
+                    `[findDocComments] Found ${definitions.length} definitions`,
+                );
+            }
+
             for (const definition of definitions) {
-                let docNode: Node | undefined = definition?.cursor || node;
-                let depth = 0; // Max AST depth to display doc comment
-                while (
-                    !docNode.doc &&
-                    docNode.parent &&
-                    // Unresolved import
-                    !(
-                        docNode.name === 'LetD' &&
-                        asNode(docNode.args?.[1])?.name === 'ImportE'
-                    ) &&
-                    depth < 2
-                ) {
-                    docNode = docNode.parent;
-                    depth++;
-                }
-                if (docNode.name === 'Prog' && !docNode.doc) {
-                    // Get doc comment at top of file
-                    const doc = asNode(docNode.args?.[0])?.doc;
-                    if (doc) {
-                        docs.push(doc);
+                const docFromDef = extractDocFromNode(
+                    definition?.cursor || node,
+                );
+                if (docFromDef) {
+                    docs.push(docFromDef);
+                    if (settings?.debugHover) {
+                        console.log(
+                            `[findDocComments] Found doc from definition:`,
+                            docFromDef.substring(0, 50) + '...',
+                        );
                     }
                 }
-                if (docNode.doc) {
-                    docs.push(docNode.doc);
+            }
+
+            // Strategy 2: Direct search on current node and its context
+            const docFromCurrentNode = extractDocFromNode(node);
+            if (docFromCurrentNode && !docs.includes(docFromCurrentNode)) {
+                docs.push(docFromCurrentNode);
+                if (settings?.debugHover) {
+                    console.log(
+                        `[findDocComments] Found doc from current node:`,
+                        docFromCurrentNode.substring(0, 50) + '...',
+                    );
                 }
             }
+
+            // Strategy 3: Handle specific node patterns
+            const docFromPattern = extractDocFromPattern(node);
+            if (docFromPattern && !docs.includes(docFromPattern)) {
+                docs.push(docFromPattern);
+                if (settings?.debugHover) {
+                    console.log(
+                        `[findDocComments] Found doc from pattern:`,
+                        docFromPattern.substring(0, 50) + '...',
+                    );
+                }
+            }
+
+            if (settings?.debugHover) {
+                console.log(
+                    `[findDocComments] Final result: ${docs.length} doc comments found`,
+                );
+            }
+
             return docs;
+        }
+
+        function extractDocFromNode(node: Node | undefined): string | null {
+            if (!node) return null;
+
+            let docNode: Node | undefined = node;
+            let depth = 0;
+            const maxDepth = 4;
+
+            // First check if current node has doc
+            if (docNode.doc) {
+                return docNode.doc;
+            }
+
+            // Walk up the tree looking for docs
+            while (docNode && depth < maxDepth) {
+                if (docNode.doc) {
+                    return docNode.doc;
+                }
+
+                // Special case: if we're at program level without doc, check first child
+                if (docNode.name === 'Prog' && !docNode.doc) {
+                    const firstChild = asNode(docNode.args?.[0]);
+                    if (firstChild?.doc) {
+                        return firstChild.doc;
+                    }
+                }
+
+                // Don't traverse past import declarations
+                if (
+                    docNode.name === 'LetD' &&
+                    asNode(docNode.args?.[1])?.name === 'ImportE'
+                ) {
+                    break;
+                }
+
+                docNode = docNode.parent;
+                depth++;
+            }
+
+            return null;
+        }
+
+        function extractDocFromPattern(node: Node): string | null {
+            if (!node) return null;
+
+            // Pattern 1: ID node - check parent for function/let declarations
+            if (node.name === 'ID' && node.parent) {
+                const parent = node.parent;
+
+                // Function declaration: func name() = ...
+                if (parent.name === 'FuncD' && parent.doc) {
+                    return parent.doc;
+                }
+
+                // Let declaration: let name = ...
+                if (parent.name === 'LetD') {
+                    if (parent.doc) {
+                        return parent.doc;
+                    }
+
+                    // Check if let contains a function expression with docs
+                    const rhs = asNode(parent.args?.[1]);
+                    if (rhs?.name === 'FuncE' && rhs.doc) {
+                        return rhs.doc;
+                    }
+                }
+
+                // Object field: { field: type }
+                if (parent.name === 'Field' && parent.parent?.doc) {
+                    return parent.parent.doc;
+                }
+            }
+
+            // Pattern 2: FuncE node - function expression
+            if (node.name === 'FuncE' && node.doc) {
+                return node.doc;
+            }
+
+            // Pattern 3: LetD node - let declaration
+            if (node.name === 'LetD' && node.doc) {
+                return node.doc;
+            }
+
+            // Pattern 4: FuncD node - function declaration
+            if (node.name === 'FuncD' && node.doc) {
+                return node.doc;
+            }
+
+            // Pattern 5: Check siblings for doc comments (common in Motoko)
+            if (node.parent?.args && Array.isArray(node.parent.args)) {
+                const siblings = node.parent.args.filter(
+                    (arg) =>
+                        typeof arg === 'object' &&
+                        !Array.isArray(arg) &&
+                        arg !== null,
+                ) as Node[];
+
+                for (const sibling of siblings) {
+                    if (sibling.doc && sibling !== node) {
+                        return sibling.doc;
+                    }
+                }
+            }
+
+            return null;
         }
 
         const { position } = event;
