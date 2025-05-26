@@ -225,7 +225,7 @@
         "compile:dev": "npm run compile:pre && run-p compile:snippets compile:formatter && run-p compile:motoko:dev",
         "compile:motoko:dev": "esbuild motoko --bundle --outfile=out/motoko.js --format=cjs --platform=node --minify=false --sourcemap=inline && shx cp -r src/server/compiler out/compiler",
         "compile:benchmark:dev": "npm run compile:dev && esbuild ./src/server/bench/benchmark.ts --bundle --outfile=out/benchmark.js --external:vscode --format=cjs --platform=node --minify=false --sourcemap=inline",
-        "compile:local:motoko": "npm i && (cd ../node-motoko && npm install && npm run build && npm run generate local) && npm install ../node-motoko && npm run compile"
+        "compile:local:motoko": "(cd ../node-motoko && npm i && npm run build && npm run generate local) && npm i ../node-motoko && npm i && npm run compile"
     },
     "lint-staged": {
         "src/**/*.{js,ts,jsx,tsx}": [
