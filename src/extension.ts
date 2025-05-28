@@ -1,5 +1,5 @@
 import * as glob from 'fast-glob';
-import * as fs from 'fs';
+import * as mops from 'ic-mops/mops';
 import { Package } from 'motoko/lib/package';
 import * as baseLibrary from 'motoko/packages/latest/base.json';
 import * as path from 'path';
@@ -8,6 +8,7 @@ import {
     ExtensionContext,
     FormattingOptions,
     Position,
+    QuickPickItem,
     Range,
     TestItem,
     TestRunProfileKind,
@@ -15,7 +16,6 @@ import {
     TextEdit,
     Uri,
     ViewColumn,
-    QuickPickItem,
     commands,
     languages,
     tests,
@@ -28,21 +28,17 @@ import {
     ServerOptions,
     TransportKind,
 } from 'vscode-languageclient/node';
-import * as which from 'which';
-import * as mops from 'ic-mops/mops';
 import {
-    DEPLOY_PLAYGROUND,
-    DEPLOY_PLAYGROUND_MESSAGE,
+    DEPLOY_TEMPORARY,
+    DEPLOY_TEMPORARY_MESSAGE,
     ERROR_MESSAGE,
-    TEST_FILE_REQUEST,
     IMPORT_MOPS_PACKAGE,
+    TEST_FILE_REQUEST,
     TestParams,
     TestResult,
 } from './common/connectionTypes';
 import { ignoreGlobPatterns, watchGlob } from './common/watchConfig';
 import { formatDocument } from './formatter';
-
-const config = workspace.getConfiguration('motoko');
 
 let client: LanguageClient;
 
@@ -54,7 +50,7 @@ export function activate(context: ExtensionContext) {
     );
     context.subscriptions.push(
         commands.registerCommand(
-            'motoko.deployPlayground',
+            'motoko.deployTemporary',
             async (relevantUri?: Uri) => {
                 const uri =
                     relevantUri?.toString() ||
@@ -66,7 +62,7 @@ export function activate(context: ExtensionContext) {
                     );
                     return;
                 }
-                await deployPlayground(context, uri);
+                await deployTemporary(context, uri);
             },
         ),
     );
@@ -316,7 +312,7 @@ const deployingSet = new Set<string>();
 const deployPanelMap = new Map<string, vscode.WebviewPanel>();
 let tag = Math.floor(Math.random() * 1e12);
 
-async function deployPlayground(_context: ExtensionContext, uri: string) {
+async function deployTemporary(_context: ExtensionContext, uri: string) {
     try {
         if (deployingSet.has(uri)) {
             throw new Error('Already deploying this file');
@@ -326,13 +322,13 @@ async function deployPlayground(_context: ExtensionContext, uri: string) {
             { location: vscode.ProgressLocation.Notification },
             async (progress) => {
                 progress.report({
-                    message: 'Deploying to Motoko Playground...',
+                    message: 'Deploying...',
                 });
                 const listener = client.onNotification(
-                    DEPLOY_PLAYGROUND_MESSAGE,
+                    DEPLOY_TEMPORARY_MESSAGE,
                     ({ message }) => progress.report({ message }),
                 );
-                const result = await client.sendRequest(DEPLOY_PLAYGROUND, {
+                const result = await client.sendRequest(DEPLOY_TEMPORARY, {
                     uri,
                 });
                 listener.dispose();
