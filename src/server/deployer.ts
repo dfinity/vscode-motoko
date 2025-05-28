@@ -28,7 +28,7 @@ interface ProfilingConfig {
     page_limit: [] | [number];
 }
 
-const playground = ic('mwrha-maaaa-aaaab-qabqq-cai');
+const deployer = ic('mwrha-maaaa-aaaab-qabqq-cai');
 
 const origin = { origin: 'vscode', tags: [] };
 
@@ -38,7 +38,7 @@ const currentCanisterTimeoutMap = new Map<
     ReturnType<typeof setTimeout>
 >();
 
-export async function deployPlayground(
+export async function deployTemporary(
     { uri }: DeployParams,
     notify: (message: string) => void,
 ): Promise<DeployResult> {
@@ -134,7 +134,7 @@ export async function deployPlayground(
     async function createCanister(): Promise<CanisterInfo> {
         const nonce = pow();
         notify('Creating new canister...');
-        const info: CanisterInfo = await playground.call(
+        const info: CanisterInfo = await deployer.call(
             'getCanisterId',
             nonce,
             origin,
@@ -170,7 +170,7 @@ export async function deployPlayground(
             is_whitelisted: false,
             origin,
         };
-        const newInfo: CanisterInfo = await playground.call(
+        const newInfo: CanisterInfo = await deployer.call(
             'installCode',
             canisterInfo,
             installArgs,

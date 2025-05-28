@@ -72,7 +72,7 @@ function requestMotokoInstance(uri: string, version: Version): Motoko {
             motoko.setTypecheckerCombineSrcs(true);
         }
     }
-    // Required for deploying to Motoko Playground
+    // Required for temporary deployment (originally Motoko Playground)
     motoko.setPublicMetadata([
         'candid:service',
         'candid:args',

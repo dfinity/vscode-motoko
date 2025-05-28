@@ -119,7 +119,7 @@
                 "title": "Motoko: Restart language server"
             },
             {
-                "command": "motoko.deployPlayground",
+                "command": "motoko.deployTemporary",
                 "title": "Motoko: Deploy (20 minutes)"
             },
             {
@@ -143,14 +143,14 @@
             "explorer/context": [
                 {
                     "when": "resourceLangId == motoko",
-                    "command": "motoko.deployPlayground",
+                    "command": "motoko.deployTemporary",
                     "group": "2_main"
                 }
             ],
             "editor/context": [
                 {
                     "when": "resourceLangId == motoko",
-                    "command": "motoko.deployPlayground",
+                    "command": "motoko.deployTemporary",
                     "group": "2_main"
                 }
             ]

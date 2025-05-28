@@ -45,10 +45,10 @@ Below are the default key bindings for commonly used features supported in the e
 ## Commands
 
 - `Motoko: Restart language server`: Starts (or restarts) the language server
-- `Motoko: Deploy (20 minutes)`: Temporarily deploys the currently open file to the Internet Computer via [Motoko Playground](https://play.motoko.org/)
+- `Motoko: Deploy (20 minutes)`: Temporarily deploys the currently open file to the Internet Computer.
 - `Motoko: Import Mops Package...`: Search, install and import a package from [Mops](https://mops.one)
 
-[![Motoko Playground deployment](https://github.com/dfinity/vscode-motoko/raw/master/guide/assets/deploy.png)](https://marketplace.visualstudio.com/items?itemName=dfinity-foundation.vscode-motoko)
+[![Temporary deployment](https://github.com/dfinity/vscode-motoko/raw/master/guide/assets/deploy.png)](https://marketplace.visualstudio.com/items?itemName=dfinity-foundation.vscode-motoko)
 
 ## Settings
 
