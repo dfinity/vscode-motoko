@@ -8,3 +8,5 @@ src/**
 test/**
 rust/**
 guide/**
+
+../**/*
