@@ -515,12 +515,12 @@ function searchDeclaration(
                 }
             );
         }) ||
-        matchNode(dec, 'VarD', (pat: Node, body: Node) => {
-            const [name, varNode] = findNameInPattern(search, pat) || [];
-            return varNode && name === search.name
+        matchNode(dec, 'VarD', (id: Node, body: Node) => {
+            const name = getIdName(id);
+            return name === search.name
                 ? {
                       uri: reference.uri,
-                      cursor: varNode,
+                      cursor: id,
                       body,
                       name,
                   }
