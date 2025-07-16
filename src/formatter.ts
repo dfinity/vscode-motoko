@@ -19,7 +19,7 @@ const candidOptions: prettier.Options = {
 export function formatDocument(
     document: TextDocument,
     _context: ExtensionContext,
-    options: FormattingOptions,
+    _options: FormattingOptions,
 ): TextEdit[] {
     try {
         const formatter = workspace
@@ -39,16 +39,13 @@ export function formatDocument(
                     const source = document.getText();
 
                     const config = prettier.resolveConfig.sync(
-                        document.uri.fsPath /* , options */,
+                        document.uri.fsPath,
                     );
                     if (config !== null) {
                         prettier.clearConfigCache();
                     }
                     const prettierOptions: prettier.Options = {
                         filepath: document.fileName,
-                        // pluginSearchDirs: [join(rootPath, 'node_modules')],
-                        tabWidth: options.tabSize,
-                        useTabs: !options.insertSpaces,
                         ...(config || {}),
                         plugins: [motokoPlugin],
                     };
