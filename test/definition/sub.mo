@@ -1,4 +1,4 @@
-actor {
+persistent actor {
   class Class1() {
     public func meth(_ : Int) : Nat {
       1

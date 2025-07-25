@@ -1,5 +1,5 @@
 import Prim = "mo:⛔";
-actor {
+persistent actor {
   type Int = Prim.Types.Int;
   stable var t = [] : [Int];
 }
