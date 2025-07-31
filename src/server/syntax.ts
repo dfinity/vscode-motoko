@@ -81,14 +81,18 @@ export function fromAST(ast: AST): Syntax {
                             pat,
                             'ObjP',
                             (...args) =>
-                                args.map((field: Node & { args: [Node] }) => {
-                                    const name = field.name;
-                                    const alias = getIdName(
-                                        field.args[0],
-                                        name,
-                                    );
-                                    return [name, alias];
-                                }),
+                                args.map(
+                                    (
+                                        field: Node & { args: [string, Node] },
+                                    ) => {
+                                        const name = field.args[0];
+                                        const alias = getIdName(
+                                            field.args[1]!,
+                                            name,
+                                        );
+                                        return [name, alias];
+                                    },
+                                ),
                             [],
                         );
                         prog.imports.push(import_);
@@ -215,8 +219,12 @@ export function findInPattern<T>(
         matchNode(pat, 'VarP', (id: Node) => fn(getIdName(id)!, id)) ||
         matchNode(pat, 'ObjP', (...args: Node[]) => {
             for (const field of args) {
-                const fieldPat = field.args![0] as Node;
-                const result = findInPattern(fieldPat, fn);
+                const result = matchNode(
+                    field,
+                    'ValPF',
+                    (_fieldName: string, fieldPat: Node) =>
+                        findInPattern(fieldPat, fn),
+                );
                 if (result !== undefined) {
                     return result;
                 }
