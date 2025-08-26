@@ -2,7 +2,7 @@
     "name": "vscode-motoko",
     "displayName": "Motoko",
     "description": "Motoko language support",
-    "version": "0.18.6",
+    "version": "0.18.7",
     "publisher": "dfinity-foundation",
     "repository": "https://github.com/dfinity/vscode-motoko",
     "engines": {
@@ -168,7 +168,7 @@
         "ic-mops": "0.45.3",
         "ic0": "0.3.1",
         "mnemonist": "0.39.5",
-        "motoko": "3.14.2",
+        "motoko": "3.14.3",
         "prettier": "2.8.0",
         "prettier-plugin-motoko": "0.11.3",
         "semver": "7.6.3",
