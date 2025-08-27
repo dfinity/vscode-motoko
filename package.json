@@ -113,6 +113,14 @@
                 }
             }
         },
+        "configurationDefaults": {
+            "[motoko]": {
+                "editor.colorDecorators": false
+            },
+            "[candid]": {
+                "editor.colorDecorators": false
+            }
+        },
         "commands": [
             {
                 "command": "motoko.startService",
