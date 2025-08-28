@@ -7,7 +7,7 @@ import { existsSync, readFileSync } from 'fs';
 import { add as mopsAdd } from 'ic-mops/commands/add';
 import { AST, Node } from 'motoko/lib/ast';
 import { keywords } from 'motoko/lib/keywords';
-import * as baseLibrary from 'motoko/packages/latest/base.json';
+import * as corePackage from 'motoko/packages/latest/core.json';
 import { join, resolve } from 'path';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import {
@@ -375,19 +375,14 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                     }),
                 );
 
-                // Add base library autocompletions
+                // Add core package autocompletions
                 // TODO: possibly refactor into `context.ts`
-                Object.entries(baseLibrary.files).forEach(
+                Object.entries(corePackage.files).forEach(
                     ([path, { content }]: [string, { content: string }]) => {
                         writeVirtual(
-                            resolveVirtualPath(`mo:base/${path}`),
+                            resolveVirtualPath(`mo:core/${path}`),
                             content,
                         );
-                    },
-                );
-                Object.entries(baseLibrary.files).forEach(
-                    ([path, { content }]: [string, { content: string }]) => {
-                        notifyWriteUri(`mo:base/${path}`, content);
                     },
                 );
 

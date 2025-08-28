@@ -1,8 +1,8 @@
 import { type Motoko } from 'motoko/lib';
-import * as baseLibrary from 'motoko/packages/latest/base.json';
-import ImportResolver from './imports';
+import * as basePackage from 'motoko/packages/latest/base.json';
+import * as corePackage from 'motoko/packages/latest/core.json';
 import AstResolver from './ast';
-import { join } from 'path';
+import ImportResolver from './imports';
 
 type Version = string | undefined; // `undefined` refers to latest version
 
@@ -60,17 +60,8 @@ function requestMotokoInstance(uri: string, version: Version): Motoko {
                 delete require.cache[key];
             }
         });
-        // TODO: download `moc.js` versions from GitHub releases
-        if (version === '0.10.4') {
-            const compiler = require(join(
-                __dirname,
-                '/compiler/moc-' + version,
-            )).Motoko;
-            motoko = require('motoko/lib').default(compiler);
-        } else {
-            motoko = require(motokoPath).default;
-            motoko.setTypecheckerCombineSrcs(true);
-        }
+        motoko = require(motokoPath).default;
+        motoko.setTypecheckerCombineSrcs(true);
     }
     // Required for temporary deployment (originally Motoko Playground)
     motoko.setPublicMetadata([
@@ -78,7 +69,8 @@ function requestMotokoInstance(uri: string, version: Version): Motoko {
         'candid:args',
         'motoko:stable-types',
     ]);
-    motoko.loadPackage(baseLibrary);
+    motoko.loadPackage(basePackage);
+    motoko.loadPackage(corePackage);
     return motoko;
 }
 
