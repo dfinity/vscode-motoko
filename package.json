@@ -2,7 +2,7 @@
     "name": "vscode-motoko",
     "displayName": "Motoko",
     "description": "Motoko language support",
-    "version": "0.18.0",
+    "version": "0.18.7",
     "publisher": "dfinity-foundation",
     "repository": "https://github.com/dfinity/vscode-motoko",
     "engines": {
@@ -113,13 +113,21 @@
                 }
             }
         },
+        "configurationDefaults": {
+            "[motoko]": {
+                "editor.colorDecorators": false
+            },
+            "[candid]": {
+                "editor.colorDecorators": false
+            }
+        },
         "commands": [
             {
                 "command": "motoko.startService",
                 "title": "Motoko: Restart language server"
             },
             {
-                "command": "motoko.deployPlayground",
+                "command": "motoko.deployTemporary",
                 "title": "Motoko: Deploy (20 minutes)"
             },
             {
@@ -143,14 +151,14 @@
             "explorer/context": [
                 {
                     "when": "resourceLangId == motoko",
-                    "command": "motoko.deployPlayground",
+                    "command": "motoko.deployTemporary",
                     "group": "2_main"
                 }
             ],
             "editor/context": [
                 {
                     "when": "resourceLangId == motoko",
-                    "command": "motoko.deployPlayground",
+                    "command": "motoko.deployTemporary",
                     "group": "2_main"
                 }
             ]
@@ -168,9 +176,9 @@
         "ic-mops": "0.45.3",
         "ic0": "0.3.1",
         "mnemonist": "0.39.5",
-        "motoko": "3.13.0",
+        "motoko": "3.14.3",
         "prettier": "2.8.0",
-        "prettier-plugin-motoko": "0.10.5",
+        "prettier-plugin-motoko": "0.11.3",
         "semver": "7.6.3",
         "url-relative": "1.0.0",
         "vscode-languageclient": "8.0.2",
@@ -224,7 +232,8 @@
         "compile:benchmark-init": "npm run compile && esbuild ./src/server/bench/benchmark-init.ts --bundle --outfile=out/benchmark-init.js --external:vscode --format=cjs --platform=node --minify",
         "compile:dev": "npm run compile:pre && run-p compile:snippets compile:formatter && run-p compile:motoko:dev",
         "compile:motoko:dev": "esbuild motoko --bundle --outfile=out/motoko.js --format=cjs --platform=node --minify=false --sourcemap=inline && shx cp -r src/server/compiler out/compiler",
-        "compile:benchmark:dev": "npm run compile:dev && esbuild ./src/server/bench/benchmark.ts --bundle --outfile=out/benchmark.js --external:vscode --format=cjs --platform=node --minify=false --sourcemap=inline"
+        "compile:benchmark:dev": "npm run compile:dev && esbuild ./src/server/bench/benchmark.ts --bundle --outfile=out/benchmark.js --external:vscode --format=cjs --platform=node --minify=false --sourcemap=inline",
+        "compile:local:motoko": "(cd ../node-motoko && npm i && npm run build && npm run generate local) && npm i ../node-motoko && npm i && npm run compile"
     },
     "lint-staged": {
         "src/**/*.{js,ts,jsx,tsx}": [

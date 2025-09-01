@@ -206,4 +206,10 @@ describe('go to definition', () => {
             );
         }
     }, 20000);
+
+    test('Can find definition for var', () =>
+        testDefinition(
+            location('var.mo', 4, 8, 9), // x
+            [location('var.mo', 1, 8, 9)], // definition of x
+        ));
 });

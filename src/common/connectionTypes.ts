@@ -14,11 +14,16 @@ export interface TestResult {
     stderr: string;
 }
 
-export const DEPLOY_PLAYGROUND = new RequestType<
+export const DEPLOY_TEMPORARY = new RequestType<
     DeployParams,
     DeployResult,
     any
->('vscode-motoko/deploy-playground');
+>('vscode-motoko/deploy-temporary');
+
+export const DEPLOY_TEMPORARY_MESSAGE =
+    new NotificationType<NotifyDeployParams>(
+        'vscode-motoko/notify-deploy-temporary',
+    );
 
 export interface DeployParams {
     uri: string;
@@ -27,11 +32,6 @@ export interface DeployParams {
 export interface DeployResult {
     canisterId: string;
 }
-
-export const DEPLOY_PLAYGROUND_MESSAGE =
-    new NotificationType<NotifyDeployParams>(
-        'vscode-motoko/notify-deploy-playground',
-    );
 
 export interface NotifyDeployParams {
     message: string;

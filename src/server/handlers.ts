@@ -37,8 +37,8 @@ import {
 } from 'vscode-languageserver/node';
 import { URI } from 'vscode-uri';
 import {
-    DEPLOY_PLAYGROUND,
-    DEPLOY_PLAYGROUND_MESSAGE,
+    DEPLOY_TEMPORARY,
+    DEPLOY_TEMPORARY_MESSAGE,
     ERROR_MESSAGE,
     IMPORT_MOPS_PACKAGE,
     TEST_FILE_REQUEST,
@@ -74,7 +74,7 @@ import {
     searchObject,
     sameDefinition,
 } from './navigation';
-import { deployPlayground } from './playground';
+import { deployTemporary } from './deployer';
 import {
     Class,
     Field,
@@ -1995,11 +1995,11 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
         },
     );
 
-    // Deploy to Motoko Playground
-    connection.onRequest(DEPLOY_PLAYGROUND, async (params) => {
+    // Temporary canister deployment
+    connection.onRequest(DEPLOY_TEMPORARY, async (params) => {
         const notify = (message: string) => {
             console.log(message);
-            connection.sendNotification(DEPLOY_PLAYGROUND_MESSAGE, { message });
+            connection.sendNotification(DEPLOY_TEMPORARY_MESSAGE, { message });
         };
         try {
             if (!isWorkspaceReady) {
@@ -2008,7 +2008,7 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                     await new Promise((resolve) => setTimeout(resolve, 200));
                 }
             }
-            return deployPlayground(params, notify);
+            return deployTemporary(params, notify);
         } catch (err) {
             console.error(err);
             throw err;

@@ -331,9 +331,9 @@ export function followImport(
     }
     // Find the relevant field name
     const field = matchNode(
-        reference.node.parent?.parent,
-        'ObjP',
-        () => reference.node.parent?.name,
+        reference.node.parent,
+        'ValPF',
+        (name: string) => name,
     );
     // Follow the module import
     return matchNode(importNode, 'ImportE', (path: string) => {
@@ -515,12 +515,12 @@ function searchDeclaration(
                 }
             );
         }) ||
-        matchNode(dec, 'VarD', (pat: Node, body: Node) => {
-            const [name, varNode] = findNameInPattern(search, pat) || [];
-            return varNode && name === search.name
+        matchNode(dec, 'VarD', (id: Node, body: Node) => {
+            const name = getIdName(id);
+            return name === search.name
                 ? {
                       uri: reference.uri,
-                      cursor: varNode,
+                      cursor: id,
                       body,
                       name,
                   }
