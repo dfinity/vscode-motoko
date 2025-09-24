@@ -1,6 +1,19 @@
 import { AST } from 'motoko/lib/ast';
 import motoko from './motoko';
-import { Field, Program, Syntax, SyntaxWithFields, fromAST } from './syntax';
+import * as path from 'path';
+import * as fs from 'fs';
+import { URI } from 'vscode-uri';
+import { Position } from 'vscode-languageserver';
+
+import {
+    Field,
+    Program,
+    Syntax,
+    SyntaxWithFields,
+    fromAST,
+    asNode,
+} from './syntax';
+import { findDefinitions } from './navigation';
 
 /* eslint jest/expect-expect: ["off", { "assertFunctionNames": ["expect"] }] */
 
@@ -131,9 +144,6 @@ describe('incorrect syntax', () => {
     });
 });
 
-/*
-// TODO: Uncomment those tests when _every_ AST node will be annotated with a
-// `typeRep !== undefined`.
 describe('navigation', () => {
     describe('There are correct fields for sources', () => {
         const filename = path.join(
@@ -232,4 +242,3 @@ describe('navigation', () => {
         expect(t1.args).toStrictEqual(['Class2']);
     });
 });
-*/
