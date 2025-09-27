@@ -81,6 +81,15 @@
                     "default": "",
                     "description": "Hide compiler warnings based on a regular expression."
                 },
+                "motoko.extraFlags": {
+                    "scope": "resource",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "default": [],
+                    "description": "Extra moc flags (e.g. [\"-E=M0194,M0217\", \"-Werror\"])."
+                },
                 "motoko.trace.server": {
                     "scope": "window",
                     "type": "string",
