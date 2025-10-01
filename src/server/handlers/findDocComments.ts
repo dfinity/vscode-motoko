@@ -43,6 +43,7 @@ function findDocumentationForNode(node: Node): string | null {
     }
     return null;
 }
+
 /**
  * Checks local documentation for specific identifier.
  * @param node The AST node to find documentation for.
@@ -59,7 +60,8 @@ function findLocalDocComment(node: Node): string | null {
             break;
         }
         case 'ImportE':
-        case 'VarP': {
+        case 'VarP':
+        case 'AwaitE': {
             if (node.parent?.doc) {
                 return node.parent.doc;
             }
@@ -72,7 +74,6 @@ function findLocalDocComment(node: Node): string | null {
 
 /**
  * Finds the most relevant documentation comment for a given AST node and its position.
- *
  * @param uri The document URI.
  * @param position The position within the document.
  * @param node The most specific AST node at the given position.
@@ -83,6 +84,20 @@ export function findDocComments(
     position: Position,
     node: Node,
 ): string[] {
+    console.log(
+        `[findDocComments] node: {name: ${node.name}, hasDoc: ${
+            node.doc !== undefined
+        }},`,
+        `parent: {name: ${node.parent?.name}, hasDoc: ${
+            node.parent?.doc !== undefined
+        }}, children: ${node.args?.length}, child_1: ${
+            asNode(node.args?.[0])?.name
+        }, child_2: ${asNode(node.args?.[1])?.name},`,
+        `grandparent: {name: ${node.parent?.parent?.name}, hasDoc: ${
+            node.parent?.parent?.doc !== undefined
+        }}`,
+    );
+
     const docs: string[] = [];
 
     const localDoc = findLocalDocComment(node);
