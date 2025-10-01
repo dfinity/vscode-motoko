@@ -17,6 +17,7 @@ import {
     CompletionList,
     Diagnostic,
     DiagnosticSeverity,
+    DidChangeWatchedFilesNotification,
     DocumentSymbol,
     FileChangeType,
     InitializeResult,
@@ -656,6 +657,9 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
     });
 
     connection.onInitialized(() => {
+        connection.client.register(DidChangeWatchedFilesNotification.type, {
+            watchers: [{ globPattern: virtualFilePattern }],
+        });
         connection.workspace?.onDidChangeWorkspaceFolders((event) => {
             const folders = workspaceFolders;
             if (!folders) {
