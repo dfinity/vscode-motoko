@@ -99,6 +99,7 @@ import {
     resolveFilePath,
     resolveVirtualPath,
 } from './utils';
+import { findDocComments } from './handlers/findDocComments';
 
 import execa = require('execa');
 
@@ -1425,39 +1426,6 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
     });
 
     connection.onHover((event) => {
-        function findDocComments(node: Node): string[] {
-            const definitions = findDefinitions(uri, event.position, true);
-            const docs: string[] = [];
-            for (const definition of definitions) {
-                let docNode: Node | undefined = definition?.cursor || node;
-                let depth = 0; // Max AST depth to display doc comment
-                while (
-                    !docNode.doc &&
-                    docNode.parent &&
-                    // Unresolved import
-                    !(
-                        docNode.name === 'LetD' &&
-                        asNode(docNode.args?.[1])?.name === 'ImportE'
-                    ) &&
-                    depth < 2
-                ) {
-                    docNode = docNode.parent;
-                    depth++;
-                }
-                if (docNode.name === 'Prog' && !docNode.doc) {
-                    // Get doc comment at top of file
-                    const doc = asNode(docNode.args?.[0])?.doc;
-                    if (doc) {
-                        docs.push(doc);
-                    }
-                }
-                if (docNode.doc) {
-                    docs.push(docNode.doc);
-                }
-            }
-            return docs;
-        }
-
         const { position } = event;
         const { uri } = event.textDocument;
         const { astResolver } = getContext(uri);
@@ -1508,7 +1476,7 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                 ).trim();
 
                 // Doc comments
-                const nodeDocs = findDocComments(node);
+                const nodeDocs = findDocComments(uri, position, node);
                 if (nodeDocs.length) {
                     const typeInfo = node.type
                         ? formatMotoko(node.type).trim()
