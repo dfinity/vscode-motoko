@@ -26,7 +26,6 @@ import {
     Position,
     Range,
     ReferenceParams,
-    SignatureHelp,
     SymbolKind,
     TextDocumentPositionParams,
     TextDocumentSyncKind,
@@ -99,6 +98,7 @@ import {
     resolveFilePath,
     resolveVirtualPath,
 } from './utils';
+import { mkOnSignatureHelpHandler } from './handlers/onSignatureHelp';
 
 import execa = require('execa');
 
@@ -654,6 +654,10 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                 // executeCommandProvider: { commands: [] },
                 workspaceSymbolProvider: true,
                 documentSymbolProvider: true,
+                signatureHelpProvider: {
+                    triggerCharacters: ['(', ','],
+                    retriggerCharacters: [','],
+                },
                 // diagnosticProvider: {
                 //     documentSelector: ['motoko'],
                 //     interFileDependencies: true,
@@ -1171,9 +1175,7 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
         return results;
     });
 
-    connection.onSignatureHelp((): SignatureHelp | null => {
-        return null;
-    });
+    connection.onSignatureHelp(mkOnSignatureHelpHandler(documents));
 
     function findImportUri(
         context: Context,
