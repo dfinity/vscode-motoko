@@ -2,6 +2,7 @@ import { Node } from 'motoko/lib/ast';
 import { Position } from 'vscode-languageserver-protocol';
 import { findDefinitions } from '../navigation';
 import { asNode } from '../syntax';
+import { getPreviousSiblingNode } from './getAstHoverContent';
 
 /**
  * Finds the semantically-relevant documentation for a given AST node.
@@ -50,22 +51,32 @@ function findDocumentationForNode(node: Node): string | null {
  * @returns A documentation string, or null if not found.
  */
 function findLocalDocComment(node: Node): string | null {
-    switch (node.name) {
-        case 'DecField':
-        case 'ID':
-        case 'ClassD': {
-            if (node.doc) {
-                return node.doc;
+    const parent = node.parent;
+    if (parent) {
+        switch (parent.name) {
+            case 'VarD': {
+                if (node.doc) {
+                    return node.doc;
+                }
+                break;
             }
-            break;
-        }
-        case 'ImportE':
-        case 'VarP':
-        case 'AwaitE': {
-            if (node.parent?.doc) {
-                return node.parent.doc;
+            case 'TypD': {
+                if (parent.parent?.doc) {
+                    return parent.parent.doc;
+                }
+                break;
             }
-            break;
+            case 'ClassD': {
+                if (
+                    getPreviousSiblingNode(node) !== 'Object' &&
+                    parent.parent?.doc
+                ) {
+                    return parent.parent.doc;
+                }
+                break;
+            }
+            default:
+                break;
         }
     }
 
@@ -84,20 +95,6 @@ export function findDocComments(
     position: Position,
     node: Node,
 ): string[] {
-    console.log(
-        `[findDocComments] node: {name: ${node.name}, hasDoc: ${
-            node.doc !== undefined
-        }},`,
-        `parent: {name: ${node.parent?.name}, hasDoc: ${
-            node.parent?.doc !== undefined
-        }}, children: ${node.args?.length}, child_1: ${
-            asNode(node.args?.[0])?.name
-        }, child_2: ${asNode(node.args?.[1])?.name},`,
-        `grandparent: {name: ${node.parent?.parent?.name}, hasDoc: ${
-            node.parent?.parent?.doc !== undefined
-        }}`,
-    );
-
     const docs: string[] = [];
 
     const localDoc = findLocalDocComment(node);
