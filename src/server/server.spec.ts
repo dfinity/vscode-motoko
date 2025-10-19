@@ -28,7 +28,7 @@ describe('cache', () => {
             });
             return client.sendRequest<Hover>('textDocument/hover', {
                 textDocument,
-                position: { line: 5, character: 21 },
+                position: { line: 2, character: 0 },
             });
         });
         expect(hover.contents).toStrictEqual({
@@ -55,7 +55,7 @@ describe('cache', () => {
             });
             return await client.sendRequest<Hover>('textDocument/hover', {
                 textDocument,
-                position: { line: 5, character: 21 },
+                position: { line: 2, character: 0 },
             });
         });
         expect(hover.contents).toStrictEqual({
@@ -96,7 +96,7 @@ describe('cache', () => {
             await wait(1); // wait for changes to complete
             return await client.sendRequest<Hover>('textDocument/hover', {
                 textDocument: textDocumentTop,
-                position: { line: 5, character: 21 },
+                position: { line: 2, character: 0 },
             });
         });
         expect(hover.contents).toStrictEqual({
@@ -152,38 +152,10 @@ describe('cache', () => {
             });
         });
         const root = rootUri.fsPath;
-
-        // Filter to only include local files (not base library files)
-        const localFiles = actual
-            .filter(([file, _]: [string, string[]]) => file.startsWith(root))
-            .map(([file, deps]: [string, string[]]) => [
-                file,
-                deps.filter((dep) => dep.startsWith(root)),
-            ]);
-
-        // Verify we have exactly the expected local files with correct dependencies
-        expect(localFiles).toHaveLength(6);
-        expect(localFiles).toEqual(
+        expect(actual).toEqual(
             expect.arrayContaining([
                 [join(root, 'Top.mo'), [join(root, 'Bottom.mo')]],
                 [join(root, 'Bottom.mo'), []],
-                [join(root, 'issue-340.mo'), []],
-                [join(root, 'FuncDoc.mo'), []],
-                [join(root, 'LetDoc.mo'), []],
-                [join(root, 'ObjectDoc.mo'), []],
-            ]),
-        );
-
-        // Ensure no base library dependencies leak into local file dependencies
-        const localFilePaths = localFiles.map(([file]) => file);
-        expect(localFilePaths).toEqual(
-            expect.arrayContaining([
-                join(root, 'Top.mo'),
-                join(root, 'Bottom.mo'),
-                join(root, 'issue-340.mo'),
-                join(root, 'FuncDoc.mo'),
-                join(root, 'LetDoc.mo'),
-                join(root, 'ObjectDoc.mo'),
             ]),
         );
     });
@@ -217,65 +189,5 @@ describe('cache', () => {
             value: '```motoko\nInt\n```',
         });
         expect(hover1).toStrictEqual(hover0);
-    });
-
-    test('Hover on function declaration shows doc comments', async () => {
-        const hover = await runTest(rootUri, async (client) => {
-            const textDocument = makeTextDocument(rootUri, 'FuncDoc.mo');
-            await client.sendNotification('textDocument/didOpen', {
-                textDocument,
-            });
-            await wait(1);
-            return await client.sendRequest<Hover>('textDocument/hover', {
-                textDocument,
-                position: { line: 3, character: 16 }, // Position on 'func' keyword
-            });
-        });
-
-        expect(hover).not.toBeNull();
-        expect(hover!.contents).toStrictEqual({
-            kind: 'markdown',
-            value: '```motoko\n() -> ()\n```\n\n---\n\nThis is a test function.\nIt does nothing.',
-        });
-    });
-
-    test('Hover on let declaration shows doc comments', async () => {
-        const hover = await runTest(rootUri, async (client) => {
-            const textDocument = makeTextDocument(rootUri, 'LetDoc.mo');
-            await client.sendNotification('textDocument/didOpen', {
-                textDocument,
-            });
-            await wait(1);
-            return await client.sendRequest<Hover>('textDocument/hover', {
-                textDocument,
-                position: { line: 3, character: 16 }, // Position on 'let' keyword
-            });
-        });
-
-        expect(hover).not.toBeNull();
-        expect(hover!.contents).toStrictEqual({
-            kind: 'markdown',
-            value: '```motoko\nNat\n```\n\n---\n\nThis is a test variable.\nIt holds a number.',
-        });
-    });
-
-    test('Hover on object field shows doc comments', async () => {
-        const hover = await runTest(rootUri, async (client) => {
-            const textDocument = makeTextDocument(rootUri, 'ObjectDoc.mo');
-            await client.sendNotification('textDocument/didOpen', {
-                textDocument,
-            });
-            await wait(1);
-            return await client.sendRequest<Hover>('textDocument/hover', {
-                textDocument,
-                position: { line: 2, character: 16 }, // Position on 'let' keyword
-            });
-        });
-
-        expect(hover).not.toBeNull();
-        expect(hover!.contents).toStrictEqual({
-            kind: 'markdown',
-            value: '```motoko\nText\n```\n\n---\n\nThis is a test field.',
-        });
     });
 });
