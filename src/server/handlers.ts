@@ -113,6 +113,7 @@ export interface MotokoSettings {
     hideWarningRegex: string;
     maxNumberOfProblems: number;
     debugHover: boolean;
+    extraFlags?: string[];
 }
 
 const shouldHideWarnings = (uri: string) =>
@@ -375,6 +376,20 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                         }
                     }),
                 );
+
+                try {
+                    const extra: string[] = [];
+                    if (settings?.extraFlags?.length) {
+                        extra.push(...settings.extraFlags);
+                    }
+                    if (extra.length) {
+                        allContexts().forEach(({ motoko }) =>
+                            (motoko as any).setExtraFlags(extra),
+                        );
+                    }
+                } catch (err) {
+                    console.warn('Failed to apply extra flags:', err);
+                }
 
                 // Add base library autocompletions
                 // TODO: possibly refactor into `context.ts`
