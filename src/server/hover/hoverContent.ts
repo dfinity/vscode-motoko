@@ -253,10 +253,7 @@ function handleAsyncNode(node: Node): TypeRangeInfo {
     };
 }
 
-function handleParentExpFieldTypDValFVarD(
-    node: Node,
-    parent: Node,
-): TypeRangeInfo {
+function handleSiblingHasType(node: Node, parent: Node): TypeRangeInfo {
     if (parent.args) {
         const type = getNextSiblingNodeWithType(node)?.type;
         const isVar =
@@ -368,7 +365,7 @@ function getTypeInfoFromUntypedNode(node: Node, ast: AST): TypeRangeInfo {
         case 'TypD':
         case 'ValF':
         case 'VarD':
-            return handleParentExpFieldTypDValFVarD(node, parent);
+            return handleSiblingHasType(node, parent);
         case 'DotH':
             return handleParentDotH(parent);
         case 'IdH':
