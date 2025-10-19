@@ -1,8 +1,8 @@
 import { Node } from 'motoko/lib/ast';
 import { Position } from 'vscode-languageserver-protocol';
+import { getPreviousSiblingNode } from './hoverContent';
 import { findDefinitions } from '../navigation';
 import { asNode } from '../syntax';
-import { getPreviousSiblingNode } from './getAstHoverContent';
 
 /**
  * Finds the semantically-relevant documentation for a given AST node.
@@ -23,9 +23,9 @@ function findDocumentationForNode(node: Node): string | null {
         )
     ) {
         if (current.name === 'Prog' && !current.doc) {
-            const expD = asNode(current.args?.[0]);
-            if (expD && expD.doc) {
-                return expD.doc;
+            const child = asNode(current.args?.[0]);
+            if (child && child.doc) {
+                return child.doc;
             } else {
                 return null;
             }
@@ -51,6 +51,29 @@ function findDocumentationForNode(node: Node): string | null {
  * @returns A documentation string, or null if not found.
  */
 function findLocalDocComment(node: Node): string | null {
+    if (
+        (node.name === 'LetD' && asNode(node.args?.[1])?.name !== 'ImportE') ||
+        node.name === 'ExpD'
+    ) {
+        if (node.doc) {
+            return node.doc;
+        } else {
+            const parent = node.parent;
+            if (parent && parent.name === 'Prog') {
+                if (parent.doc) {
+                    return parent.doc;
+                }
+                const firstSibling = asNode(parent.args?.[0]);
+                if (firstSibling && firstSibling.doc) {
+                    return firstSibling.doc;
+                } else {
+                    return null;
+                }
+            }
+        }
+        return null;
+    }
+
     const parent = node.parent;
     if (parent) {
         switch (parent.name) {
@@ -99,7 +122,7 @@ export function findDocComments(
 
     const localDoc = findLocalDocComment(node);
     if (localDoc) {
-        docs.push(localDoc);
+        docs.push(normalizeCodeBlocks(localDoc));
     }
 
     const definitions = findDefinitions(uri, position, true);
@@ -107,9 +130,36 @@ export function findDocComments(
     for (const definition of definitions) {
         const doc = findDocumentationForNode(definition.cursor);
         if (doc) {
-            docs.push(doc);
+            docs.push(normalizeCodeBlocks(doc));
         }
     }
 
     return docs;
+}
+
+/**
+ * Normalizes documentation strings by removing `include=...` from Motoko code blocks and adding the `motoko` language identifier to code blocks that are missing it.
+ * @param doc The documentation string.
+ * @returns The normalized documentation string.
+ */
+function normalizeCodeBlocks(doc: string): string {
+    const lines = doc.split(/(\r?\n)/);
+    let inCodeBlock = false;
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (line.startsWith('```')) {
+            if (!inCodeBlock) {
+                inCodeBlock = true;
+                const lang = line.substring(3).trim();
+                if (lang === '') {
+                    lines[i] = '```motoko';
+                } else if (lang.startsWith('motoko ')) {
+                    lines[i] = '```motoko';
+                }
+            } else {
+                inCodeBlock = false;
+            }
+        }
+    }
+    return lines.join('');
 }

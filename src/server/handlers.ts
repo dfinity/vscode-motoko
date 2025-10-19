@@ -96,7 +96,7 @@ import {
     resolveFilePath,
     resolveVirtualPath,
 } from './utils';
-import { getAstHoverContent } from './handlers/getAstHoverContent';
+import { getAstHoverContent } from './hover/hoverContent';
 
 import execa = require('execa');
 

@@ -1,12 +1,13 @@
+import { Node, asNode, AST } from 'motoko/lib/ast';
+import { keywords } from 'motoko/lib/keywords';
 import { Position, Range } from 'vscode-languageserver/node';
 import AstResolver from '../ast';
+import { findDocComments } from './docs';
 import { MotokoSettings } from '../handlers';
 import { getAstInformation } from '../information';
 import { findMostSpecificNodeForPosition, rangeFromNode } from '../navigation';
-import { formatMotoko } from '../utils';
-import { findDocComments } from './findDocComments';
-import { Node, asNode, AST } from 'motoko/lib/ast';
 import { findNodes } from '../syntax';
+import { formatMotoko } from '../utils';
 
 function generateDocParts(
     nodeDocs: string[],
@@ -59,6 +60,22 @@ function generateDebugInfo(
     return codeSnippet(debugText);
 }
 
+const ignoredNodeNamesForHover = new Set([
+    'AsyncE',
+    'BlockE',
+    'FuncE',
+    'ObjE',
+    'ObjT',
+    'VariantT',
+]);
+
+const nodePriorities: Record<string, number> = {
+    OptT: 3, // optional type
+    OptE: 3, // optional expression
+    ID: 2,
+    LitE: 1, // literal expression
+};
+
 /**
  * Provides hover content for the AST node at the given position.
  * @param uri The URI of the document.
@@ -84,10 +101,10 @@ export async function getAstHoverContent(
         status.ast,
         position,
         (node) => {
-            if (node.name === 'ID') {
-                return node.type ? 2 : 1;
+            if (ignoredNodeNamesForHover.has(node.name)) {
+                return false;
             }
-            return 0;
+            return nodePriorities[node.name] || 0;
         },
         true, // Mouse cursor
     );
@@ -107,7 +124,7 @@ export async function getAstHoverContent(
         isSameLine ? startLine.substring(node.start[1], node.end[1]) : startLine
     ).trim();
 
-    const nodeDocs = isSameLine ? findDocComments(uri, position, node) : [];
+    const maybeKeyword = findKeyword(startLine, position.character);
 
     const typeRangeInfo = getTypeRangeInfo(
         status.ast,
@@ -118,6 +135,16 @@ export async function getAstHoverContent(
     if (typeRangeInfo.range) {
         range = typeRangeInfo.range;
     }
+
+    const nodeDocs =
+        typeRangeInfo.type &&
+        (!maybeKeyword ||
+            maybeKeyword == 'actor' ||
+            maybeKeyword == 'module' ||
+            maybeKeyword == 'async') &&
+        (isSameLine || node.name === 'LetD' || node.name === 'ExpD')
+            ? findDocComments(uri, position, node)
+            : [];
 
     const docs = generateDocParts(
         nodeDocs,
@@ -162,6 +189,8 @@ function getNextSiblingNodeWithType(current: Node): Node | undefined {
     return;
 }
 
+const ignoredExpDChildren = new Set(['IfE', 'RetE', 'SwitchE']);
+
 function getTypeInfoFromExpD(
     node: Node,
     position: Position,
@@ -170,7 +199,7 @@ function getTypeInfoFromExpD(
     if (node.args?.[0]) {
         const child = asNode(node.args[0]);
         if (child) {
-            if (new Set(['IfE', 'RetE', 'SwitchE']).has(child.name)) {
+            if (ignoredExpDChildren.has(child.name)) {
                 return { type: undefined };
             }
             if (child.name === 'AwaitE' || child.name === 'ObjBlockE') {
@@ -180,10 +209,9 @@ function getTypeInfoFromExpD(
                     position,
                     startLine,
                 );
-                return defined || { type: undefined };
-            }
-            if (child.type) {
-                return { type: formatMotoko(child.type) };
+                if (defined) {
+                    return defined;
+                }
             }
         }
     }
@@ -212,7 +240,7 @@ function getTypeInfoFromLetD(
     return { type: undefined };
 }
 
-function getTypeInfoFromTypedNode(node: Node): TypeRangeInfo {
+function handleAsyncNode(node: Node): TypeRangeInfo {
     if (!node.type) {
         return { type: undefined };
     }
@@ -243,15 +271,27 @@ function handleParentExpFieldTypDValFVarD(
 }
 
 function handleParentDotH(parent: Node): TypeRangeInfo {
-    if (parent.parent?.name === 'PathT' && parent.parent.type) {
-        return { type: formatMotoko(parent.parent.type) };
+    if (parent.parent?.name === 'PathT') {
+        if (parent.parent.parent?.type) {
+            return { type: formatMotoko(parent.parent.parent.type) };
+        }
+        if (parent.parent.type) {
+            return { type: formatMotoko(parent.parent.type) };
+        }
     }
     return { type: undefined };
 }
 
 function handleParentIdH(node: Node, parent: Node, ast: AST): TypeRangeInfo {
-    if (parent.parent?.name === 'PathT' && parent.parent?.type) {
-        return { type: formatMotoko(parent.parent.type) };
+    if (parent.parent?.name === 'PathT') {
+        if (parent.parent.parent?.name === 'AsyncT') {
+            const typeRange = handleAsyncNode(parent.parent.parent);
+            if (typeRange.type) {
+                return { type: formatMotoko(typeRange.type) };
+            }
+        } else if (parent.parent.type) {
+            return { type: formatMotoko(parent.parent.type) };
+        }
     }
     if (parent.parent?.name === 'DotH' && typeof node.args?.[0] === 'string') {
         const type = findImportedModuleType(ast, node.args[0]);
@@ -275,7 +315,7 @@ function handleParentVariantT(node: Node): TypeRangeInfo {
                     start,
                     Position.create(
                         start.line,
-                        start.character + node.name.length + 1,
+                        start.character + node.name.length + 1, // including `#`
                     ),
                 ),
         };
@@ -348,28 +388,16 @@ function getTypeRangeInfo(
     position: Position,
     startLine: string,
 ): TypeRangeInfo {
-    const ignoredNodeNames = new Set([
-        'AsyncE',
-        'BlockE',
-        'FuncE',
-        'ObjE',
-        'ObjT',
-        'VariantT',
-    ]);
-    if (ignoredNodeNames.has(node.name)) {
-        return { type: undefined };
-    }
-
     if (node.name === 'ExpD') {
         return getTypeInfoFromExpD(node, position, startLine);
     }
 
-    if (node.name === 'LetD') {
+    if (node.name === 'LetD' && asNode(node.args?.[1])?.name !== 'ImportE') {
         return getTypeInfoFromLetD(node, position, startLine);
     }
 
     if (node.type) {
-        return getTypeInfoFromTypedNode(node);
+        return handleAsyncNode(node);
     }
 
     return getTypeInfoFromUntypedNode(node, ast);
@@ -396,6 +424,7 @@ export function findTypeDeclarationRange(
     const type = child.type;
     if (type) {
         const declaration = type.split(' ')[0];
+        console.log('declaration:', declaration);
 
         if (current.start) {
             const line = current.start[0] - 1;
@@ -412,7 +441,7 @@ export function findTypeDeclarationRange(
                     return undefined;
                 }
                 return {
-                    type,
+                    type: formatMotoko(type),
                     range: {
                         start: { line: line, character: index },
                         end: {
@@ -452,11 +481,34 @@ function findImportedModuleType(ast: AST, module: string): string | undefined {
 
         if (
             grandgrandchild?.name === 'ID' &&
-            grandgrandchild.args?.[0] === module
+            grandgrandchild.args?.[0] === module &&
+            grandgrandchild.type
         ) {
-            return grandgrandchild.type;
+            return formatMotoko(grandgrandchild.type);
         }
     }
 
     return;
+}
+
+function findKeyword(startLine: string, character: number): string | undefined {
+    // Go backwards from the cursor to find the start of the word
+    let start = character;
+    while (start > 0 && /\w/.test(startLine[start - 1])) {
+        start--;
+    }
+
+    // Go forwards from the cursor to find the end of the word
+    let end = character;
+    while (end < startLine.length && /\w/.test(startLine[end])) {
+        end++;
+    }
+
+    const word = startLine.substring(start, end);
+
+    if (keywords.includes(word)) {
+        return word;
+    }
+
+    return undefined;
 }
