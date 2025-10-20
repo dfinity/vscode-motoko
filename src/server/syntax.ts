@@ -86,10 +86,9 @@ export function fromAST(ast: AST): Syntax {
                                         field: Node & { args: [string, Node] },
                                     ) => {
                                         const name = field.args[0];
-                                        const alias = getIdName(
-                                            field.args[1]!,
-                                            name,
-                                        );
+                                        const alias =
+                                            getIdName(field.args[1]!, name) ||
+                                            name;
                                         return [name, alias];
                                     },
                                 ),

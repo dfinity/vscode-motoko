@@ -28,7 +28,7 @@ describe('cache', () => {
             });
             return client.sendRequest<Hover>('textDocument/hover', {
                 textDocument,
-                position: { line: 5, character: 21 },
+                position: { line: 2, character: 0 },
             });
         });
         expect(hover.contents).toStrictEqual({
@@ -55,7 +55,7 @@ describe('cache', () => {
             });
             return await client.sendRequest<Hover>('textDocument/hover', {
                 textDocument,
-                position: { line: 5, character: 21 },
+                position: { line: 2, character: 0 },
             });
         });
         expect(hover.contents).toStrictEqual({
@@ -96,7 +96,7 @@ describe('cache', () => {
             await wait(1); // wait for changes to complete
             return await client.sendRequest<Hover>('textDocument/hover', {
                 textDocument: textDocumentTop,
-                position: { line: 5, character: 21 },
+                position: { line: 2, character: 0 },
             });
         });
         expect(hover.contents).toStrictEqual({
