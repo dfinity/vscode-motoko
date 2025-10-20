@@ -326,7 +326,10 @@ function handleParentClassD(node: Node, parent: Node): TypeRangeInfo {
     }
 
     if (typeof node.args?.[0] === 'string') {
-        const isActor = parent.args?.some((arg) => arg === 'Actor');
+        const classType = parent.args?.find((arg) =>
+            ['Actor', 'Module'].includes(arg as string),
+        ) as string | undefined;
+
         const argNode = getNextSiblingNodeWithType(node);
         let argType = '()';
 
@@ -348,10 +351,9 @@ function handleParentClassD(node: Node, parent: Node): TypeRangeInfo {
         }
 
         const className = node.args[0];
+        const typePrefix = classType ? `${classType.toLowerCase()} ` : '';
         return {
-            type: isActor
-                ? formatMotoko(`actor class ${className}${argType}`)
-                : formatMotoko(`class ${className}${argType}`),
+            type: formatMotoko(`${typePrefix}class ${className}${argType}`),
         };
     }
     return { type: undefined };
