@@ -20,7 +20,7 @@ module {
   };
 
   /// Async function documentation
-  func _asyncFunc(): async() {};
+  func _asyncFunc() : async () {};
 
   func _option(value : Bool) : ?Int {
     if (value) ?42 else null;
@@ -31,31 +31,31 @@ module {
       ?42;
     } else {
       null;
-    }
+    };
   };
 
   /// Class documentation
-  public class MyClass(value: Nat) {
+  public class Class(initialValue : Nat) {
     /// Constructor documentation
-    public let myValue = value;
+    public let classValue = initialValue;
 
     /// Class method documentation
-    public func myMethod() {};
+    public func classMethod() {};
   };
 
   /// Object documentation
-  public object MyObject = {
+  public object Object = {
     /// Member documentation
-    public let myValue = 42;
+    public let objectValue = 42;
 
     /// Object method documentation
-    public func myFunc() {}
+    public func objectMethod() {};
   };
 
   /// Record documentation
-  public type MyRecord = {
-    name: Text;
-    var age: Nat;
+  public type Record = {
+    name : Text;
+    var age : Nat;
   };
 
   /// Variant documentation
@@ -63,8 +63,8 @@ module {
     #node : {
       var value : Nat;
       left : Tree;
-      right : Tree
+      right : Tree;
     };
-    #leaf
+    #leaf;
   };
 };

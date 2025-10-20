@@ -26,7 +26,7 @@ describe('module', () => {
         });
         expect(hover.contents).toStrictEqual({
             kind: 'markdown',
-            value: 'Module documentation\n\n---\n\n*Type definition:*\n```motoko\nmodule {\n  type MyClass = { myMethod : () -> (); myValue : Nat };\n  type MyRecord = { var age : Nat; name : Text };\n  MyClass : (value : Nat) -> MyClass;\n  MyObject : { myFunc : () -> (); myValue : Nat };\n  inc : (x : Nat) -> Nat;\n  value : Nat;\n};\n```',
+            value: 'Module documentation\n\n---\n\n*Type definition:*\n```motoko\nmodule {\n  type Class = { classMethod : () -> (); classValue : Nat };\n  type Record = { var age : Nat; name : Text };\n  Class : (initialValue : Nat) -> Class;\n  Object : { objectMethod : () -> (); objectValue : Nat };\n  inc : (x : Nat) -> Nat;\n  value : Nat;\n};\n```',
         });
     });
 
@@ -183,7 +183,7 @@ describe('module', () => {
         });
         expect(hover.contents).toStrictEqual({
             kind: 'markdown',
-            value: '```motoko\nclass MyClass(value : Nat)\n```\n\n---\n\nClass documentation',
+            value: '```motoko\nclass Class(initialValue : Nat)\n```\n\n---\n\nClass documentation',
         });
     });
 
@@ -199,7 +199,7 @@ describe('module', () => {
         });
         expect(hover.contents).toStrictEqual({
             kind: 'markdown',
-            value: '```motoko\n{ myFunc : () -> (); myValue : Nat }\n```\n\n---\n\nObject documentation',
+            value: '```motoko\n{ objectMethod : () -> (); objectValue : Nat }\n```\n\n---\n\nObject documentation',
         });
     });
 
@@ -299,7 +299,7 @@ describe('actor', () => {
         });
         expect(hover.contents).toStrictEqual({
             kind: 'markdown',
-            value: 'Module documentation\n\n---\n\n*Type definition:*\n```motoko\nmodule {\n  type MyClass = { myMethod : () -> (); myValue : Nat };\n  type MyRecord = { var age : Nat; name : Text };\n  MyClass : (value : Nat) -> MyClass;\n  MyObject : { myFunc : () -> (); myValue : Nat };\n  inc : (x : Nat) -> Nat;\n  value : Nat;\n};\n```',
+            value: 'Module documentation\n\n---\n\n*Type definition:*\n```motoko\nmodule {\n  type Class = { classMethod : () -> (); classValue : Nat };\n  type Record = { var age : Nat; name : Text };\n  Class : (initialValue : Nat) -> Class;\n  Object : { objectMethod : () -> (); objectValue : Nat };\n  inc : (x : Nat) -> Nat;\n  value : Nat;\n};\n```',
         });
     });
 
@@ -360,7 +360,7 @@ describe('actor', () => {
         });
         expect(hover.contents).toStrictEqual({
             kind: 'markdown',
-            value: '```motoko\nactor class _MyClass(init : Nat)\n```\n\n---\n\nActor class documentation',
+            value: '```motoko\nactor class _ActorClass(initialValue : Nat)\n```\n\n---\n\nActor class documentation',
         });
     });
 
@@ -376,7 +376,7 @@ describe('actor', () => {
         });
         expect(hover.contents).toStrictEqual({
             kind: 'markdown',
-            value: 'Module documentation\n\n---\n\n*Type definition:*\n```motoko\nmodule {\n  type MyClass = { myMethod : () -> (); myValue : Nat };\n  type MyRecord = { var age : Nat; name : Text };\n  MyClass : (value : Nat) -> MyClass;\n  MyObject : { myFunc : () -> (); myValue : Nat };\n  inc : (x : Nat) -> Nat;\n  value : Nat;\n};\n```',
+            value: 'Module documentation\n\n---\n\n*Type definition:*\n```motoko\nmodule {\n  type Class = { classMethod : () -> (); classValue : Nat };\n  type Record = { var age : Nat; name : Text };\n  Class : (initialValue : Nat) -> Class;\n  Object : { objectMethod : () -> (); objectValue : Nat };\n  inc : (x : Nat) -> Nat;\n  value : Nat;\n};\n```',
         });
     });
 
@@ -403,7 +403,7 @@ describe('actor', () => {
             });
             return client.sendRequest<Hover>('textDocument/hover', {
                 textDocument,
-                position: { line: 18, character: 26 },
+                position: { line: 18, character: 21 },
             });
         });
         expect(hover.contents).toStrictEqual({
