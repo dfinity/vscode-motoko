@@ -124,13 +124,15 @@ export async function getAstHoverContent(
         isSameLine ? startLine.substring(node.start[1], node.end[1]) : startLine
     ).trim();
 
-    const maybeKeyword = findKeyword(startLine, position.character);
+    const hoveredWord = findHoveredWord(startLine, position.character);
+    const maybeKeyword = findKeyword(hoveredWord);
 
     const typeRangeInfo = getTypeRangeInfo(
         status.ast,
         node,
         position,
         startLine,
+        hoveredWord,
     );
     if (typeRangeInfo.range) {
         range = typeRangeInfo.range;
@@ -299,9 +301,9 @@ function handleParentIdH(node: Node, parent: Node, ast: AST): TypeRangeInfo {
     return { type: undefined };
 }
 
-function handleParentVariantT(node: Node): TypeRangeInfo {
+function handleParentVariantT(node: Node, hoveredWord: string): TypeRangeInfo {
     const type = asNode(node.args?.[0])?.type;
-    if (type && type !== '()') {
+    if (type && type !== '()' && hoveredWord === `#${node.name}`) {
         const start =
             node.start && Position.create(node.start[0] - 1, node.start[1]);
         return {
@@ -359,7 +361,11 @@ function handleParentClassD(node: Node, parent: Node): TypeRangeInfo {
     return { type: undefined };
 }
 
-function getTypeInfoFromUntypedNode(node: Node, ast: AST): TypeRangeInfo {
+function getTypeInfoFromUntypedNode(
+    node: Node,
+    ast: AST,
+    hoveredWord: string,
+): TypeRangeInfo {
     const parent = node.parent;
     if (!parent) return { type: undefined };
     switch (parent.name) {
@@ -373,7 +379,7 @@ function getTypeInfoFromUntypedNode(node: Node, ast: AST): TypeRangeInfo {
         case 'IdH':
             return handleParentIdH(node, parent, ast);
         case 'VariantT':
-            return handleParentVariantT(node);
+            return handleParentVariantT(node, hoveredWord);
         case 'ClassD':
             return handleParentClassD(node, parent);
         default:
@@ -386,6 +392,7 @@ function getTypeRangeInfo(
     node: Node,
     position: Position,
     startLine: string,
+    hoveredWord: string,
 ): TypeRangeInfo {
     if (node.name === 'ExpD') {
         return getTypeInfoFromExpD(node, position, startLine);
@@ -399,7 +406,7 @@ function getTypeRangeInfo(
         return handleAsyncNode(node);
     }
 
-    return getTypeInfoFromUntypedNode(node, ast);
+    return getTypeInfoFromUntypedNode(node, ast, hoveredWord);
 }
 
 export function getPreviousSiblingNode(current: Node): AST | undefined {
@@ -490,21 +497,23 @@ function findImportedModuleType(ast: AST, module: string): string | undefined {
     return;
 }
 
-function findKeyword(startLine: string, character: number): string | undefined {
+function findHoveredWord(line: string, character: number): string {
     // Go backwards from the cursor to find the start of the word
     let start = character;
-    while (start > 0 && /\w/.test(startLine[start - 1])) {
+    while (start > 0 && /[\w#]/.test(line[start - 1])) {
         start--;
     }
 
     // Go forwards from the cursor to find the end of the word
     let end = character;
-    while (end < startLine.length && /\w/.test(startLine[end])) {
+    while (end < line.length && /[\w#]/.test(line[end])) {
         end++;
     }
 
-    const word = startLine.substring(start, end);
+    return line.substring(start, end);
+}
 
+function findKeyword(word: string): string | undefined {
     if (keywords.includes(word)) {
         return word;
     }
