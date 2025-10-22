@@ -46,12 +46,13 @@ export async function runTest<T>(
     redirectConsole: boolean = true,
 ): Promise<T> {
     const [client, _server] = setupClientServer(redirectConsole);
+    const serverInitialized = waitForNotification('custom/initialized', client);
     await client.sendRequest<InitializeResult>(
         'initialize',
         clientInitParams(rootUri),
     );
     await client.sendNotification('initialized', {});
-    await wait(1); // wait for initialization
+    await serverInitialized;
     const result = await test(client);
     await client.sendRequest('shutdown');
     await wait(1); // wait for shutdown
