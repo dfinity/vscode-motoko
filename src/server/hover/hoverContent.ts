@@ -289,13 +289,15 @@ function handleParentDotH(parent: Node): TypeRangeInfo {
 
 function handleParentIdH(node: Node, parent: Node, ast: AST): TypeRangeInfo {
     if (parent.parent?.name === 'PathT') {
-        if (parent.parent.parent?.name === 'AsyncT') {
-            const typeRange = handleAsyncNode(parent.parent.parent);
-            if (typeRange.type) {
-                return { type: formatMotoko(typeRange.type) };
+        const pathT = parent.parent;
+        if (pathT.parent?.name === 'AsyncT') {
+            const type = handleAsyncNode(pathT.parent).type;
+            if (type) {
+                return {
+                    type: type.replace(/<\$>\s?/g, ''),
+                };
             }
-        } else if (parent.parent.type) {
-            return { type: formatMotoko(parent.parent.type) };
+        } else if (pathT.type) {
             return { type: pathT.type };
         }
     }
