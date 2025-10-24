@@ -122,9 +122,18 @@ export async function getAstHoverContent(
         status.ast,
         position,
         (node) => {
-            if (ignoredNodeNamesForHover.has(node.name)) {
+            if (
+                ignoredNodeNamesForHover.has(node.name) ||
+                ((node.name === 'TupE' || node.name === 'TupP') &&
+                    node.type !== '()')
+            ) {
                 return false;
             }
+
+            if (node.name === 'TupT' && node.type === '()') {
+                return 4;
+            }
+
             return nodePriorities[node.name] || 0;
         },
         true, // Mouse cursor
@@ -441,11 +450,10 @@ function getTypeRangeInfo(
         return getTypeInfoFromUntypedNode(node, ast, hoveredWord);
     })();
 
+    const type = res.type === '???' ? '()' : res.type;
+
     return {
-        type:
-            typeof res.type !== 'undefined'
-                ? formatMotoko(res.type)
-                : undefined,
+        type: typeof type !== 'undefined' ? formatMotoko(type) : undefined,
         range: res.range,
     };
 }
