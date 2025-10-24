@@ -249,9 +249,7 @@ function handleAsyncNode(node: Node): TypeRangeInfo {
     const needsAsyncKeyword =
         node.name === 'AsyncT' && !node.type.startsWith('async');
     return {
-        type: needsAsyncKeyword
-            ? formatMotoko('async ' + node.type)
-            : formatMotoko(node.type),
+        type: needsAsyncKeyword ? 'async ' + node.type : node.type,
     };
 }
 
@@ -262,7 +260,7 @@ function handleSiblingHasType(node: Node, parent: Node): TypeRangeInfo {
             parent.name === 'VarD' || parent.args.some((arg) => arg === 'Var');
         if (type) {
             return {
-                type: isVar ? formatMotoko('var ' + type) : formatMotoko(type),
+                type: isVar ? 'var ' + type : type,
             };
         }
     }
@@ -272,10 +270,10 @@ function handleSiblingHasType(node: Node, parent: Node): TypeRangeInfo {
 function handleParentDotH(parent: Node): TypeRangeInfo {
     if (parent.parent?.name === 'PathT') {
         if (parent.parent.parent?.type) {
-            return { type: formatMotoko(parent.parent.parent.type) };
+            return { type: parent.parent.parent.type };
         }
         if (parent.parent.type) {
-            return { type: formatMotoko(parent.parent.type) };
+            return { type: parent.parent.type };
         }
     }
     return { type: undefined };
@@ -290,12 +288,13 @@ function handleParentIdH(node: Node, parent: Node, ast: AST): TypeRangeInfo {
             }
         } else if (parent.parent.type) {
             return { type: formatMotoko(parent.parent.type) };
+            return { type: pathT.type };
         }
     }
     if (parent.parent?.name === 'DotH' && typeof node.args?.[0] === 'string') {
         const type = findImportedModuleType(ast, node.args[0]);
         if (type) {
-            return { type: formatMotoko(type) };
+            return { type: type };
         }
     }
     return { type: undefined };
@@ -307,7 +306,7 @@ function handleParentVariantT(node: Node, hoveredWord: string): TypeRangeInfo {
         const start =
             node.start && Position.create(node.start[0] - 1, node.start[1]);
         return {
-            type: formatMotoko(type),
+            type: type,
             range:
                 start &&
                 Range.create(
@@ -355,7 +354,7 @@ function handleParentClassD(node: Node, parent: Node): TypeRangeInfo {
         const className = node.args[0];
         const typePrefix = classType ? `${classType.toLowerCase()} ` : '';
         return {
-            type: formatMotoko(`${typePrefix}class ${className}${argType}`),
+            type: `${typePrefix}class ${className}${argType}`,
         };
     }
     return { type: undefined };
@@ -394,19 +393,29 @@ function getTypeRangeInfo(
     startLine: string,
     hoveredWord: string,
 ): TypeRangeInfo {
-    if (node.name === 'ExpD') {
-        return getTypeInfoFromExpD(node, position, startLine);
-    }
+    const res: TypeRangeInfo = (() => {
+        if (node.name === 'ExpD') {
+            return getTypeInfoFromExpD(node, position, startLine);
+        }
+        if (
+            node.name === 'LetD' &&
+            asNode(node.args?.[1])?.name !== 'ImportE'
+        ) {
+            return getTypeInfoFromLetD(node, position, startLine);
+        }
+        if (node.type) {
+            return handleAsyncNode(node);
+        }
+        return getTypeInfoFromUntypedNode(node, ast, hoveredWord);
+    })();
 
-    if (node.name === 'LetD' && asNode(node.args?.[1])?.name !== 'ImportE') {
-        return getTypeInfoFromLetD(node, position, startLine);
-    }
-
-    if (node.type) {
-        return handleAsyncNode(node);
-    }
-
-    return getTypeInfoFromUntypedNode(node, ast, hoveredWord);
+    return {
+        type:
+            typeof res.type !== 'undefined'
+                ? formatMotoko(res.type)
+                : undefined,
+        range: res.range,
+    };
 }
 
 export function getPreviousSiblingNode(current: Node): AST | undefined {
@@ -447,7 +456,7 @@ export function findTypeDeclarationRange(
                     return undefined;
                 }
                 return {
-                    type: formatMotoko(type),
+                    type: type,
                     range: {
                         start: { line: line, character: index },
                         end: {
@@ -490,7 +499,7 @@ function findImportedModuleType(ast: AST, module: string): string | undefined {
             grandgrandchild.args?.[0] === module &&
             grandgrandchild.type
         ) {
-            return formatMotoko(grandgrandchild.type);
+            return grandgrandchild.type;
         }
     }
 
