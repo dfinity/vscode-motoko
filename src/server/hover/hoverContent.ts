@@ -61,11 +61,19 @@ function generateDebugInfo(
 }
 
 const ignoredNodeNamesForHover = new Set([
+    'AnnotE',
+    'AnnotP',
     'AsyncE',
+    'BinE',
     'BlockE',
+    'CallE',
+    'DotE',
     'FuncE',
     'ObjE',
     'ObjT',
+    'ParP',
+    'PathT',
+    'VarE',
     'VariantT',
 ]);
 
