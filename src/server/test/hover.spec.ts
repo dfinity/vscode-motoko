@@ -82,7 +82,7 @@ describe('module', () => {
             });
             return client.sendRequest<Hover>('textDocument/hover', {
                 textDocument,
-                position: { line: 14, character: 20 },
+                position: { line: 14, character: 18 },
             });
         });
         expect(hover.contents).toStrictEqual({
