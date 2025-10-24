@@ -458,11 +458,13 @@ export function findTypeDeclarationRange(
     const type = child.type;
     if (type) {
         const declaration = type.split(' ')[0];
-        console.log('declaration:', declaration);
+        if (/[^\w#]/.test(declaration)) {
+            return undefined;
+        }
 
         if (current.start) {
             const line = current.start[0] - 1;
-            if (!line || line !== position.line) {
+            if (line !== position.line) {
                 return undefined;
             }
 
