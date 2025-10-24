@@ -251,7 +251,12 @@ function getTypeInfoFromLetD(
 }
 
 function handleAsyncNode(node: Node): TypeRangeInfo {
-    if (!node.type) {
+    if (
+        !node.type ||
+        (node.name === 'TupP' &&
+            node.type === '()' &&
+            node.parent?.name === 'FuncE')
+    ) {
         return { type: undefined };
     }
     const needsAsyncKeyword =
@@ -356,7 +361,11 @@ function handleParentClassD(node: Node, parent: Node): TypeRangeInfo {
                 ) {
                     argType = `(${argIdNode.args[0]} : ${argIdNode.type})`;
                 }
-            } else if (argNode.name === 'TupP' && argNode.type) {
+            } else if (
+                argNode.name === 'TupP' &&
+                argNode.type &&
+                argNode.type !== '()'
+            ) {
                 argType = argNode.type;
             }
         }
