@@ -82,7 +82,6 @@ const ignoredNodeNamesForHover = new Set([
     'ParP',
     'PathT',
     'RelE',
-    'Resion',
     'SwitchE',
     'TupE',
     'TupP',
