@@ -408,6 +408,18 @@ function handleTagE(node: Node): TypeRangeInfo {
     return { type: node.type };
 }
 
+function handleTagP(node: Node, hoveredWord: string): TypeRangeInfo {
+    if (node.start && node.end) {
+        const line = node.start?.[0] - 1;
+        const character = node.start?.[1];
+        const start = Position.create(line, character);
+        const end = Position.create(line, character + hoveredWord.length);
+        const range = Range.create(start, end);
+        return { type: node.type, range };
+    }
+    return { type: node.type };
+}
+
 function getTypeInfoFromUntypedNode(
     node: Node,
     ast: AST,
@@ -459,6 +471,13 @@ function getTypeRangeInfo(
                 hoveredWord === '#' + idNode.args?.[0]
             ) {
                 return handleTagE(idNode);
+            } else {
+                return { type: undefined };
+            }
+        }
+        if (node.name === 'TagP') {
+            if (hoveredWord === node.args?.[0]) {
+                return handleTagP(node, hoveredWord);
             } else {
                 return { type: undefined };
             }
