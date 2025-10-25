@@ -72,6 +72,7 @@ const ignoredNodeNamesForHover = new Set([
     'DotE',
     'FuncE',
     'FuncT',
+    'IdxE',
     'IfE',
     'NamedT',
     'NotE',
