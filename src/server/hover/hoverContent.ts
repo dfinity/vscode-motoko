@@ -453,6 +453,18 @@ function getTypeRangeInfo(
         ) {
             return getTypeInfoFromLetD(node, position, startLine);
         }
+        if (node.name === 'TagE') {
+            const idNode = asNode(node.args?.[0]);
+            if (
+                idNode &&
+                idNode.name === 'ID' &&
+                hoveredWord === '#' + idNode.args?.[0]
+            ) {
+                return handleTagE(idNode);
+            } else {
+                return { type: undefined };
+            }
+        }
         if (node.type) {
             if (node.parent?.name === 'TagE') {
                 return handleTagE(node);
