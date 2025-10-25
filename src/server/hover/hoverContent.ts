@@ -90,8 +90,6 @@ const ignoredNodeNamesForHover = new Set([
 ]);
 
 const nodePriorities: Record<string, number> = {
-    OptT: 3, // optional type
-    OptE: 3, // optional expression
     ID: 2,
     LitE: 1, // literal expression
 };
