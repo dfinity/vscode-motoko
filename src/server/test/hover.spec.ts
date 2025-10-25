@@ -37,7 +37,7 @@ describe('module', () => {
             });
             return client.sendRequest<Hover>('textDocument/hover', {
                 textDocument,
-                position: { line: 6, character: 0 },
+                position: { line: 4, character: 0 },
             });
         });
         expect(hover).toBeNull();
@@ -50,7 +50,7 @@ describe('module', () => {
             });
             return client.sendRequest<Hover>('textDocument/hover', {
                 textDocument,
-                position: { line: 3, character: 15 },
+                position: { line: 3, character: 13 },
             });
         });
         expect(hover.contents).toStrictEqual({
@@ -66,7 +66,7 @@ describe('module', () => {
             });
             return client.sendRequest<Hover>('textDocument/hover', {
                 textDocument,
-                position: { line: 14, character: 16 },
+                position: { line: 14, character: 14 },
             });
         });
         expect(hover.contents).toStrictEqual({
@@ -98,7 +98,7 @@ describe('module', () => {
             });
             return client.sendRequest<Hover>('textDocument/hover', {
                 textDocument,
-                position: { line: 16, character: 10 },
+                position: { line: 16, character: 8 },
             });
         });
         expect(hover.contents).toStrictEqual({
@@ -114,7 +114,7 @@ describe('module', () => {
             });
             return client.sendRequest<Hover>('textDocument/hover', {
                 textDocument,
-                position: { line: 22, character: 9 },
+                position: { line: 22, character: 7 },
             });
         });
         expect(hover.contents).toStrictEqual({
@@ -130,7 +130,7 @@ describe('module', () => {
             });
             return client.sendRequest<Hover>('textDocument/hover', {
                 textDocument,
-                position: { line: 24, character: 33 },
+                position: { line: 24, character: 31 },
             });
         });
         expect(hover.contents).toStrictEqual({
@@ -146,7 +146,7 @@ describe('module', () => {
             });
             return client.sendRequest<Hover>('textDocument/hover', {
                 textDocument,
-                position: { line: 25, character: 17 },
+                position: { line: 25, character: 15 },
             });
         });
         expect(hover.contents).toStrictEqual({
@@ -162,7 +162,7 @@ describe('module', () => {
             });
             return client.sendRequest<Hover>('textDocument/hover', {
                 textDocument,
-                position: { line: 30, character: 8 },
+                position: { line: 30, character: 6 },
             });
         });
         expect(hover.contents).toStrictEqual({
@@ -178,7 +178,7 @@ describe('module', () => {
             });
             return client.sendRequest<Hover>('textDocument/hover', {
                 textDocument,
-                position: { line: 37, character: 17 },
+                position: { line: 37, character: 15 },
             });
         });
         expect(hover.contents).toStrictEqual({
@@ -194,7 +194,7 @@ describe('module', () => {
             });
             return client.sendRequest<Hover>('textDocument/hover', {
                 textDocument,
-                position: { line: 46, character: 18 },
+                position: { line: 46, character: 16 },
             });
         });
         expect(hover.contents).toStrictEqual({
@@ -210,7 +210,7 @@ describe('module', () => {
             });
             return client.sendRequest<Hover>('textDocument/hover', {
                 textDocument,
-                position: { line: 55, character: 16 },
+                position: { line: 55, character: 14 },
             });
         });
         expect(hover.contents).toStrictEqual({
@@ -226,7 +226,7 @@ describe('module', () => {
             });
             return client.sendRequest<Hover>('textDocument/hover', {
                 textDocument,
-                position: { line: 56, character: 6 },
+                position: { line: 56, character: 4 },
             });
         });
         expect(hover.contents).toStrictEqual({
@@ -242,7 +242,7 @@ describe('module', () => {
             });
             return client.sendRequest<Hover>('textDocument/hover', {
                 textDocument,
-                position: { line: 57, character: 10 },
+                position: { line: 57, character: 8 },
             });
         });
         expect(hover.contents).toStrictEqual({
@@ -258,7 +258,7 @@ describe('module', () => {
             });
             return client.sendRequest<Hover>('textDocument/hover', {
                 textDocument,
-                position: { line: 61, character: 9 },
+                position: { line: 61, character: 7 },
             });
         });
         expect(hover.contents).toStrictEqual({
@@ -274,7 +274,7 @@ describe('module', () => {
             });
             return client.sendRequest<Hover>('textDocument/hover', {
                 textDocument,
-                position: { line: 62, character: 6 },
+                position: { line: 62, character: 4 },
             });
         });
         expect(hover.contents).toStrictEqual({
@@ -403,7 +403,7 @@ describe('actor', () => {
             });
             return client.sendRequest<Hover>('textDocument/hover', {
                 textDocument,
-                position: { line: 18, character: 21 },
+                position: { line: 18, character: 20 },
             });
         });
         expect(hover.contents).toStrictEqual({
