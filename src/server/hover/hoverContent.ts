@@ -400,6 +400,16 @@ function handleParentClassD(node: Node, parent: Node): TypeRangeInfo {
     return { type: undefined };
 }
 
+function handleTagE(node: Node): TypeRangeInfo {
+    if (node.start && node.end) {
+        const start = Position.create(node.start?.[0] - 1, node.start?.[1] - 1); // include '#'
+        const end = Position.create(node.end?.[0] - 1, node.end?.[1]);
+        const range = Range.create(start, end);
+        return { type: node.type, range };
+    }
+    return { type: node.type };
+}
+
 function getTypeInfoFromUntypedNode(
     node: Node,
     ast: AST,
@@ -444,6 +454,9 @@ function getTypeRangeInfo(
             return getTypeInfoFromLetD(node, position, startLine);
         }
         if (node.type) {
+            if (node.parent?.name === 'TagE') {
+                return handleTagE(node);
+            }
             return handleAsyncNode(node);
         }
         return getTypeInfoFromUntypedNode(node, ast, hoveredWord);
