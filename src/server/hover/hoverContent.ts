@@ -74,7 +74,6 @@ const ignoredNodeNamesForHover = new Set([
     'FuncT',
     'IdxE',
     'IfE',
-    'NamedT',
     'NotE',
     'ObjBlockE',
     'ObjE',
@@ -91,8 +90,11 @@ const ignoredNodeNamesForHover = new Set([
 ]);
 
 const nodePriorities: Record<string, number> = {
-    ID: 2,
-    LitE: 1, // literal expression
+    ID: 3,
+    LitE: 2, // literal expression
+    OptE: 1, // optional expression
+    TupT: 1, // tuple type
+    NamedT: 1, // named type
 };
 
 /**
@@ -132,6 +134,10 @@ export async function getAstHoverContent(
                 return 4;
             }
 
+            if (node.name === 'ID' && node.args?.[0] === '$') {
+                return 0;
+            }
+
             return nodePriorities[node.name] || 0;
         },
         true, // Mouse cursor
@@ -152,8 +158,12 @@ export async function getAstHoverContent(
         isSameLine ? startLine.substring(node.start[1], node.end[1]) : startLine
     ).trim();
 
-    const hoveredWord = findHoveredWord(startLine, position.character);
-    const maybeKeyword = findKeyword(hoveredWord);
+    const hoveredWord = findHoveredWord(
+        startLine,
+        position.line,
+        position.character,
+    );
+    const maybeKeyword = findKeyword(hoveredWord.word);
 
     const typeRangeInfo = getTypeRangeInfo(
         status.ast,
@@ -319,7 +329,7 @@ function handleParentIdH(node: Node, parent: Node, ast: AST): TypeRangeInfo {
             const type = handleAsyncNode(pathT.parent).type;
             if (type) {
                 return {
-                    type: type.replace(/<\$>\s?/g, ''),
+                    type,
                 };
             }
         } else if (pathT.type) {
@@ -421,6 +431,20 @@ function handleTagP(node: Node, hoveredWord: string): TypeRangeInfo {
     return { type: node.type };
 }
 
+function handlePath(node: Node, hovered: HoveredWordInfo): TypeRangeInfo {
+    if (node.args) {
+        const nameNum = node.args.indexOf(hovered.word);
+        if (nameNum === -1) {
+            return { type: undefined };
+        }
+        const typeNode = asNode(node.args[nameNum + 1]);
+        if (typeNode) {
+            return { type: typeNode.type, range: hovered.range };
+        }
+    }
+    return { type: undefined };
+}
+
 function getTypeInfoFromUntypedNode(
     node: Node,
     ast: AST,
@@ -452,7 +476,7 @@ function getTypeRangeInfo(
     node: Node,
     position: Position,
     startLine: string,
-    hoveredWord: string,
+    hovered: HoveredWordInfo,
 ): TypeRangeInfo {
     const res: TypeRangeInfo = (() => {
         if (node.name === 'ExpD') {
@@ -469,7 +493,7 @@ function getTypeRangeInfo(
             if (
                 idNode &&
                 idNode.name === 'ID' &&
-                hoveredWord === '#' + idNode.args?.[0]
+                hovered.word === '#' + idNode.args?.[0]
             ) {
                 return handleTagE(idNode);
             } else {
@@ -477,11 +501,14 @@ function getTypeRangeInfo(
             }
         }
         if (node.name === 'TagP') {
-            if (hoveredWord === node.args?.[0]) {
-                return handleTagP(node, hoveredWord);
+            if (hovered.word === node.args?.[0]) {
+                return handleTagP(node, hovered.word);
             } else {
                 return { type: undefined };
             }
+        }
+        if (node.name === 'TupT' || node.name === 'NamedT') {
+            return handlePath(node, hovered);
         }
         if (node.type) {
             if (node.parent?.name === 'TagE') {
@@ -489,10 +516,10 @@ function getTypeRangeInfo(
             }
             return handleAsyncNode(node);
         }
-        return getTypeInfoFromUntypedNode(node, ast, hoveredWord);
+        return getTypeInfoFromUntypedNode(node, ast, hovered.word);
     })();
 
-    const type = res.type === '???' ? '()' : res.type;
+    const type = res.type === '???' ? '()' : res.type?.replace(/<\$>\s?/g, '');
 
     return {
         type: typeof type !== 'undefined' ? formatMotoko(type) : undefined,
@@ -590,20 +617,41 @@ function findImportedModuleType(ast: AST, module: string): string | undefined {
     return;
 }
 
-function findHoveredWord(line: string, character: number): string {
+interface HoveredWordInfo {
+    word: string;
+    range: Range;
+}
+
+function findHoveredWord(
+    lineString: string,
+    line: number,
+    character: number,
+): HoveredWordInfo {
     // Go backwards from the cursor to find the start of the word
     let start = character;
-    while (start > 0 && /[\w#]/.test(line[start - 1])) {
+    while (start > 0 && /[\w#]/.test(lineString[start - 1])) {
         start--;
     }
 
     // Go forwards from the cursor to find the end of the word
     let end = character;
-    while (end < line.length && /[\w#]/.test(line[end])) {
+    while (end < lineString.length && /[\w#]/.test(lineString[end])) {
         end++;
     }
 
-    return line.substring(start, end);
+    return {
+        word: lineString.substring(start, end),
+        range: {
+            start: {
+                line,
+                character: start,
+            },
+            end: {
+                line,
+                character: end,
+            },
+        },
+    };
 }
 
 function findKeyword(word: string): string | undefined {
