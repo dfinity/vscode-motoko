@@ -114,9 +114,7 @@ describe('completion', () => {
             },
         );
 
-        const expected = [
-            { label: 'new', detail: 'a.mo', insertText: 'new', kind: 3 },
-        ];
+        const expected = [{ label: 'new', detail: 'a.mo', kind: 3 }];
 
         expect(completion.items).toEqual(expected);
     });
@@ -140,11 +138,11 @@ describe('completion', () => {
         );
 
         const expected = [
-            { label: 'foo', detail: 'b.mo', insertText: 'foo', kind: 3 },
-            { label: 'foobar', detail: 'b.mo', insertText: 'foobar', kind: 3 },
-            { label: 'a', detail: 'b.mo', insertText: 'a', kind: 6 },
-            { label: 'Age', detail: 'b.mo', insertText: 'Age', kind: 8 },
-            { label: 'D', detail: 'b.mo', insertText: 'D', kind: 7 },
+            { label: 'foo', detail: 'b.mo', kind: 3 },
+            { label: 'foobar', detail: 'b.mo', kind: 3 },
+            { label: 'a', detail: 'b.mo', kind: 6 },
+            { label: 'Age', detail: 'b.mo', kind: 8 },
+            { label: 'D', detail: 'b.mo', kind: 7 },
         ];
 
         expect(completion.items).toEqual(expected);
@@ -169,9 +167,9 @@ describe('completion', () => {
         );
 
         const expected = [
-            { label: 'Cell', detail: 'c.mo', insertText: 'Cell', kind: 8 },
-            { label: 'State', detail: 'c.mo', insertText: 'State', kind: 8 },
-            { label: 'new', detail: 'c.mo', insertText: 'new', kind: 3 },
+            { label: 'Cell', detail: 'c.mo', kind: 8 },
+            { label: 'State', detail: 'c.mo', kind: 8 },
+            { label: 'new', detail: 'c.mo', kind: 3 },
         ];
 
         expect(completion.items).toEqual(expected);
@@ -273,8 +271,8 @@ describe('completion', () => {
         );
 
         const expected = [
-            { label: 'foo', detail: 'b.mo', insertText: 'foo', kind: 3 },
-            { label: 'foobar', detail: 'b.mo', insertText: 'foobar', kind: 3 },
+            { label: 'foo', detail: 'b.mo', kind: 3 },
+            { label: 'foobar', detail: 'b.mo', kind: 3 },
         ];
 
         expect(completion.items).toEqual(expected);
@@ -298,9 +296,7 @@ describe('completion', () => {
             },
         );
 
-        const expected = [
-            { label: 'Cell', detail: 'c.mo', insertText: 'Cell', kind: 8 },
-        ];
+        const expected = [{ label: 'Cell', detail: 'c.mo', kind: 8 }];
 
         expect(completion.items).toEqual(expected);
     });
@@ -325,9 +321,9 @@ describe('completion', () => {
         );
 
         const expected = [
-            { label: 'Cell', detail: 'c.mo', insertText: 'Cell', kind: 8 },
-            { label: 'State', detail: 'c.mo', insertText: 'State', kind: 8 },
-            { label: 'new', detail: 'c.mo', insertText: 'new', kind: 3 },
+            { label: 'Cell', detail: 'c.mo', kind: 8 },
+            { label: 'State', detail: 'c.mo', kind: 8 },
+            { label: 'new', detail: 'c.mo', kind: 3 },
         ];
 
         expect(completion.items).toEqual(expected);
@@ -352,9 +348,7 @@ describe('completion', () => {
             },
         );
 
-        const expected = [
-            { label: 'new', detail: 'a.mo', insertText: 'new', kind: 3 },
-        ];
+        const expected = [{ label: 'new', detail: 'a.mo', kind: 3 }];
 
         expect(completion.items).toEqual(expected);
     });
@@ -379,11 +373,11 @@ describe('completion', () => {
         );
 
         const expected = [
-            { label: 'foo', detail: 'b.mo', insertText: 'foo', kind: 3 },
-            { label: 'foobar', detail: 'b.mo', insertText: 'foobar', kind: 3 },
-            { label: 'a', detail: 'b.mo', insertText: 'a', kind: 6 },
-            { label: 'Age', detail: 'b.mo', insertText: 'Age', kind: 8 },
-            { label: 'D', detail: 'b.mo', insertText: 'D', kind: 7 },
+            { label: 'foo', detail: 'b.mo', kind: 3 },
+            { label: 'foobar', detail: 'b.mo', kind: 3 },
+            { label: 'a', detail: 'b.mo', kind: 6 },
+            { label: 'Age', detail: 'b.mo', kind: 8 },
+            { label: 'D', detail: 'b.mo', kind: 7 },
         ];
 
         expect(completion.items).toEqual(expected);
@@ -408,9 +402,7 @@ describe('completion', () => {
             },
         );
 
-        const expected = [
-            { label: 'new', detail: 'a.mo', insertText: 'new', kind: 3 },
-        ];
+        const expected = [{ label: 'new', detail: 'a.mo', kind: 3 }];
 
         expect(completion.items).toEqual(expected);
     });
@@ -435,11 +427,11 @@ describe('completion', () => {
         );
 
         const expected = [
-            { label: 'foo', detail: 'b.mo', insertText: 'foo', kind: 3 },
-            { label: 'foobar', detail: 'b.mo', insertText: 'foobar', kind: 3 },
-            { label: 'a', detail: 'b.mo', insertText: 'a', kind: 6 },
-            { label: 'Age', detail: 'b.mo', insertText: 'Age', kind: 8 },
-            { label: 'D', detail: 'b.mo', insertText: 'D', kind: 7 },
+            { label: 'foo', detail: 'b.mo', kind: 3 },
+            { label: 'foobar', detail: 'b.mo', kind: 3 },
+            { label: 'a', detail: 'b.mo', kind: 6 },
+            { label: 'Age', detail: 'b.mo', kind: 8 },
+            { label: 'D', detail: 'b.mo', kind: 7 },
         ];
 
         expect(completion.items).toEqual(expected);

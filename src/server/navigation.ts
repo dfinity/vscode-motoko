@@ -42,6 +42,22 @@ function posBefore(pos1: Position, pos2: Position): Boolean {
     );
 }
 
+/**
+ * Comparison function for nodes. A node is considered greater if its start position is earlier.
+ *
+ * After sorting with this function, the first node in the list is the one deepest
+ * in the code hierarchy.
+ */
+export function startPosDesc(a: Node, b: Node): number {
+    const aStartPos = spanToPos(a.start);
+    const bStartPos = spanToPos(b.start);
+    if (!aStartPos && bStartPos) return -1;
+    if (aStartPos && !bStartPos) return 1;
+    if (aStartPos && bStartPos && posBefore(aStartPos, bStartPos)) return 1;
+    if (aStartPos && bStartPos && posBefore(bStartPos, aStartPos)) return -1;
+    return 0;
+}
+
 export function sameLocation(a: Location, b: Location): boolean {
     return (
         a.uri === b.uri &&
