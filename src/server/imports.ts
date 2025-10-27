@@ -1,23 +1,16 @@
 import { pascalCase } from 'change-case';
 import { MultiMap } from 'mnemonist';
 import { AST, Node } from 'motoko/lib/ast';
-import { CompletionItemKind } from 'vscode-languageserver/node';
+import { CompletionItemKind, CompletionItem } from 'vscode-languageserver/node';
 import { Context, getContext } from './context';
-import { Import, Program, matchNode } from './syntax';
+import { Import, Program, getIdName, matchNode } from './syntax';
 import { formatMotoko, getRelativeUri } from './utils';
-
-export interface ResolvedField {
-    name: string;
-    visibility: string;
-    kind: CompletionItemKind;
-    ast: AST;
-}
 
 export function extractFields(
     ast: AST,
     uri: string,
-): MultiMap<string, ResolvedField, Set<ResolvedField>> {
-    const fieldMap = new MultiMap<string, ResolvedField>(Set);
+): MultiMap<string, CompletionItem, Set<CompletionItem>> {
+    const fieldMap = new MultiMap<string, CompletionItem>(Set);
     matchNode(ast, 'ObjBlockE', (_s: string, _t: string, ...fields: Node[]) =>
         fields.forEach((field) => {
             if (field.name !== 'DecField') {
@@ -28,6 +21,7 @@ export function extractFields(
                 return;
             }
             const [dec, visibility] = field.args!;
+            const doc = field.doc;
             if (visibility !== 'Public') {
                 return;
             }
@@ -35,43 +29,40 @@ export function extractFields(
                 const name = matchNode(pat, 'VarP', (field: Node) => field);
                 if (name) {
                     fieldMap.set(uri, {
-                        name: matchNode(name, 'ID', (name: string) => name)!,
-                        visibility,
+                        label: getIdName(name)!,
                         kind:
                             exp.name === 'FuncE'
                                 ? CompletionItemKind.Function
                                 : CompletionItemKind.Variable,
-                        ast: exp,
+                        documentation: doc,
                     });
                 }
             });
             matchNode(dec, 'ClassD', (_local: string, name: Node) => {
                 if (name) {
+                    const className = getIdName(name)!;
                     fieldMap.set(uri, {
-                        name: matchNode(name, 'ID', (name: string) => name)!,
-                        visibility,
+                        label: className,
                         kind: CompletionItemKind.Class,
-                        ast: null,
+                        documentation: doc,
                     });
                 }
             });
-            matchNode(dec, 'VarD', (name: Node, exp: Node) => {
+            matchNode(dec, 'VarD', (name: Node, _exp: Node) => {
                 if (name) {
                     fieldMap.set(uri, {
-                        name: matchNode(name, 'ID', (name: string) => name)!,
-                        visibility,
+                        label: getIdName(name)!,
                         kind: CompletionItemKind.Variable,
-                        ast: exp,
+                        documentation: doc,
                     });
                 }
             });
-            matchNode(dec, 'TypD', (name: Node, exp: Node) => {
+            matchNode(dec, 'TypD', (name: Node, _exp: Node) => {
                 if (name) {
                     fieldMap.set(uri, {
-                        name: matchNode(name, 'ID', (name: string) => name)!,
-                        visibility,
+                        label: getIdName(name)!,
                         kind: CompletionItemKind.Interface,
-                        ast: exp,
+                        documentation: doc,
                     });
                 }
             });
@@ -84,7 +75,7 @@ export default class ImportResolver {
     // module name -> uri
     private readonly _moduleNameUriMap = new MultiMap<string, string>(Set);
     // uri -> resolved field
-    private readonly _fieldMap = new MultiMap<string, ResolvedField>(Set);
+    private readonly _fieldMap = new MultiMap<string, CompletionItem>(Set);
     // import path -> file system uri
     private readonly _fileSystemMap = new Map<string, string>();
 
@@ -176,7 +167,7 @@ export default class ImportResolver {
      * Finds all importable fields for a given document.
      * @returns Array of `[name, field, path]` entries
      */
-    getFields(uri: string): ResolvedField[] {
+    getFields(uri: string): CompletionItem[] {
         const fields = this._fieldMap.get(uri);
         return fields ? [...fields] : [];
     }
