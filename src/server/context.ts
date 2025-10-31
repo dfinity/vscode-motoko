@@ -70,6 +70,7 @@ function requestMotokoInstance(uri: string, version: Version): Motoko {
         } else {
             motoko = require(motokoPath).default;
             motoko.setTypecheckerCombineSrcs(true);
+            motoko.compiler.setBlobImportPlaceholders(true);
         }
     }
     // Required for temporary deployment (originally Motoko Playground)
