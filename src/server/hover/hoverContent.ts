@@ -61,19 +61,40 @@ function generateDebugInfo(
 }
 
 const ignoredNodeNamesForHover = new Set([
+    'AndE',
+    'AnnotE',
+    'AnnotP',
     'AsyncE',
+    'BinE',
     'BlockE',
+    'CallE',
+    'DecField',
+    'DotE',
     'FuncE',
+    'FuncT',
+    'IdxE',
+    'IfE',
+    'NotE',
+    'ObjBlockE',
     'ObjE',
     'ObjT',
+    'OrE',
+    'ParP',
+    'PathT',
+    'RelE',
+    'SwitchE',
+    'TupE',
+    'TupP',
+    'VarE',
     'VariantT',
 ]);
 
 const nodePriorities: Record<string, number> = {
-    OptT: 3, // optional type
-    OptE: 3, // optional expression
-    ID: 2,
-    LitE: 1, // literal expression
+    ID: 3,
+    LitE: 2, // literal expression
+    OptE: 1, // optional expression
+    TupT: 1, // tuple type
+    NamedT: 1, // named type
 };
 
 /**
@@ -101,9 +122,22 @@ export async function getAstHoverContent(
         status.ast,
         position,
         (node) => {
-            if (ignoredNodeNamesForHover.has(node.name)) {
+            if (
+                ignoredNodeNamesForHover.has(node.name) ||
+                ((node.name === 'TupE' || node.name === 'TupP') &&
+                    node.type !== '()')
+            ) {
                 return false;
             }
+
+            if (node.name === 'TupT' && node.type === '()') {
+                return 4;
+            }
+
+            if (node.name === 'ID' && node.args?.[0] === '$') {
+                return 0;
+            }
+
             return nodePriorities[node.name] || 0;
         },
         true, // Mouse cursor
@@ -124,8 +158,12 @@ export async function getAstHoverContent(
         isSameLine ? startLine.substring(node.start[1], node.end[1]) : startLine
     ).trim();
 
-    const hoveredWord = findHoveredWord(startLine, position.character);
-    const maybeKeyword = findKeyword(hoveredWord);
+    const hoveredWord = findHoveredWord(
+        startLine,
+        position.line,
+        position.character,
+    );
+    const maybeKeyword = findKeyword(hoveredWord.word);
 
     const typeRangeInfo = getTypeRangeInfo(
         status.ast,
@@ -243,15 +281,18 @@ function getTypeInfoFromLetD(
 }
 
 function handleAsyncNode(node: Node): TypeRangeInfo {
-    if (!node.type) {
+    if (
+        !node.type ||
+        (node.name === 'TupP' &&
+            node.type === '()' &&
+            node.parent?.name === 'FuncE')
+    ) {
         return { type: undefined };
     }
     const needsAsyncKeyword =
         node.name === 'AsyncT' && !node.type.startsWith('async');
     return {
-        type: needsAsyncKeyword
-            ? formatMotoko('async ' + node.type)
-            : formatMotoko(node.type),
+        type: needsAsyncKeyword ? 'async ' + node.type : node.type,
     };
 }
 
@@ -262,7 +303,7 @@ function handleSiblingHasType(node: Node, parent: Node): TypeRangeInfo {
             parent.name === 'VarD' || parent.args.some((arg) => arg === 'Var');
         if (type) {
             return {
-                type: isVar ? formatMotoko('var ' + type) : formatMotoko(type),
+                type: isVar ? 'var ' + type : type,
             };
         }
     }
@@ -272,10 +313,10 @@ function handleSiblingHasType(node: Node, parent: Node): TypeRangeInfo {
 function handleParentDotH(parent: Node): TypeRangeInfo {
     if (parent.parent?.name === 'PathT') {
         if (parent.parent.parent?.type) {
-            return { type: formatMotoko(parent.parent.parent.type) };
+            return { type: parent.parent.parent.type };
         }
         if (parent.parent.type) {
-            return { type: formatMotoko(parent.parent.type) };
+            return { type: parent.parent.type };
         }
     }
     return { type: undefined };
@@ -283,19 +324,22 @@ function handleParentDotH(parent: Node): TypeRangeInfo {
 
 function handleParentIdH(node: Node, parent: Node, ast: AST): TypeRangeInfo {
     if (parent.parent?.name === 'PathT') {
-        if (parent.parent.parent?.name === 'AsyncT') {
-            const typeRange = handleAsyncNode(parent.parent.parent);
-            if (typeRange.type) {
-                return { type: formatMotoko(typeRange.type) };
+        const pathT = parent.parent;
+        if (pathT.parent?.name === 'AsyncT') {
+            const type = handleAsyncNode(pathT.parent).type;
+            if (type) {
+                return {
+                    type,
+                };
             }
-        } else if (parent.parent.type) {
-            return { type: formatMotoko(parent.parent.type) };
+        } else if (pathT.type) {
+            return { type: pathT.type };
         }
     }
     if (parent.parent?.name === 'DotH' && typeof node.args?.[0] === 'string') {
         const type = findImportedModuleType(ast, node.args[0]);
         if (type) {
-            return { type: formatMotoko(type) };
+            return { type: type };
         }
     }
     return { type: undefined };
@@ -307,7 +351,7 @@ function handleParentVariantT(node: Node, hoveredWord: string): TypeRangeInfo {
         const start =
             node.start && Position.create(node.start[0] - 1, node.start[1]);
         return {
-            type: formatMotoko(type),
+            type: type,
             range:
                 start &&
                 Range.create(
@@ -347,7 +391,11 @@ function handleParentClassD(node: Node, parent: Node): TypeRangeInfo {
                 ) {
                     argType = `(${argIdNode.args[0]} : ${argIdNode.type})`;
                 }
-            } else if (argNode.name === 'TupP' && argNode.type) {
+            } else if (
+                argNode.name === 'TupP' &&
+                argNode.type &&
+                argNode.type !== '()'
+            ) {
                 argType = argNode.type;
             }
         }
@@ -355,8 +403,44 @@ function handleParentClassD(node: Node, parent: Node): TypeRangeInfo {
         const className = node.args[0];
         const typePrefix = classType ? `${classType.toLowerCase()} ` : '';
         return {
-            type: formatMotoko(`${typePrefix}class ${className}${argType}`),
+            type: `${typePrefix}class ${className}${argType}`,
         };
+    }
+    return { type: undefined };
+}
+
+function handleTagE(node: Node): TypeRangeInfo {
+    if (node.start && node.end) {
+        const start = Position.create(node.start?.[0] - 1, node.start?.[1] - 1); // include '#'
+        const end = Position.create(node.end?.[0] - 1, node.end?.[1]);
+        const range = Range.create(start, end);
+        return { type: node.type, range };
+    }
+    return { type: node.type };
+}
+
+function handleTagP(node: Node, hoveredWord: string): TypeRangeInfo {
+    if (node.start && node.end) {
+        const line = node.start?.[0] - 1;
+        const character = node.start?.[1];
+        const start = Position.create(line, character);
+        const end = Position.create(line, character + hoveredWord.length);
+        const range = Range.create(start, end);
+        return { type: node.type, range };
+    }
+    return { type: node.type };
+}
+
+function handlePath(node: Node, hovered: HoveredWordInfo): TypeRangeInfo {
+    if (node.args) {
+        const nameNum = node.args.indexOf(hovered.word);
+        if (nameNum === -1) {
+            return { type: undefined };
+        }
+        const typeNode = asNode(node.args[nameNum + 1]);
+        if (typeNode) {
+            return { type: typeNode.type, range: hovered.range };
+        }
     }
     return { type: undefined };
 }
@@ -392,21 +476,55 @@ function getTypeRangeInfo(
     node: Node,
     position: Position,
     startLine: string,
-    hoveredWord: string,
+    hovered: HoveredWordInfo,
 ): TypeRangeInfo {
-    if (node.name === 'ExpD') {
-        return getTypeInfoFromExpD(node, position, startLine);
-    }
+    const res: TypeRangeInfo = (() => {
+        if (node.name === 'ExpD') {
+            return getTypeInfoFromExpD(node, position, startLine);
+        }
+        if (
+            node.name === 'LetD' &&
+            asNode(node.args?.[1])?.name !== 'ImportE'
+        ) {
+            return getTypeInfoFromLetD(node, position, startLine);
+        }
+        if (node.name === 'TagE') {
+            const idNode = asNode(node.args?.[0]);
+            if (
+                idNode &&
+                idNode.name === 'ID' &&
+                hovered.word === '#' + idNode.args?.[0]
+            ) {
+                return handleTagE(idNode);
+            } else {
+                return { type: undefined };
+            }
+        }
+        if (node.name === 'TagP') {
+            if (hovered.word === node.args?.[0]) {
+                return handleTagP(node, hovered.word);
+            } else {
+                return { type: undefined };
+            }
+        }
+        if (node.name === 'TupT' || node.name === 'NamedT') {
+            return handlePath(node, hovered);
+        }
+        if (node.type) {
+            if (node.parent?.name === 'TagE') {
+                return handleTagE(node);
+            }
+            return handleAsyncNode(node);
+        }
+        return getTypeInfoFromUntypedNode(node, ast, hovered.word);
+    })();
 
-    if (node.name === 'LetD' && asNode(node.args?.[1])?.name !== 'ImportE') {
-        return getTypeInfoFromLetD(node, position, startLine);
-    }
+    const type = res.type === '???' ? '()' : res.type?.replace(/<\$>\s?/g, '');
 
-    if (node.type) {
-        return handleAsyncNode(node);
-    }
-
-    return getTypeInfoFromUntypedNode(node, ast, hoveredWord);
+    return {
+        type: typeof type !== 'undefined' ? formatMotoko(type) : undefined,
+        range: res.range,
+    };
 }
 
 export function getPreviousSiblingNode(current: Node): AST | undefined {
@@ -430,11 +548,13 @@ export function findTypeDeclarationRange(
     const type = child.type;
     if (type) {
         const declaration = type.split(' ')[0];
-        console.log('declaration:', declaration);
+        if (/[^\w#]/.test(declaration)) {
+            return undefined;
+        }
 
         if (current.start) {
             const line = current.start[0] - 1;
-            if (!line || line !== position.line) {
+            if (line !== position.line) {
                 return undefined;
             }
 
@@ -447,7 +567,7 @@ export function findTypeDeclarationRange(
                     return undefined;
                 }
                 return {
-                    type: formatMotoko(type),
+                    type: type,
                     range: {
                         start: { line: line, character: index },
                         end: {
@@ -490,27 +610,48 @@ function findImportedModuleType(ast: AST, module: string): string | undefined {
             grandgrandchild.args?.[0] === module &&
             grandgrandchild.type
         ) {
-            return formatMotoko(grandgrandchild.type);
+            return grandgrandchild.type;
         }
     }
 
     return;
 }
 
-function findHoveredWord(line: string, character: number): string {
+interface HoveredWordInfo {
+    word: string;
+    range: Range;
+}
+
+function findHoveredWord(
+    lineString: string,
+    line: number,
+    character: number,
+): HoveredWordInfo {
     // Go backwards from the cursor to find the start of the word
     let start = character;
-    while (start > 0 && /[\w#]/.test(line[start - 1])) {
+    while (start > 0 && /[\w#]/.test(lineString[start - 1])) {
         start--;
     }
 
     // Go forwards from the cursor to find the end of the word
     let end = character;
-    while (end < line.length && /[\w#]/.test(line[end])) {
+    while (end < lineString.length && /[\w#]/.test(lineString[end])) {
         end++;
     }
 
-    return line.substring(start, end);
+    return {
+        word: lineString.substring(start, end),
+        range: {
+            start: {
+                line,
+                character: start,
+            },
+            end: {
+                line,
+                character: end,
+            },
+        },
+    };
 }
 
 function findKeyword(word: string): string | undefined {
