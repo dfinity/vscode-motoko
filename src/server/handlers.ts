@@ -1165,6 +1165,7 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
         const results: CodeAction[] = [];
 
         // Organize imports
+        // TODO: Consider removing unused imports
         const status = getContext(uri).astResolver.request(
             uri,
             isVirtualFileSystemReady,
