@@ -1782,6 +1782,7 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
         skipUnnamed: boolean,
     ): DocumentSymbol[] {
         const range = rangeFromNode(asNode(field.ast)) || defaultRange();
+        // TODO: Add support for other symbol kinds
         const kind =
             field.exp instanceof ObjBlock
                 ? SymbolKind.Module
