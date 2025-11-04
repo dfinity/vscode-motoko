@@ -1754,9 +1754,11 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
         };
         globalASTCache.forEach((status) => {
             status.program?.exportFields.forEach((field) => {
-                getDocumentSymbols(field, true).forEach((symbol) =>
-                    visitDocumentSymbol(status.uri, symbol),
-                );
+                getDocumentSymbols(field, true)
+                    .filter((symbol) => symbol.name.includes(event.query))
+                    .forEach((symbol) =>
+                        visitDocumentSymbol(status.uri, symbol),
+                    );
             });
         });
         return results;
