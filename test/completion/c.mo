@@ -1,4 +1,4 @@
-import Array "mo:base/Array";
+import Array "mo:core/Array";
 
 module {
 
@@ -7,7 +7,7 @@ module {
 
   public func new(size : Nat, f : (i : Nat, j : Nat) -> Cell) : State {
     Array.tabulate(size, func (i : Nat) : [var Cell] {
-      let a : [var Cell] = Array.init(size, false);
+      let a : [var Cell] = Array.repeat(false, size);
       for (j in a.keys()) {
         a[j] := f(i,j);
       };
