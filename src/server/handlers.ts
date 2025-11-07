@@ -17,6 +17,7 @@ import {
     CompletionList,
     Diagnostic,
     DiagnosticSeverity,
+    DidChangeWatchedFilesNotification,
     DocumentSymbol,
     FileChangeType,
     InitializeResult,
@@ -61,12 +62,10 @@ import {
 } from './context';
 import DfxResolver from './dfx';
 import { extractFields, organizeImports } from './imports';
-import { getAstInformation } from './information';
 import {
     Definition,
     defaultRange,
     findDefinitions,
-    findMostSpecificNodeForPosition,
     followImport,
     locationFromDefinition,
     locationFromUriAndRange,
@@ -90,7 +89,6 @@ import {
 } from './syntax';
 import {
     LocationSet,
-    formatMotoko,
     forwardMessage,
     getFileText,
     getRelativeUri,
@@ -98,6 +96,7 @@ import {
     resolveFilePath,
     resolveVirtualPath,
 } from './utils';
+import { getAstHoverContent } from './hover/hoverContent';
 
 import execa = require('execa');
 
@@ -110,16 +109,19 @@ interface Settings {
     motoko: MotokoSettings;
 }
 
-interface MotokoSettings {
+export interface MotokoSettings {
     hideWarningRegex: string;
     maxNumberOfProblems: number;
     debugHover: boolean;
+    extraFlags?: string[];
 }
 
 const shouldHideWarnings = (uri: string) =>
     uri.includes('/.vessel/') || uri.includes('/.mops/');
 
 export const documents = new TextDocuments(TextDocument);
+
+export let projectRoot: string;
 
 export const addHandlers = (connection: Connection, redirectConsole = true) => {
     const packageSourceCache = new Map();
@@ -374,6 +376,20 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                         }
                     }),
                 );
+
+                try {
+                    const extra: string[] = [];
+                    if (settings?.extraFlags?.length) {
+                        extra.push(...settings.extraFlags);
+                    }
+                    if (extra.length) {
+                        allContexts().forEach(({ motoko }) =>
+                            (motoko as any).setExtraFlags(extra),
+                        );
+                    }
+                } catch (err) {
+                    console.warn('Failed to apply extra flags:', err);
+                }
 
                 // Add core package autocompletions
                 // TODO: possibly refactor into `context.ts`
@@ -650,6 +666,9 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
     });
 
     connection.onInitialized(() => {
+        connection.client.register(DidChangeWatchedFilesNotification.type, {
+            watchers: [{ globPattern: virtualFilePattern }],
+        });
         connection.workspace?.onDidChangeWorkspaceFolders((event) => {
             const folders = workspaceFolders;
             if (!folders) {
@@ -1400,40 +1419,7 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
         return list;
     });
 
-    connection.onHover((event) => {
-        function findDocComments(node: Node): string[] {
-            const definitions = findDefinitions(uri, event.position, true);
-            const docs: string[] = [];
-            for (const definition of definitions) {
-                let docNode: Node | undefined = definition?.cursor || node;
-                let depth = 0; // Max AST depth to display doc comment
-                while (
-                    !docNode.doc &&
-                    docNode.parent &&
-                    // Unresolved import
-                    !(
-                        docNode.name === 'LetD' &&
-                        asNode(docNode.args?.[1])?.name === 'ImportE'
-                    ) &&
-                    depth < 2
-                ) {
-                    docNode = docNode.parent;
-                    depth++;
-                }
-                if (docNode.name === 'Prog' && !docNode.doc) {
-                    // Get doc comment at top of file
-                    const doc = asNode(docNode.args?.[0])?.doc;
-                    if (doc) {
-                        docs.push(doc);
-                    }
-                }
-                if (docNode.doc) {
-                    docs.push(docNode.doc);
-                }
-            }
-            return docs;
-        }
-
+    connection.onHover(async (event) => {
         const { position } = event;
         const { uri } = event.textDocument;
         const { astResolver } = getContext(uri);
@@ -1460,79 +1446,18 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
             }
         });
 
-        const status = astResolver.requestTyped(uri);
-        if (status && !status.outdated && status.ast) {
-            // Find AST nodes which include the cursor position
-            const node = findMostSpecificNodeForPosition(
-                status.ast,
-                position,
-                (node) => !!node.type,
-                true, // Mouse cursor
-            );
-            if (node) {
-                range = rangeFromNode(node, true);
-
-                const startLine = lines[node.start[0] - 1];
-                const isSameLine = node.start[0] === node.end[0];
-
-                const codeSnippet = (source: string) =>
-                    `\`\`\`motoko\n${source.trimEnd()}\n\`\`\``;
-                const source = (
-                    isSameLine
-                        ? startLine.substring(node.start[1], node.end[1])
-                        : startLine
-                ).trim();
-
-                // Doc comments
-                const nodeDocs = findDocComments(node);
-                if (nodeDocs.length) {
-                    const typeInfo = node.type
-                        ? formatMotoko(node.type).trim()
-                        : '';
-                    const lineIndex = typeInfo.indexOf('\n');
-                    if (typeInfo) {
-                        if (lineIndex === -1) {
-                            docs.push(codeSnippet(typeInfo));
-                        }
-                    } else if (!isSameLine) {
-                        docs.push(codeSnippet(source));
-                    }
-                    docs.push(...nodeDocs);
-                    if (lineIndex !== -1) {
-                        docs.push(
-                            `*Type definition:*\n${codeSnippet(typeInfo)}`,
-                        );
-                    }
-                } else if (node.type) {
-                    docs.push(codeSnippet(formatMotoko(node.type)));
-                } else if (!isSameLine) {
-                    docs.push(codeSnippet(source));
-                }
-
-                // Syntax explanations
-                const info = getAstInformation(node /* , source */);
-                if (info) {
-                    docs.push(info);
-                }
-                if (settings?.debugHover) {
-                    let debugText = `\n${node.name}`;
-                    if (node.args?.length) {
-                        // Show AST debug information
-                        debugText += ` [${node.args
-                            .map(
-                                (arg) =>
-                                    `\n  ${
-                                        typeof arg === 'object'
-                                            ? Array.isArray(arg)
-                                                ? '[...]'
-                                                : arg?.name
-                                            : JSON.stringify(arg)
-                                    }`,
-                            )
-                            .join('')}\n]`;
-                    }
-                    docs.push(codeSnippet(debugText));
-                }
+        const astHoverContent = await getAstHoverContent(
+            uri,
+            position,
+            astResolver,
+            lines,
+            settings,
+        );
+        if (astHoverContent) {
+            docs.push(...astHoverContent.docs);
+            if (!range) {
+                // Only set range if not already set by error codes
+                range = astHoverContent.range;
             }
         }
 

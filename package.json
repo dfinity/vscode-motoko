@@ -2,7 +2,7 @@
     "name": "vscode-motoko",
     "displayName": "Motoko",
     "description": "Motoko language support",
-    "version": "0.18.5",
+    "version": "0.19.2",
     "publisher": "dfinity-foundation",
     "repository": "https://github.com/dfinity/vscode-motoko",
     "engines": {
@@ -81,6 +81,15 @@
                     "default": "",
                     "description": "Hide compiler warnings based on a regular expression."
                 },
+                "motoko.extraFlags": {
+                    "scope": "resource",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "default": [],
+                    "description": "Extra moc flags (e.g. [\"-E=M0194,M0217\", \"-Werror\"])."
+                },
                 "motoko.trace.server": {
                     "scope": "window",
                     "type": "string",
@@ -111,6 +120,14 @@
                     ],
                     "description": "The Motoko code formatter used by the extension."
                 }
+            }
+        },
+        "configurationDefaults": {
+            "[motoko]": {
+                "editor.colorDecorators": false
+            },
+            "[candid]": {
+                "editor.colorDecorators": false
             }
         },
         "commands": [
@@ -168,9 +185,9 @@
         "ic-mops": "0.45.3",
         "ic0": "0.3.1",
         "mnemonist": "0.39.5",
-        "motoko": "3.14.0",
+        "motoko": "3.15.0",
         "prettier": "2.8.0",
-        "prettier-plugin-motoko": "0.10.5",
+        "prettier-plugin-motoko": "0.12.0",
         "semver": "7.6.3",
         "url-relative": "1.0.0",
         "vscode-languageclient": "8.0.2",
