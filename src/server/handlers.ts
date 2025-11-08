@@ -97,6 +97,7 @@ import {
     resolveVirtualPath,
 } from './utils';
 import { getAstHoverContent } from './hover/hoverContent';
+import { clearCommentStringCache } from './hover/commentRanges';
 
 import execa = require('execa');
 
@@ -1429,8 +1430,10 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
         const { uri } = event.textDocument;
         const { astResolver } = getContext(uri);
 
-        const text = getFileText(uri);
+        const document = documents.get(uri);
+        const text = document?.getText() ?? getFileText(uri);
         const lines = text.split(/\r?\n/g);
+        const documentVersion = document?.version;
         const docs: string[] = [];
         let range: Range | undefined;
 
@@ -1456,6 +1459,7 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
             position,
             astResolver,
             lines,
+            documentVersion,
             settings,
         );
         if (astHoverContent) {
@@ -1853,6 +1857,7 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
     documents.onDidChangeContent((event) => {
         const document = event.document;
         const { uri } = document;
+        clearCommentStringCache(uri);
         if (uri === validatingUri) {
             clearTimeout(validatingTimeout);
         }
@@ -1865,8 +1870,12 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
         }, 500);
     });
 
-    documents.onDidOpen((event) => scheduleCheck(event.document.uri));
+    documents.onDidOpen((event) => {
+        clearCommentStringCache(event.document.uri);
+        scheduleCheck(event.document.uri);
+    });
     documents.onDidClose(async (event) => {
+        clearCommentStringCache(event.document.uri);
         await sendDiagnostics({
             uri: event.document.uri,
             diagnostics: [],

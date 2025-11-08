@@ -10,6 +10,7 @@ import { getAstInformation } from '../information';
 import { findMostSpecificNodeForPosition, rangeFromNode } from '../navigation';
 import { findNodes } from '../syntax';
 import { formatMotoko } from '../utils';
+import { isPositionInsideCommentOrString } from './commentRanges';
 
 const nodeKeywords = new Set([
     'actor',
@@ -151,6 +152,7 @@ const nodePriorities: Record<string, number> = {
  * @param position The position in the document.
  * @param astResolver The AST resolver.
  * @param lines The lines of the document.
+ * @param documentVersion The text document version, used to cache comment/string scans.
  * @param settings The Motoko settings.
  * @returns An object containing the documentation and range, or undefined if no content is found.
  */
@@ -159,6 +161,7 @@ export async function getAstHoverContent(
     position: Position,
     astResolver: AstResolver,
     lines: string[],
+    documentVersion: number | undefined,
     settings: MotokoSettings | undefined,
 ): Promise<{ docs: string[]; range: Range | undefined } | undefined> {
     const hoveredInfo = findHoveredWord(lines, position);
@@ -168,7 +171,10 @@ export async function getAstHoverContent(
     }
 
     const isNonNodeKeyword = nonNodeKeywords.includes(hovered.word);
-    if (isNonNodeKeyword) {
+    if (
+        isNonNodeKeyword &&
+        !isPositionInsideCommentOrString(uri, lines, position, documentVersion)
+    ) {
         const description = await readKeywordDescription(hovered.word);
         if (!description) {
             return;
