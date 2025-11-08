@@ -40,7 +40,6 @@ import { URI } from 'vscode-uri';
 import {
     DEPLOY_TEMPORARY,
     DEPLOY_TEMPORARY_MESSAGE,
-    ERROR_MESSAGE,
     IMPORT_MOPS_PACKAGE,
     TEST_FILE_REQUEST,
     TestResult,
@@ -125,6 +124,13 @@ export let projectRoot: string;
 
 export const addHandlers = (connection: Connection, redirectConsole = true) => {
     const packageSourceCache = new Map();
+    const showErrorMessage = (message: string, detail?: string) => {
+        const trimmedDetail = detail?.trim();
+        const formatted = trimmedDetail
+            ? `${message}\n${trimmedDetail}`
+            : message;
+        connection.window.showErrorMessage(formatted);
+    };
     async function getPackageSources(
         directory: string,
     ): Promise<[string, string][]> {
@@ -356,19 +362,24 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                                     },
                                 );
                             } catch (err) {
-                                connection.sendNotification(ERROR_MESSAGE, {
-                                    message: `Error while resolving Motoko packages:`,
-                                    detail: String(err).replace(/^Error: /, ''),
-                                });
+                                const detail = String(err).replace(
+                                    /^Error: /,
+                                    '',
+                                );
+                                showErrorMessage(
+                                    'Error while resolving Motoko packages:',
+                                    detail,
+                                );
                                 context.error = String(err);
                                 console.warn(err);
                                 return;
                             }
                         } catch (err: any) {
-                            connection.sendNotification(ERROR_MESSAGE, {
-                                message: `Error while loading Motoko packages:`,
-                                detail: String(err).replace(/^Error: /, ''),
-                            });
+                            const detail = String(err).replace(/^Error: /, '');
+                            showErrorMessage(
+                                'Error while loading Motoko packages:',
+                                detail,
+                            );
                             console.error(
                                 `Error while reading packages for directory (${dir}): ${err}`,
                             );

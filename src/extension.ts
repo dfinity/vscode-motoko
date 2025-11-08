@@ -31,7 +31,6 @@ import {
 import {
     DEPLOY_TEMPORARY,
     DEPLOY_TEMPORARY_MESSAGE,
-    ERROR_MESSAGE,
     IMPORT_MOPS_PACKAGE,
     TEST_FILE_REQUEST,
     TestParams,
@@ -295,15 +294,6 @@ function restartLanguageServer(
         serverOptions,
         clientOptions,
     );
-    client.onNotification(ERROR_MESSAGE, async ({ message, detail }) => {
-        const item = await window.showErrorMessage(
-            detail ? `${message}\n${detail}` : message,
-            'View logs',
-        );
-        if (item === 'View logs') {
-            client.outputChannel.show();
-        }
-    });
     client.start().catch((err) => console.error(err.stack || err));
     context.subscriptions.push(client);
 }

@@ -37,15 +37,6 @@ export interface NotifyDeployParams {
     message: string;
 }
 
-export const ERROR_MESSAGE = new NotificationType<NotifyErrorParams>(
-    'vscode-motoko/notify-error',
-);
-
-export interface NotifyErrorParams {
-    message: string;
-    detail?: string | undefined;
-}
-
 export const IMPORT_MOPS_PACKAGE = new RequestType<
     {
         uri: string;
