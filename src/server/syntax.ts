@@ -75,7 +75,9 @@ export function fromAST(ast: AST): Syntax {
                     matchNode(exp, 'ImportE', (path) => {
                         const import_ = new Import(exp, path);
                         // Variable pattern name
-                        import_.name = getIdName(pat);
+                        import_.name = matchNode(pat, 'VarP', (id: AST) =>
+                            getIdName(id),
+                        );
                         // Object pattern fields
                         import_.fields = matchNode(
                             pat,
