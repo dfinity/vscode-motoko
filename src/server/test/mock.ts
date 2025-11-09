@@ -34,7 +34,10 @@ export const configParams = {
     },
 };
 
-export const clientInitParams = (rootUri: URI): InitializeParams => {
+export const clientInitParams = (
+    rootUri: URI,
+    initializationOptions?: Record<string, unknown>,
+): InitializeParams => {
     return {
         processId: null, // to prevent watchdog killing the process
         rootPath: rootUri.fsPath,
@@ -45,6 +48,7 @@ export const clientInitParams = (rootUri: URI): InitializeParams => {
                 uri: rootUri.toString(),
             },
         ],
+        initializationOptions,
         capabilities: {
             textDocument: {
                 synchronization: {

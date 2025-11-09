@@ -44,12 +44,13 @@ export async function runTest<T>(
     rootUri: URI,
     test: (client: Connection) => Promise<T>,
     redirectConsole: boolean = true,
+    initializationOptions?: Record<string, unknown>,
 ): Promise<T> {
     const [client, _server] = setupClientServer(redirectConsole);
     const serverInitialized = waitForNotification('custom/initialized', client);
     await client.sendRequest<InitializeResult>(
         'initialize',
-        clientInitParams(rootUri),
+        clientInitParams(rootUri, initializationOptions),
     );
     await client.sendNotification('initialized', {});
     await serverInitialized;
@@ -63,6 +64,7 @@ export async function runTest<T>(
 export async function defaultBeforeAll(
     rootUri: URI,
     redirectConsole: boolean = true,
+    initializationOptions?: Record<string, unknown>,
 ): Promise<[Connection, Connection]> {
     const [client, server] = setupClientServer(redirectConsole);
 
@@ -70,7 +72,7 @@ export async function defaultBeforeAll(
 
     await client.sendRequest<InitializeResult>(
         'initialize',
-        clientInitParams(rootUri),
+        clientInitParams(rootUri, initializationOptions),
     );
 
     await client.sendNotification('initialized', {});
