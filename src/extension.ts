@@ -6,18 +6,15 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import {
     ExtensionContext,
-    FormattingOptions,
     Position,
     QuickPickItem,
     Range,
     TestItem,
     TestRunProfileKind,
-    TextDocument,
     TextEdit,
     Uri,
     ViewColumn,
     commands,
-    languages,
     tests,
     window,
     workspace,
@@ -31,14 +28,12 @@ import {
 import {
     DEPLOY_TEMPORARY,
     DEPLOY_TEMPORARY_MESSAGE,
-    ERROR_MESSAGE,
     IMPORT_MOPS_PACKAGE,
     TEST_FILE_REQUEST,
     TestParams,
     TestResult,
 } from './common/connectionTypes';
 import { ignoreGlobPatterns, watchGlob } from './common/watchConfig';
-import { formatDocument } from './formatter';
 
 let client: LanguageClient;
 
@@ -69,16 +64,6 @@ export function activate(context: ExtensionContext) {
     context.subscriptions.push(
         commands.registerCommand('motoko.importMopsPackage', async () => {
             await importMopsPackage(context);
-        }),
-    );
-    context.subscriptions.push(
-        languages.registerDocumentFormattingEditProvider(['motoko', 'candid'], {
-            provideDocumentFormattingEdits(
-                document: TextDocument,
-                options: FormattingOptions,
-            ): TextEdit[] {
-                return formatDocument(document, context, options);
-            },
         }),
     );
     // Virtual base library URIs
@@ -269,6 +254,13 @@ export function startServer(context: ExtensionContext) {
     });
 }
 
+function getInitializationOptions() {
+    const config = workspace.getConfiguration('motoko');
+    return {
+        formatter: config.get('formatter'),
+    };
+}
+
 function restartLanguageServer(
     context: ExtensionContext,
     serverOptions: ServerOptions,
@@ -282,6 +274,7 @@ function restartLanguageServer(
             { scheme: 'file', language: 'motoko' },
             // { scheme: 'untitled', language: 'motoko' },
         ],
+        initializationOptions: getInitializationOptions(),
         synchronize: {
             // Synchronize the setting section 'motoko' to the server
             configurationSection: 'motoko',
@@ -295,15 +288,6 @@ function restartLanguageServer(
         serverOptions,
         clientOptions,
     );
-    client.onNotification(ERROR_MESSAGE, async ({ message, detail }) => {
-        const item = await window.showErrorMessage(
-            detail ? `${message}\n${detail}` : message,
-            'View logs',
-        );
-        if (item === 'View logs') {
-            client.outputChannel.show();
-        }
-    });
     client.start().catch((err) => console.error(err.stack || err));
     context.subscriptions.push(client);
 }

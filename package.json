@@ -118,7 +118,7 @@
                         "none",
                         "prettier"
                     ],
-                    "description": "The Motoko code formatter used by the extension."
+                    "description": "The Motoko code formatter used by the language server."
                 }
             }
         },

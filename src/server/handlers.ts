@@ -40,7 +40,6 @@ import { URI } from 'vscode-uri';
 import {
     DEPLOY_TEMPORARY,
     DEPLOY_TEMPORARY_MESSAGE,
-    ERROR_MESSAGE,
     IMPORT_MOPS_PACKAGE,
     TEST_FILE_REQUEST,
     TestResult,
@@ -98,6 +97,7 @@ import {
 } from './utils';
 import { getAstHoverContent } from './hover/hoverContent';
 import { clearCommentStringCache } from './hover/commentRanges';
+import { formatDocument, FormatterKind } from './formatter';
 
 import execa = require('execa');
 
@@ -110,11 +110,16 @@ interface Settings {
     motoko: MotokoSettings;
 }
 
+interface InitializationOptions {
+    formatter?: FormatterKind;
+}
+
 export interface MotokoSettings {
     hideWarningRegex: string;
     maxNumberOfProblems: number;
     debugHover: boolean;
     extraFlags?: string[];
+    formatter?: FormatterKind;
 }
 
 const shouldHideWarnings = (uri: string) =>
@@ -124,8 +129,19 @@ export const documents = new TextDocuments(TextDocument);
 
 export let projectRoot: string;
 
+let initializationOptions: InitializationOptions = {};
+
+const DEFAULT_FORMATTER: FormatterKind = 'prettier';
+
 export const addHandlers = (connection: Connection, redirectConsole = true) => {
     const packageSourceCache = new Map();
+    const showErrorMessage = (message: string, detail?: string) => {
+        const trimmedDetail = detail?.trim();
+        const formatted = trimmedDetail
+            ? `${message}\n${trimmedDetail}`
+            : message;
+        connection.window.showErrorMessage(formatted);
+    };
     async function getPackageSources(
         directory: string,
     ): Promise<[string, string][]> {
@@ -357,19 +373,24 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                                     },
                                 );
                             } catch (err) {
-                                connection.sendNotification(ERROR_MESSAGE, {
-                                    message: `Error while resolving Motoko packages:`,
-                                    detail: String(err).replace(/^Error: /, ''),
-                                });
+                                const detail = String(err).replace(
+                                    /^Error: /,
+                                    '',
+                                );
+                                showErrorMessage(
+                                    'Error while resolving Motoko packages:',
+                                    detail,
+                                );
                                 context.error = String(err);
                                 console.warn(err);
                                 return;
                             }
                         } catch (err: any) {
-                            connection.sendNotification(ERROR_MESSAGE, {
-                                message: `Error while loading Motoko packages:`,
-                                detail: String(err).replace(/^Error: /, ''),
-                            });
+                            const detail = String(err).replace(/^Error: /, '');
+                            showErrorMessage(
+                                'Error while loading Motoko packages:',
+                                detail,
+                            );
                             console.error(
                                 `Error while reading packages for directory (${dir}): ${err}`,
                             );
@@ -633,8 +654,23 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
     let settings: MotokoSettings | undefined;
     let workspaceFolders: WorkspaceFolder[] | undefined;
 
+    const getWorkspaceFolderPaths = (): string[] =>
+        (workspaceFolders || []).map((folder) => URI.parse(folder.uri).fsPath);
+
+    const getFormatterKind = (): FormatterKind => {
+        if (settings?.formatter) {
+            return settings.formatter;
+        }
+        if (initializationOptions.formatter) {
+            return initializationOptions.formatter;
+        }
+        return DEFAULT_FORMATTER;
+    };
+
     connection.onInitialize((event): InitializeResult => {
         workspaceFolders = event.workspaceFolders || undefined;
+        initializationOptions =
+            (event.initializationOptions as InitializationOptions) || {};
 
         const result: InitializeResult = {
             capabilities: {
@@ -661,6 +697,7 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                 //     workspaceDiagnostics: false,
                 // },
                 textDocumentSync: TextDocumentSyncKind.Full,
+                documentFormattingProvider: true,
                 workspace: {
                     workspaceFolders: {
                         supported: !!workspaceFolders,
@@ -740,6 +777,19 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
     connection.onDidChangeConfiguration((event) => {
         settings = (<Settings>event.settings).motoko;
         notifyPackageConfigChange();
+    });
+
+    connection.onDocumentFormatting((params) => {
+        const document = documents.get(params.textDocument.uri);
+        if (!document) {
+            return [];
+        }
+        return formatDocument(
+            document,
+            getFormatterKind(),
+            getWorkspaceFolderPaths(),
+            params.options,
+        );
     });
 
     /**
