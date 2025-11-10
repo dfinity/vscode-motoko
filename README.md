@@ -54,7 +54,7 @@ Below are the default key bindings for commonly used features supported in the e
 
 - `motoko.dfx`: The location of the `dfx` binary
 - `motoko.canister`: The default canister name to use in multi-canister projects
-- `motoko.formatter`: The formatter used by the extension
+- `motoko.formatter`: The formatter used by the language server
 
 ## Advanced Configuration
 

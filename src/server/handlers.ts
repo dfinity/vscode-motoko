@@ -97,6 +97,7 @@ import {
     resolveVirtualPath,
 } from './utils';
 import { getAstHoverContent } from './hover/hoverContent';
+import { formatDocument, FormatterKind } from './formatter';
 
 import execa = require('execa');
 
@@ -109,11 +110,16 @@ interface Settings {
     motoko: MotokoSettings;
 }
 
+interface InitializationOptions {
+    formatter?: FormatterKind;
+}
+
 export interface MotokoSettings {
     hideWarningRegex: string;
     maxNumberOfProblems: number;
     debugHover: boolean;
     extraFlags?: string[];
+    formatter?: FormatterKind;
 }
 
 const shouldHideWarnings = (uri: string) =>
@@ -122,6 +128,10 @@ const shouldHideWarnings = (uri: string) =>
 export const documents = new TextDocuments(TextDocument);
 
 export let projectRoot: string;
+
+let initializationOptions: InitializationOptions = {};
+
+const DEFAULT_FORMATTER: FormatterKind = 'prettier';
 
 export const addHandlers = (connection: Connection, redirectConsole = true) => {
     const packageSourceCache = new Map();
@@ -632,8 +642,23 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
     let settings: MotokoSettings | undefined;
     let workspaceFolders: WorkspaceFolder[] | undefined;
 
+    const getWorkspaceFolderPaths = (): string[] =>
+        (workspaceFolders || []).map((folder) => URI.parse(folder.uri).fsPath);
+
+    const getFormatterKind = (): FormatterKind => {
+        if (settings?.formatter) {
+            return settings.formatter;
+        }
+        if (initializationOptions.formatter) {
+            return initializationOptions.formatter;
+        }
+        return DEFAULT_FORMATTER;
+    };
+
     connection.onInitialize((event): InitializeResult => {
         workspaceFolders = event.workspaceFolders || undefined;
+        initializationOptions =
+            (event.initializationOptions as InitializationOptions) || {};
 
         const result: InitializeResult = {
             capabilities: {
@@ -660,6 +685,7 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                 //     workspaceDiagnostics: false,
                 // },
                 textDocumentSync: TextDocumentSyncKind.Full,
+                documentFormattingProvider: true,
                 workspace: {
                     workspaceFolders: {
                         supported: !!workspaceFolders,
@@ -739,6 +765,19 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
     connection.onDidChangeConfiguration((event) => {
         settings = (<Settings>event.settings).motoko;
         notifyPackageConfigChange();
+    });
+
+    connection.onDocumentFormatting((params) => {
+        const document = documents.get(params.textDocument.uri);
+        if (!document) {
+            return [];
+        }
+        return formatDocument(
+            document,
+            getFormatterKind(),
+            getWorkspaceFolderPaths(),
+            params.options,
+        );
     });
 
     /**
