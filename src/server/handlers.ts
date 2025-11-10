@@ -1245,7 +1245,7 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                 node: imprt.cursor,
             })?.uri;
         }
-        return undefined;
+        return;
     }
 
     function getOffset(text: string, { line, character }: Position): number {
@@ -1653,7 +1653,7 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
         const text = document?.getText() ?? getFileText(uri);
         const lines = text.split(/\r?\n/g);
         const documentVersion = document?.version;
-        const docs: string[] = [];
+        const docs: Set<string> = new Set<string>();
         let range: Range | undefined;
 
         // Error code explanations
@@ -1665,9 +1665,7 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                     codes.push(code);
                     if (errorCodes.hasOwnProperty(code)) {
                         // Show explanation without Markdown heading
-                        docs.push(
-                            errorCodes[code].replace(/^# M[0-9]+\s+/, ''),
-                        );
+                        docs.add(errorCodes[code].replace(/^# M[0-9]+\s+/, ''));
                     }
                 }
             }
@@ -1682,20 +1680,22 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
             settings,
         );
         if (astHoverContent) {
-            docs.push(...astHoverContent.docs);
+            for (const doc of astHoverContent.docs) {
+                docs.add(doc);
+            }
             if (!range) {
                 // Only set range if not already set by error codes
                 range = astHoverContent.range;
             }
         }
 
-        if (!docs.length) {
+        if (!docs.size) {
             return;
         }
         return {
             contents: {
                 kind: MarkupKind.Markdown,
-                value: docs.join('\n\n---\n\n'),
+                value: Array.from(docs.values()).join('\n\n---\n\n'),
             },
             range,
         };
@@ -1864,6 +1864,10 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                                 range,
                             );
                             references.add(location);
+                        });
+                    } else {
+                        referenceDefinitions.forEach((refDef) => {
+                            references.delete(locationFromDefinition(refDef));
                         });
                     }
                 } catch (err) {

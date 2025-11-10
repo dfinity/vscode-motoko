@@ -212,4 +212,40 @@ describe('go to definition', () => {
             location('var.mo', 4, 8, 9), // x
             [location('var.mo', 1, 8, 9)], // definition of x
         ));
+
+    test('Can find field from record type definition', () =>
+        testDefinition(
+            location('record.mo', 5, 12, 15), // bar in foo.bar (test1)
+            [
+                location('record.mo', 1, 17, 20), // type definition of bar (type Foo)
+                location('record.mo', 4, 26, 29), // expression definition of bar (field assignment)
+            ],
+        ));
+
+    test('Can find field from record expression definition', () =>
+        testDefinition(
+            location('record.mo', 4, 26, 29), // bar in { bar = 42 } (test1)
+            [
+                location('record.mo', 1, 17, 20), // type definition of bar (type Foo)
+                location('record.mo', 4, 26, 29), // expression definition of bar (field assignment)
+            ],
+        ));
+
+    test('Can find field from record type expression annotation', () =>
+        testDefinition(
+            location('record.mo', 10, 12, 15), // bar in foo.bar (test2)
+            [
+                location('record.mo', 9, 20, 23), // type definition of bar (expression type annotation)
+                location('record.mo', 9, 36, 39), // expression definition of bar (field assignment)
+            ],
+        ));
+
+    test('Can find field from record type pattern annotation', () =>
+        testDefinition(
+            location('record.mo', 15, 43, 46), // bar in foo.bar (test3)
+            [
+                location('record.mo', 14, 18, 21), // expression definition of bar (field assignment)
+                location('record.mo', 15, 26, 29), // type definition of bar (pattern type annotation)
+            ],
+        ));
 });
