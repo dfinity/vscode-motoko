@@ -138,7 +138,9 @@ export function findDocComments(
 }
 
 /**
- * Normalizes documentation strings by removing `include=...` from Motoko code blocks and adding the `motoko` language identifier to code blocks that are missing it.
+ * Normalizes documentation strings so hover previews always show clean Motoko code blocks.
+ * - Adds the `motoko` identifier when a block lacks a language hint.
+ * - Strips qualifiers from Motoko fences (e.g. include=import, no-repl).
  * @param doc The documentation string.
  * @returns The normalized documentation string.
  */

@@ -1,3 +1,5 @@
+import * as path from 'path';
+import { promises as fs } from 'fs';
 import { Node, asNode, AST } from 'motoko/lib/ast';
 import { keywords } from 'motoko/lib/keywords';
 import { Position, Range } from 'vscode-languageserver/node';
@@ -8,6 +10,53 @@ import { getAstInformation } from '../information';
 import { findMostSpecificNodeForPosition, rangeFromNode } from '../navigation';
 import { findNodes } from '../syntax';
 import { formatMotoko } from '../utils';
+import { isPositionInsideCommentOrString } from './commentRanges';
+
+const nodeKeywords = new Set([
+    'actor',
+    'module',
+    'async',
+    'true',
+    'false',
+    'null',
+]);
+
+const allowedChars = /[\w#()[\]{}<>?"']/;
+const allowedSymbols = /[()[\]{}<>?"']/;
+
+const nonNodeKeywords = keywords.filter(
+    (keyword) => !nodeKeywords.has(keyword),
+);
+
+const keywordDocCache = new Map<string, string | null>();
+
+async function readKeywordDescription(
+    keyword: string,
+): Promise<string | undefined> {
+    const cached = keywordDocCache.get(keyword);
+    if (cached !== undefined) {
+        return cached === null ? undefined : cached;
+    }
+
+    const filePath = path.join(
+        path.resolve(__dirname, 'keywords'),
+        `${keyword}.md`,
+    );
+    try {
+        const contents = await fs.readFile(filePath, 'utf8');
+        keywordDocCache.set(keyword, contents);
+        return contents;
+    } catch (error) {
+        const nodeError = error as NodeJS.ErrnoException;
+        if (nodeError.code && nodeError.code !== 'ENOENT') {
+            keywordDocCache.set(keyword, null);
+            return undefined;
+        }
+    }
+
+    keywordDocCache.set(keyword, null);
+    return undefined;
+}
 
 function generateDocParts(
     nodeDocs: string[],
@@ -103,6 +152,7 @@ const nodePriorities: Record<string, number> = {
  * @param position The position in the document.
  * @param astResolver The AST resolver.
  * @param lines The lines of the document.
+ * @param documentVersion The text document version, used to cache comment/string scans.
  * @param settings The Motoko settings.
  * @returns An object containing the documentation and range, or undefined if no content is found.
  */
@@ -111,8 +161,30 @@ export async function getAstHoverContent(
     position: Position,
     astResolver: AstResolver,
     lines: string[],
+    documentVersion: number | undefined,
     settings: MotokoSettings | undefined,
 ): Promise<{ docs: string[]; range: Range | undefined } | undefined> {
+    const hoveredInfo = findHoveredWord(lines, position);
+    const hovered = hoveredInfo.word;
+    if (!hoveredInfo.isAllowedChar) {
+        return;
+    }
+
+    const isNonNodeKeyword = nonNodeKeywords.includes(hovered.word);
+    if (
+        isNonNodeKeyword &&
+        !isPositionInsideCommentOrString(uri, lines, position, documentVersion)
+    ) {
+        const description = await readKeywordDescription(hovered.word);
+        if (!description) {
+            return;
+        }
+        return {
+            docs: [`\`\`\`motoko\n${hovered.word}\n\`\`\``, description],
+            range: hovered.range,
+        };
+    }
+
     const status = astResolver.requestTyped(uri);
     if (!status || status.outdated || !status.ast) {
         return;
@@ -121,24 +193,30 @@ export async function getAstHoverContent(
     const node = findMostSpecificNodeForPosition(
         status.ast,
         position,
-        (node) => {
+        (candidate) => {
             if (
-                ignoredNodeNamesForHover.has(node.name) ||
-                ((node.name === 'TupE' || node.name === 'TupP') &&
-                    node.type !== '()')
+                ignoredNodeNamesForHover.has(candidate.name) ||
+                ((candidate.name === 'TupE' || candidate.name === 'TupP') &&
+                    candidate.type !== '()')
             ) {
                 return false;
             }
+            if (candidate.name === 'NamedT' && hoveredInfo.isAllowedSymbol) {
+                return false;
+            }
+            if (candidate.name === 'OptE' && !hoveredInfo.isQuestion) {
+                return false;
+            }
 
-            if (node.name === 'TupT' && node.type === '()') {
+            if (candidate.name === 'TupT' && candidate.type === '()') {
                 return 4;
             }
 
-            if (node.name === 'ID' && node.args?.[0] === '$') {
+            if (candidate.name === 'ID' && candidate.args?.[0] === '$') {
                 return 0;
             }
 
-            return nodePriorities[node.name] || 0;
+            return nodePriorities[candidate.name] || 0;
         },
         true, // Mouse cursor
     );
@@ -158,30 +236,13 @@ export async function getAstHoverContent(
         isSameLine ? startLine.substring(node.start[1], node.end[1]) : startLine
     ).trim();
 
-    const hoveredWord = findHoveredWord(
-        startLine,
-        position.line,
-        position.character,
-    );
-    const maybeKeyword = findKeyword(hoveredWord.word);
-
-    const typeRangeInfo = getTypeRangeInfo(
-        status.ast,
-        node,
-        position,
-        startLine,
-        hoveredWord,
-    );
+    const typeRangeInfo = getTypeRangeInfo(status.ast, node, hovered);
     if (typeRangeInfo.range) {
         range = typeRangeInfo.range;
     }
 
     const nodeDocs =
         typeRangeInfo.type &&
-        (!maybeKeyword ||
-            maybeKeyword == 'actor' ||
-            maybeKeyword == 'module' ||
-            maybeKeyword == 'async') &&
         (isSameLine || node.name === 'LetD' || node.name === 'ExpD')
             ? findDocComments(uri, position, node)
             : [];
@@ -206,9 +267,81 @@ export async function getAstHoverContent(
     return docs.length > 0 ? { docs, range } : undefined;
 }
 
+interface HoveredInfo {
+    word: HoveredWord;
+    isAllowedChar: boolean;
+    isAllowedSymbol: boolean;
+    isQuestion: boolean;
+}
+
+interface HoveredWord {
+    word: string;
+    range: Range;
+}
+
 interface TypeRangeInfo {
     type: string | undefined;
     range?: Range;
+}
+
+interface TypeContext {
+    ast: AST;
+    node: Node;
+    hovered: HoveredWord;
+}
+
+type TypeResolver = (context: TypeContext) => TypeRangeInfo;
+
+const nodeTypeResolvers: Record<string, TypeResolver> = {
+    ExpD: ({ node, hovered }) => getTypeInfoFromExpD(node, hovered),
+    LetD: ({ node, hovered }) => {
+        if (asNode(node.args?.[1])?.name === 'ImportE') {
+            return { type: undefined };
+        }
+        return getTypeInfoFromLetD(node, hovered);
+    },
+    TagE: ({ node, hovered }) => {
+        const idNode = asNode(node.args?.[0]);
+        if (
+            idNode &&
+            idNode.name === 'ID' &&
+            hovered.word === '#' + idNode.args?.[0]
+        ) {
+            return handleTag(idNode, hovered);
+        }
+        return { type: undefined };
+    },
+    TagP: ({ node, hovered }) => {
+        if (hovered.word === node.args?.[0]) {
+            return handleTag(node, hovered);
+        }
+        return { type: undefined };
+    },
+    TupT: ({ node, hovered }) => handlePath(node, hovered),
+    NamedT: ({ node, hovered }) => handlePath(node, hovered),
+};
+
+function resolveTypeRange(
+    context: TypeContext,
+    hovered: HoveredWord,
+): TypeRangeInfo {
+    const { node } = context;
+    const handler = nodeTypeResolvers[node.name];
+    if (handler) {
+        const resolved = handler(context);
+        if (resolved.type !== undefined || resolved.range) {
+            return resolved;
+        }
+    }
+
+    if (node.type) {
+        if (node.parent?.name === 'TagE') {
+            return handleTag(node, hovered);
+        }
+        return handleAsyncNode(node);
+    }
+
+    return getTypeInfoFromUntypedNode(node, context.ast, context.hovered.word);
 }
 
 function getNextSiblingNodeWithType(current: Node): Node | undefined {
@@ -221,9 +354,9 @@ function getNextSiblingNodeWithType(current: Node): Node | undefined {
         return;
     }
     for (let i = index + 1; i < parent.args.length; i++) {
-        const node = asNode(parent.args[i]);
-        if (node?.type) {
-            return node;
+        const candidate = asNode(parent.args[i]);
+        if (candidate?.type) {
+            return candidate;
         }
     }
     return;
@@ -231,11 +364,7 @@ function getNextSiblingNodeWithType(current: Node): Node | undefined {
 
 const ignoredExpDChildren = new Set(['IfE', 'RetE', 'SwitchE']);
 
-function getTypeInfoFromExpD(
-    node: Node,
-    position: Position,
-    startLine: string,
-): TypeRangeInfo {
+function getTypeInfoFromExpD(node: Node, hovered: HoveredWord): TypeRangeInfo {
     if (node.args?.[0]) {
         const child = asNode(node.args[0]);
         if (child) {
@@ -243,12 +372,7 @@ function getTypeInfoFromExpD(
                 return { type: undefined };
             }
             if (child.name === 'AwaitE' || child.name === 'ObjBlockE') {
-                const defined = findTypeDeclarationRange(
-                    node,
-                    child,
-                    position,
-                    startLine,
-                );
+                const defined = findTypeDeclarationRange(child, hovered);
                 if (defined) {
                     return defined;
                 }
@@ -258,20 +382,11 @@ function getTypeInfoFromExpD(
     return { type: undefined };
 }
 
-function getTypeInfoFromLetD(
-    node: Node,
-    position: Position,
-    startLine: string,
-): TypeRangeInfo {
+function getTypeInfoFromLetD(node: Node, hovered: HoveredWord): TypeRangeInfo {
     if (node.args?.[0]) {
         const child = asNode(node.args[0]);
         if (child?.name === 'VarP') {
-            const defined = findTypeDeclarationRange(
-                node,
-                child,
-                position,
-                startLine,
-            );
+            const defined = findTypeDeclarationRange(child, hovered);
             if (defined) {
                 return defined;
             }
@@ -339,7 +454,7 @@ function handleParentIdH(node: Node, parent: Node, ast: AST): TypeRangeInfo {
     if (parent.parent?.name === 'DotH' && typeof node.args?.[0] === 'string') {
         const type = findImportedModuleType(ast, node.args[0]);
         if (type) {
-            return { type: type };
+            return { type };
         }
     }
     return { type: undefined };
@@ -351,14 +466,14 @@ function handleParentVariantT(node: Node, hoveredWord: string): TypeRangeInfo {
         const start =
             node.start && Position.create(node.start[0] - 1, node.start[1]);
         return {
-            type: type,
+            type,
             range:
                 start &&
                 Range.create(
                     start,
                     Position.create(
                         start.line,
-                        start.character + node.name.length + 1, // including `#`
+                        start.character + node.name.length + 1,
                     ),
                 ),
         };
@@ -409,30 +524,12 @@ function handleParentClassD(node: Node, parent: Node): TypeRangeInfo {
     return { type: undefined };
 }
 
-function handleTagE(node: Node): TypeRangeInfo {
-    if (node.start && node.end) {
-        const start = Position.create(node.start?.[0] - 1, node.start?.[1] - 1); // include '#'
-        const end = Position.create(node.end?.[0] - 1, node.end?.[1]);
-        const range = Range.create(start, end);
-        return { type: node.type, range };
-    }
-    return { type: node.type };
+function handleTag(node: Node, hovered: HoveredWord): TypeRangeInfo {
+    return { type: node.type, range: hovered.range };
 }
 
-function handleTagP(node: Node, hoveredWord: string): TypeRangeInfo {
-    if (node.start && node.end) {
-        const line = node.start?.[0] - 1;
-        const character = node.start?.[1];
-        const start = Position.create(line, character);
-        const end = Position.create(line, character + hoveredWord.length);
-        const range = Range.create(start, end);
-        return { type: node.type, range };
-    }
-    return { type: node.type };
-}
-
-function handlePath(node: Node, hovered: HoveredWordInfo): TypeRangeInfo {
-    if (node.args) {
+function handlePath(node: Node, hovered: HoveredWord): TypeRangeInfo {
+    if (node.args && hovered.word !== '') {
         const nameNum = node.args.indexOf(hovered.word);
         if (nameNum === -1) {
             return { type: undefined };
@@ -471,60 +568,34 @@ function getTypeInfoFromUntypedNode(
     }
 }
 
+function resolveNormalizedType(result: TypeRangeInfo): TypeRangeInfo {
+    const normalized =
+        result.type === '???' ? '()' : result.type?.replace(/<\$>\s?/g, '');
+    return {
+        type:
+            typeof normalized !== 'undefined'
+                ? formatMotoko(normalized)
+                : undefined,
+        range: result.range,
+    };
+}
+
 function getTypeRangeInfo(
     ast: AST,
     node: Node,
-    position: Position,
-    startLine: string,
-    hovered: HoveredWordInfo,
+    hovered: HoveredWord,
 ): TypeRangeInfo {
-    const res: TypeRangeInfo = (() => {
-        if (node.name === 'ExpD') {
-            return getTypeInfoFromExpD(node, position, startLine);
-        }
-        if (
-            node.name === 'LetD' &&
-            asNode(node.args?.[1])?.name !== 'ImportE'
-        ) {
-            return getTypeInfoFromLetD(node, position, startLine);
-        }
-        if (node.name === 'TagE') {
-            const idNode = asNode(node.args?.[0]);
-            if (
-                idNode &&
-                idNode.name === 'ID' &&
-                hovered.word === '#' + idNode.args?.[0]
-            ) {
-                return handleTagE(idNode);
-            } else {
-                return { type: undefined };
-            }
-        }
-        if (node.name === 'TagP') {
-            if (hovered.word === node.args?.[0]) {
-                return handleTagP(node, hovered.word);
-            } else {
-                return { type: undefined };
-            }
-        }
-        if (node.name === 'TupT' || node.name === 'NamedT') {
-            return handlePath(node, hovered);
-        }
-        if (node.type) {
-            if (node.parent?.name === 'TagE') {
-                return handleTagE(node);
-            }
-            return handleAsyncNode(node);
-        }
-        return getTypeInfoFromUntypedNode(node, ast, hovered.word);
-    })();
+    if (node.start && node.start[0] - 1 !== hovered.range.start.line) {
+        return { type: undefined };
+    }
 
-    const type = res.type === '???' ? '()' : res.type?.replace(/<\$>\s?/g, '');
-
-    return {
-        type: typeof type !== 'undefined' ? formatMotoko(type) : undefined,
-        range: res.range,
+    const context: TypeContext = {
+        ast,
+        node,
+        hovered,
     };
+
+    return resolveNormalizedType(resolveTypeRange(context, hovered));
 }
 
 export function getPreviousSiblingNode(current: Node): AST | undefined {
@@ -539,11 +610,9 @@ export function getPreviousSiblingNode(current: Node): AST | undefined {
     return prev;
 }
 
-export function findTypeDeclarationRange(
-    current: Node,
+function findTypeDeclarationRange(
     child: Node,
-    position: Position,
-    startLine: string,
+    hovered: HoveredWord,
 ): TypeRangeInfo | undefined {
     const type = child.type;
     if (type) {
@@ -551,40 +620,17 @@ export function findTypeDeclarationRange(
         if (/[^\w#]/.test(declaration)) {
             return undefined;
         }
-
-        if (current.start) {
-            const line = current.start[0] - 1;
-            if (line !== position.line) {
-                return undefined;
-            }
-
-            const maybeIndex = startLine.indexOf(declaration);
-            const index = maybeIndex !== -1 ? maybeIndex : undefined;
-
-            if (index !== undefined) {
-                const end = index + declaration.length;
-                if (position.character < index || position.character > end) {
-                    return undefined;
-                }
-                return {
-                    type: type,
-                    range: {
-                        start: { line: line, character: index },
-                        end: {
-                            line: line,
-                            character: end,
-                        },
-                    },
-                };
-            }
-        }
+        return {
+            type,
+            range: hovered.range,
+        };
     }
 
     return undefined;
 }
 
 function findImportedModuleType(ast: AST, module: string): string | undefined {
-    const prog = findNodes(ast, (node) => node.name === 'Prog')[0];
+    const prog = findNodes(ast, (candidate) => candidate.name === 'Prog')[0];
 
     if (!prog?.args) {
         return;
@@ -617,47 +663,46 @@ function findImportedModuleType(ast: AST, module: string): string | undefined {
     return;
 }
 
-interface HoveredWordInfo {
-    word: string;
-    range: Range;
-}
+/**
+ * Extracts contextual information about the token under the cursor.
+ * Collects a word made of `[a-zA-Z0-9_#]`, captures its range, and flags bracket/question tokens.
+ * @param lines - Full document text split per line.
+ * @param position - Cursor position within the document.
+ * @returns Hover metadata for the current position.
+ */
+function findHoveredWord(lines: string[], position: Position): HoveredInfo {
+    const lineString = lines[position.line];
+    const hoveredChar = lineString[position.character];
+    const isAllowedChar = allowedChars.test(hoveredChar);
+    const isAllowedSymbol = allowedSymbols.test(hoveredChar);
+    const isQuestion = hoveredChar === '?';
 
-function findHoveredWord(
-    lineString: string,
-    line: number,
-    character: number,
-): HoveredWordInfo {
-    // Go backwards from the cursor to find the start of the word
-    let start = character;
+    let start = position.character;
     while (start > 0 && /[\w#]/.test(lineString[start - 1])) {
         start--;
     }
 
-    // Go forwards from the cursor to find the end of the word
-    let end = character;
+    let end = position.character;
     while (end < lineString.length && /[\w#]/.test(lineString[end])) {
         end++;
     }
 
     return {
-        word: lineString.substring(start, end),
-        range: {
-            start: {
-                line,
-                character: start,
-            },
-            end: {
-                line,
-                character: end,
+        word: {
+            word: lineString.substring(start, end),
+            range: {
+                start: {
+                    line: position.line,
+                    character: start,
+                },
+                end: {
+                    line: position.line,
+                    character: end,
+                },
             },
         },
+        isAllowedChar,
+        isAllowedSymbol,
+        isQuestion,
     };
-}
-
-function findKeyword(word: string): string | undefined {
-    if (keywords.includes(word)) {
-        return word;
-    }
-
-    return undefined;
 }

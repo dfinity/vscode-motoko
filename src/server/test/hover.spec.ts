@@ -1,7 +1,7 @@
 import { Hover } from 'vscode';
 import { URI } from 'vscode-uri';
 import { join } from 'node:path';
-import { makeTextDocument, runTest } from '../test/helpers';
+import { makeTextDocument, runTest, wait } from '../test/helpers';
 
 jest.setTimeout(60000);
 
@@ -609,6 +609,62 @@ describe('named actor', () => {
         expect(hover.contents).toStrictEqual({
             kind: 'markdown',
             value: '```motoko\nactor {}\n```\n\n---\n\nActor A documentation',
+        });
+    });
+});
+
+describe('keyword caching', () => {
+    const textDocument = makeTextDocument(rootUri, 'Keyword.mo');
+
+    test('non-node keyword hover invalidates cached comment scan after change', async () => {
+        await runTest(rootUri, async (client) => {
+            await client.sendNotification('textDocument/didOpen', {
+                textDocument,
+            });
+
+            const keywordHover = await client.sendRequest<Hover>(
+                'textDocument/hover',
+                {
+                    textDocument,
+                    position: { line: 2, character: 9 },
+                },
+            );
+
+            expect(keywordHover).not.toBeNull();
+
+            const updatedText = [
+                '/// Keyword caching test module',
+                'module {',
+                '  //     let keyword is now inside a comment',
+                '  public let noop = 0;',
+                '};',
+            ].join('\n');
+
+            await client.sendNotification('textDocument/didChange', {
+                textDocument: {
+                    uri: textDocument.uri,
+                    version: textDocument.version + 1,
+                },
+                contentChanges: [
+                    {
+                        text: updatedText,
+                    },
+                ],
+            });
+
+            await wait(1);
+
+            const commentHover = await client.sendRequest<Hover>(
+                'textDocument/hover',
+                {
+                    textDocument: {
+                        uri: textDocument.uri,
+                    },
+                    position: { line: 2, character: 9 },
+                },
+            );
+
+            expect(commentHover).toBeNull();
         });
     });
 });
