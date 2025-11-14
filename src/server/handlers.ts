@@ -26,7 +26,6 @@ import {
     Position,
     Range,
     ReferenceParams,
-    SignatureHelp,
     SymbolKind,
     TextDocumentPositionParams,
     TextDocumentSyncKind,
@@ -98,6 +97,7 @@ import {
 import { getAstHoverContent } from './hover/hoverContent';
 import { clearCommentStringCache } from './hover/commentRanges';
 import { formatDocument, FormatterKind } from './formatter';
+import { mkOnSignatureHelpHandler } from './handlers/onSignatureHelp';
 
 import execa = require('execa');
 
@@ -691,6 +691,10 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                 // executeCommandProvider: { commands: [] },
                 workspaceSymbolProvider: true,
                 documentSymbolProvider: true,
+                signatureHelpProvider: {
+                    triggerCharacters: ['(', ','],
+                    retriggerCharacters: [','],
+                },
                 // diagnosticProvider: {
                 //     documentSelector: ['motoko'],
                 //     interFileDependencies: true,
@@ -1222,9 +1226,7 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
         return results;
     });
 
-    connection.onSignatureHelp((): SignatureHelp | null => {
-        return null;
-    });
+    connection.onSignatureHelp(mkOnSignatureHelpHandler(documents));
 
     function findImportUri(
         context: Context,
