@@ -92,6 +92,7 @@ import {
     forwardMessage,
     getFileText,
     getRelativeUri,
+    isExternalUri,
     rangeContainsPosition,
     resolveFilePath,
     resolveVirtualPath,
@@ -100,6 +101,7 @@ import { getAstHoverContent } from './hover/hoverContent';
 import { clearCommentStringCache } from './hover/commentRanges';
 import { formatDocument, FormatterKind } from './formatter';
 import { mkOnSignatureHelpHandler } from './handlers/onSignatureHelp';
+import { mkOnPrepareRenameHandler } from './handlers/onPrepareRename';
 
 import execa = require('execa');
 
@@ -125,8 +127,7 @@ export interface MotokoSettings {
     mocJsPath?: string;
 }
 
-const shouldHideWarnings = (uri: string) =>
-    uri.includes('/.vessel/') || uri.includes('/.mops/');
+const shouldHideWarnings = (uri: string) => isExternalUri(uri);
 
 export const documents = new TextDocuments(TextDocument);
 
@@ -1944,6 +1945,10 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
 
         return Array.from(references.values());
     });
+
+    connection.onPrepareRename(
+        mkOnPrepareRenameHandler(isVirtualFileSystemReady),
+    );
 
     // Run a file which is recognized as a unit test
     connection.onRequest(
