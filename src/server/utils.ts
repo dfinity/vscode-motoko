@@ -174,3 +174,11 @@ export class LocationSet {
         );
     }
 }
+
+/**
+ * Returns true if the provided URI references the `.vessel` or `.mops` directories.
+ * Otherwise, returns false.
+ */
+export function isExternalUri(uri: string): boolean {
+    return uri.includes('/.vessel/') || uri.includes('/.mops/');
+}

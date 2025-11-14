@@ -1,0 +1,12 @@
+{
+  "canisters": {
+    "PrepareRename": {
+      "main": "prepare_rename.mo"
+    }
+  },
+  "defaults": {
+    "build": {
+      "packtool": "mops sources"
+    }
+  }
+}
