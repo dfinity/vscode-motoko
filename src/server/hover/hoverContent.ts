@@ -208,10 +208,6 @@ export async function getAstHoverContent(
                 return false;
             }
 
-            if (candidate.name === 'TupT' && candidate.type === '()') {
-                return 4;
-            }
-
             if (candidate.name === 'ID' && candidate.args?.[0] === '$') {
                 return 0;
             }
