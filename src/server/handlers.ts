@@ -5,7 +5,7 @@ import * as semver from 'semver';
 import * as glob from 'fast-glob';
 import { existsSync, readFileSync } from 'fs';
 import { add as mopsAdd } from 'ic-mops/commands/add';
-import { AST, Node } from 'motoko/lib/ast';
+import { AST, Node, Span } from 'motoko/lib/ast';
 import { keywords } from 'motoko/lib/keywords';
 import * as baseLibrary from 'motoko/packages/latest/base.json';
 import { join, resolve } from 'path';
@@ -13,6 +13,7 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import {
     CodeAction,
     CodeActionKind,
+    CompletionItem,
     CompletionItemKind,
     CompletionList,
     Diagnostic,
@@ -61,6 +62,7 @@ import {
 import DfxResolver from './dfx';
 import { extractFields, organizeImports } from './imports';
 import {
+    startPosDesc,
     Definition,
     defaultRange,
     findDefinitions,
@@ -1243,7 +1245,7 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                 node: imprt.cursor,
             })?.uri;
         }
-        return undefined;
+        return;
     }
 
     function getOffset(text: string, { line, character }: Position): number {
@@ -1293,18 +1295,15 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
         const list = CompletionList.create([], true);
         try {
             const text = getFileText(uri);
+            const doc = documents.get(uri);
+            if (!doc) return list;
             const context = getContext(uri);
-            const status = context.astResolver.request(
-                uri,
-                isVirtualFileSystemReady,
-            );
+            const status = context.astResolver.requestTyped(uri);
             const program = status?.program;
-
             const offset = getOffset(text, position);
             const [dot, identStart] = /(\s*\.\s*)?([a-zA-Z_]?[a-zA-Z0-9_]*)$/
                 .exec(text.substring(0, offset))
                 ?.slice(1) ?? ['', ''];
-
             if (!dot) {
                 let hadError = false;
                 context.importResolver
@@ -1370,24 +1369,202 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                 }
 
                 if (program) {
-                    // TODO: only show relevant identifiers
-                    const idents = new Set<string>();
-                    findNodes(
+                    // Here we get relevant identifiers.
+                    // General algorithm is as follows:
+                    // 1. Get a list of all relevant code blocks, that is the block
+                    // nodes containing the cursor (using the predicate
+                    // `relevantBlockNodes(position)`).
+                    // These blocks are:
+                    //   a. Blocks enclosed in curly braces (`{...}`);
+                    //   b. Function parameters if the cursor is placed in the function body.
+                    //   c. For-loop nodes (it contains loop-parameter)
+                    //   d. Class definitions
+                    // 2. Extract all relevant blocks children.
+                    //
+                    // As a result we get a list of AST containing relevan identifiers.
+                    //
+                    // NB: The individual nodes in the list may contain nested blocks. We
+                    // should not take identifier from that blocks because:
+                    // 1. If identifiers are relevant to the current scope, we already
+                    // have them in the list outside the nested blocks.
+                    // 2. If identifiers are not relevant we don't need them.
+                    // We exclude nested blocks using `relevantIdentNode` predicate
+                    // on the next step.
+                    const relevantBlocks = findNodes(
                         program.ast,
-                        (node) => node.name === 'ID',
-                    ).forEach((node) => {
-                        const ident = node.args?.[0];
-                        if (typeof ident === 'string') {
-                            idents.add(ident);
+                        relevantBlockNode(position),
+                    ).reduce(
+                        (a, n) => a.concat(n.args ?? []),
+                        (program.ast as Node)?.args ?? [],
+                    );
+                    // Extract nodes with relevant identifiers from relevant blocks
+                    // excluding nested blocks
+                    const relevantIdents = findNodes(
+                        relevantBlocks,
+                        relevantIdentNode,
+                    )
+                        // Add to identifier nodes distance to the current cursor position
+                        .map((ident: Node): [Node, number] => [
+                            ident,
+                            Math.abs(
+                                (ident.start
+                                    ? doc.offsetAt(spanToPos(ident.start))
+                                    : 0) - doc.offsetAt(position),
+                            ),
+                        ])
+                        // Order nodes by distance to the current cursor position (closest first)
+                        .sort((a, b) => a[1] - b[1])
+                        // Take ordered nodes
+                        .map((v) => v[0]);
+                    // Convert nodes with relevant identifiers to completion items.
+                    const items =
+                        relevantNodesToCompletionItems(relevantIdents);
+                    list.items.push(...items);
+
+                    // Total analog to the `spanToPos` in `navigation.ts`
+                    function spanToPos(span: Span): Position {
+                        return { line: span[0] - 1, character: span[1] };
+                    }
+                    // The function constructs a predicate to find code blocks
+                    // containing the current cursor position.
+                    function relevantBlockNode(
+                        cursorPosition: Position,
+                    ): (node: Node, parents: Node[]) => Boolean {
+                        return (node: Node, parents: Node[]) => {
+                            // Take function parameters if the cursor is inside of function body
+                            if (node.name === 'ParP') {
+                                // Find all function expressions in parent nodes,
+                                // sorted from closest to farthest from the cursor
+                                const funcNodes = parents
+                                    .filter((n) => n.name === 'FuncE')
+                                    .sort(startPosDesc);
+                                // Take closest function block
+                                const funcBody = funcNodes?.[0]?.args?.find(
+                                    (n: AST) =>
+                                        matchNode(n, 'BlockE', () => true),
+                                );
+                                const funcRange = rangeFromNode(
+                                    funcBody as Node,
+                                );
+                                return (
+                                    typeof funcRange !== 'undefined' &&
+                                    rangeContainsPosition(
+                                        funcRange,
+                                        cursorPosition,
+                                    )
+                                );
+                            }
+                            // Take all other blocks containing the cursor
+                            if (
+                                node.name === 'BlockE' || // Blocks in curly braces
+                                node.name === 'ForE' || // for-loops
+                                node.name === 'ObjBlockE' || // Blocks in curly braces
+                                node.name === 'ClassD' // Class definitions
+                            ) {
+                                const nodeRange = rangeFromNode(node);
+                                return (
+                                    typeof nodeRange !== 'undefined' &&
+                                    rangeContainsPosition(
+                                        nodeRange,
+                                        cursorPosition,
+                                    )
+                                );
+                            }
+                            return false;
+                        };
+                    }
+
+                    // A predicate to find relevant identifier blocks
+                    function relevantIdentNode(
+                        node: Node,
+                        parents: Node[],
+                    ): Boolean {
+                        const criteria =
+                            // Take variable identifiers and function names.
+                            // They are enclosed in `VarP` and `VarD` nodes
+                            (node.name === 'VarP' ||
+                                node.name === 'VarD' ||
+                                // Take class identifiers
+                                node.name === 'ClassD') &&
+                            // Exclude identifiers from the nested blocks
+                            !(
+                                parents.some(
+                                    (p) =>
+                                        p.name === 'BlockE' ||
+                                        p.name === 'FuncE' ||
+                                        p.name === 'ForE' ||
+                                        p.name === 'ObjBlockE' ||
+                                        p.name === 'ClassD',
+                                ) ||
+                                // Exclude module identifiers since they are included earlier
+                                matchNode(
+                                    node.typeRep,
+                                    'Obj',
+                                    (m) => m === 'Module',
+                                )
+                            );
+                        if (criteria) {
+                            // Add docs. If node hasn't got docs, try to find it in the parent nodes
+                            if (!node.doc) {
+                                const docNode = parents.find((n) => n.doc);
+                                node.doc = docNode?.doc;
+                            }
+                            return true;
                         }
-                    });
-                    idents.forEach((ident) => {
-                        list.items.push({
-                            label: ident,
-                            insertText: ident,
-                            kind: CompletionItemKind.Variable,
+                        return false;
+                    }
+
+                    // Converts relevant identifier node list to list of completion items
+                    function relevantNodesToCompletionItems(
+                        nodes: Node[],
+                    ): CompletionItem[] {
+                        const items = new Map<string, CompletionItem>();
+                        nodes.forEach((node) => {
+                            const item =
+                                matchNode(node, 'VarP', (id) =>
+                                    matchNode(id, 'ID', (ident) => {
+                                        let kind: CompletionItemKind =
+                                            CompletionItemKind.Variable;
+                                        if (
+                                            node.typeRep &&
+                                            node.typeRep.name === 'Func'
+                                        ) {
+                                            kind = CompletionItemKind.Function;
+                                        }
+                                        return {
+                                            label: ident,
+                                            kind: kind,
+                                            detail: node.type,
+                                            documentation: node.doc,
+                                        };
+                                    }),
+                                ) ??
+                                matchNode(node, 'VarD', (id) =>
+                                    matchNode(id, 'ID', (ident) => {
+                                        return {
+                                            label: ident,
+                                            kind: CompletionItemKind.Variable,
+                                            detail: node.type,
+                                            documentation: node.doc,
+                                        };
+                                    }),
+                                ) ??
+                                matchNode(node, 'ClassD', (_, id) =>
+                                    matchNode(id, 'ID', (ident) => {
+                                        return {
+                                            label: ident,
+                                            kind: CompletionItemKind.Class,
+                                            detail: ident,
+                                            documentation: node.doc,
+                                        };
+                                    }),
+                                );
+                            if (item) {
+                                items.set(item.label, item);
+                            }
                         });
-                    });
+                        return Array.from(items.values());
+                    }
                 }
             } else {
                 // Check for an identifier before the dot (e.g. `Module.abc`)
@@ -1402,7 +1579,6 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                 const start = end - preIdent.length;
                 const indentPosition = getLineAndCharacter(text, start);
                 const definitions = findDefinitions(uri, indentPosition);
-
                 function completionsFromDefinition(definition: Definition) {
                     // HACK: Base modules seem to be contained inside an ExpD, so we
                     // unwrap them.
@@ -1418,15 +1594,10 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                     if (!fields) {
                         return list;
                     }
-
-                    Array.from(fields.values()).forEach(({ name, kind }) =>
-                        list.items.push({
-                            label: name,
-                            detail: getRelativeUri(uri, definition.uri),
-                            insertText: name,
-                            kind,
-                        }),
-                    );
+                    Array.from(fields.values()).forEach((item) => {
+                        item.detail = getRelativeUri(uri, definition.uri);
+                        list.items.push(item);
+                    });
                     return list;
                 }
 
@@ -1451,23 +1622,19 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                             );
                         iter = modules ? modules : [];
                     }
-                    iter.forEach((uri: string) =>
+                    iter.forEach((uri: string) => {
                         context.importResolver
                             .getFields(uri)
-                            .forEach(({ name, kind }) => {
-                                if (name.startsWith(identStart)) {
-                                    list.items.push({
-                                        label: name,
-                                        detail: getRelativeUri(
-                                            event.textDocument.uri,
-                                            uri,
-                                        ),
-                                        insertText: name,
-                                        kind,
-                                    });
+                            .forEach((item) => {
+                                if (item.label.startsWith(identStart)) {
+                                    item.detail = getRelativeUri(
+                                        event.textDocument.uri,
+                                        uri,
+                                    );
+                                    list.items.push(item);
                                 }
-                            }),
-                    );
+                            });
+                    });
                 }
             }
         } catch (err) {
@@ -1486,7 +1653,7 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
         const text = document?.getText() ?? getFileText(uri);
         const lines = text.split(/\r?\n/g);
         const documentVersion = document?.version;
-        const docs: string[] = [];
+        const docs: Set<string> = new Set<string>();
         let range: Range | undefined;
 
         // Error code explanations
@@ -1498,9 +1665,7 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                     codes.push(code);
                     if (errorCodes.hasOwnProperty(code)) {
                         // Show explanation without Markdown heading
-                        docs.push(
-                            errorCodes[code].replace(/^# M[0-9]+\s+/, ''),
-                        );
+                        docs.add(errorCodes[code].replace(/^# M[0-9]+\s+/, ''));
                     }
                 }
             }
@@ -1515,20 +1680,22 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
             settings,
         );
         if (astHoverContent) {
-            docs.push(...astHoverContent.docs);
+            for (const doc of astHoverContent.docs) {
+                docs.add(doc);
+            }
             if (!range) {
                 // Only set range if not already set by error codes
                 range = astHoverContent.range;
             }
         }
 
-        if (!docs.length) {
+        if (!docs.size) {
             return;
         }
         return {
             contents: {
                 kind: MarkupKind.Markdown,
-                value: docs.join('\n\n---\n\n'),
+                value: Array.from(docs.values()).join('\n\n---\n\n'),
             },
             range,
         };
@@ -1697,6 +1864,10 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                                 range,
                             );
                             references.add(location);
+                        });
+                    } else {
+                        referenceDefinitions.forEach((refDef) => {
+                            references.delete(locationFromDefinition(refDef));
                         });
                     }
                 } catch (err) {

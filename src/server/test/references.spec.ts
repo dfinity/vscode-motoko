@@ -98,7 +98,7 @@ describe('references', () => {
     }
 
     beforeAll(async () => {
-        [client, server] = await defaultBeforeAll(rootUri);
+        [client, server] = await defaultBeforeAll(rootUri, true);
     });
 
     afterAll(async () => {
@@ -152,5 +152,26 @@ describe('references', () => {
             location('sub.mo', 15, 6, 10, false), // c.meth
             location('sub.mo', 2, 16, 20, true), // definition of Class1.meth
             location('sub.mo', 8, 16, 20, true), // definition of Class2.meth
+        ]));
+
+    test('Can find all references of record (type definition)', () =>
+        testReferences([
+            location('record.mo', 1, 17, 20, true), // type definition of bar (type Foo)
+            location('record.mo', 4, 26, 29, true), // expression definition of bar (field assignment)
+            location('record.mo', 5, 12, 15, false), // bar in foo.bar (test1)
+        ]));
+
+    test('Can find all references of record (annotation expression)', () =>
+        testReferences([
+            location('record.mo', 9, 20, 23, true), // type definition of bar (expression type annotation)
+            location('record.mo', 9, 36, 39, true), // expression definition of bar (field assignment)
+            location('record.mo', 10, 12, 15, false), // bar in foo.bar (test2)
+        ]));
+
+    test('Can find all references of record (switch/case)', () =>
+        testReferences([
+            location('record.mo', 14, 18, 21, true), // expression definition of bar (field assignment)
+            location('record.mo', 15, 26, 29, true), // type definition of bar (pattern type annotation)
+            location('record.mo', 15, 43, 46, false), // bar in foo.bar (test3)
         ]));
 });
