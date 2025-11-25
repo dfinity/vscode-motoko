@@ -98,6 +98,7 @@ import { formatDocument, FormatterKind } from './formatter';
 import { mkOnSignatureHelpHandler } from './handlers/onSignatureHelp';
 import { mkOnPrepareRenameHandler } from './handlers/onPrepareRename';
 import { mkOnReferencesHandler } from './handlers/onReferences';
+import { mkOnRenameHandler } from './handlers/onRename';
 
 import execa = require('execa');
 
@@ -685,6 +686,9 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                 definitionProvider: true,
                 // declarationProvider: true,
                 referencesProvider: true,
+                renameProvider: {
+                    prepareProvider: true,
+                },
                 codeActionProvider: {
                     codeActionKinds: [
                         CodeActionKind.QuickFix,
@@ -1817,6 +1821,8 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
     connection.onPrepareRename(
         mkOnPrepareRenameHandler(isVirtualFileSystemReady),
     );
+
+    connection.onRenameRequest(mkOnRenameHandler(isVirtualFileSystemReady));
 
     // Run a file which is recognized as a unit test
     connection.onRequest(
