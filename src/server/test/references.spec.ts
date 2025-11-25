@@ -9,25 +9,7 @@ import {
     openTextDocuments,
 } from './helpers';
 import { Connection, Location, Position, Range } from 'vscode-languageserver';
-
-function compareLocations(a: Location, b: Location): number {
-    if (a.uri < b.uri) return -1;
-    if (a.uri > b.uri) return 1;
-
-    if (a.range.start.line !== b.range.start.line) {
-        return a.range.start.line - b.range.start.line;
-    }
-
-    if (a.range.start.character !== b.range.start.character) {
-        return a.range.start.character - b.range.start.character;
-    }
-
-    if (a.range.end.line !== b.range.end.line) {
-        return a.range.end.line - b.range.end.line;
-    }
-
-    return a.range.end.character - b.range.end.character;
-}
+import { compareLocations } from '../utils';
 
 type LocationWithMetadata = {
     location: Location;

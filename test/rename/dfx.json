@@ -1,7 +1,7 @@
 {
   "canisters": {
-    "PrepareRename": {
-      "main": "prepare_rename.mo"
+    "A": {
+      "main": "simple.mo"
     }
   },
   "defaults": {

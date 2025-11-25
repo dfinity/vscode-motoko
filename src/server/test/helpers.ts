@@ -84,12 +84,9 @@ export async function defaultBeforeAll(
 
 export async function defaultAfterAll(
     client: Connection,
-    server: Connection,
+    _server: Connection,
 ): Promise<void> {
     await client.sendRequest('shutdown');
-    await wait(2);
-    client.dispose();
-    server.dispose();
 }
 
 export async function openTextDocuments(
@@ -97,8 +94,7 @@ export async function openTextDocuments(
     textDocuments: Map<string, TextDocument>,
     rootUri: URI,
     uris: string[],
-) {
-    const needToWait = false;
+): Promise<void> {
     await Promise.all(
         uris.map(async (uri) => {
             if (!textDocuments.has(uri)) {
@@ -113,8 +109,4 @@ export async function openTextDocuments(
             }
         }),
     );
-    if (needToWait) {
-        // Wait for everything to open.
-        await wait(1);
-    }
 }

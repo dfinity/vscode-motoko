@@ -2,7 +2,12 @@ import { readFileSync } from 'fs';
 import { join, sep } from 'path';
 import * as motokoPlugin from 'prettier-plugin-motoko';
 import * as prettier from 'prettier/standalone';
-import { Location, Position, Range } from 'vscode-languageserver/node';
+import {
+    Location,
+    Position,
+    Range,
+    TextEdit,
+} from 'vscode-languageserver/node';
 import { URI, Utils } from 'vscode-uri';
 
 const fileSeparatorPattern = new RegExp(sep.replace(/[/\\]/g, '\\$&'), 'g');
@@ -181,4 +186,41 @@ export class LocationSet {
  */
 export function isExternalUri(uri: string): boolean {
     return uri.includes('/.vessel/') || uri.includes('/.mops/');
+}
+
+/**
+ * Compares two ranges.
+ */
+export function compareRanges(a: Range, b: Range): number {
+    if (a.start.line !== b.start.line) {
+        return a.start.line - b.start.line;
+    }
+
+    if (a.start.character !== b.start.character) {
+        return a.start.character - b.start.character;
+    }
+
+    if (a.end.line !== b.end.line) {
+        return a.end.line - b.end.line;
+    }
+
+    return a.end.character - b.end.character;
+}
+
+/**
+ * Compares two locations.
+ */
+export function compareLocations(a: Location, b: Location): number {
+    if (a.uri < b.uri) return -1;
+    if (a.uri > b.uri) return 1;
+    return compareRanges(a.range, b.range);
+}
+
+/**
+ * Compares two text edits.
+ */
+export function compareTextEdits(a: TextEdit, b: TextEdit): number {
+    if (a.newText < b.newText) return -1;
+    if (a.newText > b.newText) return 1;
+    return compareRanges(a.range, b.range);
 }
