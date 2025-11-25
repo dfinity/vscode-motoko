@@ -87,6 +87,7 @@ export async function defaultAfterAll(
     _server: Connection,
 ): Promise<void> {
     await client.sendRequest('shutdown');
+    await wait(2);
 }
 
 export async function openTextDocuments(

@@ -240,6 +240,23 @@ export function findDefinitions(
     return definitions;
 }
 
+function searchTypeFromIdContext(node: Node): 'variable' | 'type' {
+    if (!node.parent) {
+        // No parent, which is strange. Let's use a sane default.
+        console.warn('ID node has no parent:', node);
+        return 'variable';
+    }
+
+    const name = node.parent.name;
+    if (name === 'TypD') {
+        // Searching a type.
+        return 'type';
+    } else {
+        // Either a variable or a default.
+        return 'variable';
+    }
+}
+
 function getSearchPath(node: Node): Search[] {
     return (
         matchNode(node, 'DotE', (qual: Node, id: Node) => [
@@ -310,7 +327,7 @@ function getSearchPath(node: Node): Search[] {
         ]) ||
         matchNode(node, 'ID', (name: string) => [
             {
-                type: 'variable',
+                type: searchTypeFromIdContext(node),
                 name,
                 start: spanToPos(node.start),
                 end: spanToPos(node.end),
