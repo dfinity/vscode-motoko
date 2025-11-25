@@ -136,6 +136,12 @@ describe('references', () => {
             location('sub.mo', 8, 16, 20, true), // definition of Class2.meth
         ]));
 
+    test('Can find all references of type', () =>
+        testReferences([
+            location('record.mo', 1, 9, 12, true), // definition of Foo
+            location('record.mo', 4, 18, 21, false), // Foo in annotation
+        ]));
+
     test('Can find all references of record (type definition)', () =>
         testReferences([
             location('record.mo', 1, 17, 20, true), // type definition of bar (type Foo)

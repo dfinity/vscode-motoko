@@ -203,39 +203,39 @@ describe('rename', () => {
     );
     afterAll(async () => await defaultAfterAll(client, server));
 
-    test('Can find all references from definition', () =>
+    test('Can rename all references from definition', () =>
         testRename({
             'B.mo': [range(3, 25, 30)], // C.other
             'C.mo': [range(2, 15, 20)], // definition of other
         }));
 
-    test('Can find all references in nested path', () =>
+    test('Can rename all references in nested path', () =>
         testRename({
             'A.mo': [range(6, 30, 35)], // C.Inner.inner
             'B.mo': [range(10, 31, 36)], // C.Inner.inner
             'C.mo': [range(8, 19, 24)], // definition of inner
         }));
 
-    test('Can find all references of nested path', () =>
+    test('Can rename all references of nested path', () =>
         testRename({
             'A.mo': [range(6, 24, 29)], // C.Inner
             'B.mo': [range(10, 25, 30)], // C.Inner
             'C.mo': [range(7, 18, 23)], // definition of Inner (lab)
         }));
 
-    test('Can find all function references', () =>
+    test('Can rename all function references', () =>
         testRename({
             'B.mo': [range(5, 17, 20)], // C.inc
             'C.mo': [range(3, 16, 19)], // definition of inc (lab)
         }));
 
-    test('Can find all object method references', () =>
+    test('Can rename all object method references', () =>
         testRename({
             'A.mo': [range(6, 17, 21)], // a.meth
             'B.mo': [range(9, 20, 24)], // definition of meth
         }));
 
-    test('Can find all references of circular chain', () => {
+    test('Can rename all references of circular chain', () => {
         const refs = [12, 14, 16, 18, 20, 22].map(
             (column) => range(5, column, column + 1), // /\.o\.?/
         );
@@ -245,7 +245,7 @@ describe('rename', () => {
         });
     }, 20000);
 
-    test('Can find all references of method (subtype and supertype)', () =>
+    test('Can rename all references of method (subtype and supertype)', () =>
         testRename({
             'sub.mo': [
                 range(15, 6, 10), // c.meth
@@ -254,7 +254,15 @@ describe('rename', () => {
             ],
         }));
 
-    test('Can find all references of record (type definition)', () =>
+    test('Can rename all references of type', () =>
+        testRename({
+            'record.mo': [
+                range(1, 9, 12), // definition of Foo
+                range(4, 18, 21), // Foo in annotation
+            ],
+        }));
+
+    test('Can rename all references of record (type definition)', () =>
         testRename({
             'record.mo': [
                 range(1, 17, 20), // type definition of bar (type Foo)
@@ -263,7 +271,7 @@ describe('rename', () => {
             ],
         }));
 
-    test('Can find all references of record (annotation expression)', () =>
+    test('Can rename all references of record (annotation expression)', () =>
         testRename({
             'record.mo': [
                 range(9, 20, 23), // type definition of bar (expression type annotation)
@@ -272,7 +280,7 @@ describe('rename', () => {
             ],
         }));
 
-    test('Can find all references of record (switch/case)', () =>
+    test('Can rename all references of record (switch/case)', () =>
         testRename({
             'record.mo': [
                 range(14, 18, 21), // expression definition of bar (field assignment)
@@ -294,14 +302,13 @@ describe('rename', () => {
             'prepare_rename.mo': [range(5, 5, 10)], // _test
         }));
 
-    // TODO [VSC-39]: Fix this test.
-    //test('Can rename type', () =>
-    //    testRename({
-    //        'prepare_rename.mo': [
-    //            range(3, 5, 11), // definition of record
-    //            range(6, 16, 22), // record in annotation
-    //        ],
-    //    }));
+    test('Can rename type', () =>
+        testRename({
+            'prepare_rename.mo': [
+                range(3, 5, 11), // definition of record
+                range(6, 16, 22), // record in annotation
+            ],
+        }));
 
     test('Can rename internally imported function', () =>
         testRename({
