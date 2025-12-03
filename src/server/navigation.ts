@@ -42,6 +42,22 @@ function posBefore(pos1: Position, pos2: Position): Boolean {
     );
 }
 
+/**
+ * Comparison function for nodes. A node is considered greater if its start position is earlier.
+ *
+ * After sorting with this function, the first node in the list is the one deepest
+ * in the code hierarchy.
+ */
+export function startPosDesc(a: Node, b: Node): number {
+    const aStartPos = spanToPos(a.start);
+    const bStartPos = spanToPos(b.start);
+    if (!aStartPos && bStartPos) return -1;
+    if (aStartPos && !bStartPos) return 1;
+    if (aStartPos && bStartPos && posBefore(aStartPos, bStartPos)) return 1;
+    if (aStartPos && bStartPos && posBefore(bStartPos, aStartPos)) return -1;
+    return 0;
+}
+
 export function sameLocation(a: Location, b: Location): boolean {
     return (
         a.uri === b.uri &&
@@ -220,7 +236,6 @@ export function findDefinitions(
             relatedPath,
             `(${node.name})`,
         );
-        return [];
     }
     return definitions;
 }
@@ -261,6 +276,46 @@ function getSearchPath(node: Node): Search[] {
             },
         ]) ||
         matchNode(node, 'PathT', (path: Node) => getTypeSearchPath(path)) ||
+        matchNode(node, 'ValF', (id: Node, _typ: Node, _mut: Node) => [
+            {
+                type: 'variable',
+                name: getIdName(id)!,
+                start: spanToPos(id.start),
+                end: spanToPos(id.end),
+            },
+        ]) ||
+        matchNode(node, 'TypF', (typId: Node) => [
+            {
+                type: 'type',
+                name: getIdName(typId)!,
+                start: spanToPos(typId.start),
+                end: spanToPos(typId.end),
+            },
+        ]) ||
+        matchNode(node, 'ValPF', (id: Node, _pat: Node) => [
+            {
+                type: 'variable',
+                name: getIdName(id)!,
+                start: spanToPos(id.start),
+                end: spanToPos(id.end),
+            },
+        ]) ||
+        matchNode(node, 'TypPF', (typId: Node) => [
+            {
+                type: 'type',
+                name: getIdName(typId)!,
+                start: spanToPos(typId.start),
+                end: spanToPos(typId.end),
+            },
+        ]) ||
+        matchNode(node, 'ID', (name: string) => [
+            {
+                type: 'variable',
+                name,
+                start: spanToPos(node.start),
+                end: spanToPos(node.end),
+            },
+        ]) ||
         []
     );
 }
@@ -378,10 +433,11 @@ export function followImport(
 
 function gatherFieldLocations(lab: string, node: Node): LocationSet {
     const references = new LocationSet();
-    if (node.name !== 'Obj' || !node.args) {
+    if ((node.name !== 'Obj' && node.name !== 'Variant') || !node.args) {
         return references;
     }
-    const [_sort, ...fields] = node.args;
+    // For Obj, the first element is the obj sort, which we ignore.
+    const fields = node.name === 'Obj' ? node.args.slice(1) : node.args;
     for (const field of fields as Node[]) {
         if (field.name !== lab) {
             continue;
@@ -402,7 +458,7 @@ function gatherFieldLocations(lab: string, node: Node): LocationSet {
     return references;
 }
 
-function searchType(reference: Reference, search: Search): Definition[] {
+function searchTypeRep(reference: Reference, search: Search): Definition[] {
     function searchDotE(node: Node): Definition[] {
         return (
             matchNode(node, 'DotE', (qual: Node, id: Node) => {
@@ -421,24 +477,61 @@ function searchType(reference: Reference, search: Search): Definition[] {
                 if (!qual.typeRep) {
                     return [];
                 }
-                const locations = Array.from(
-                    gatherFieldLocations(lab, qual.typeRep).values(),
-                );
-                let definitions: Definition[] = [];
-                for (const location of locations) {
-                    const follow = findDefinitions(
-                        location.uri,
-                        location.range.start,
-                    );
-                    if (follow) {
-                        definitions = definitions.concat(follow);
-                    }
-                }
-                return definitions;
+                return searchTypeRep(qual.typeRep);
             }) || []
         );
     }
-    return searchDotE(reference.node);
+
+    function searchTypeRep(typeRep: Node): Definition[] {
+        const locations = Array.from(
+            gatherFieldLocations(search.name, typeRep).values(),
+        );
+        const definitions: Definition[] = [];
+        for (const location of locations) {
+            const uri = location.uri;
+            const context = getContext(uri);
+            const status =
+                context.astResolver.requestTyped(uri) ||
+                context.astResolver.request(uri, false);
+            if (!status?.ast) {
+                console.warn('Missing AST for', uri);
+                continue;
+            }
+            if (status.outdated) {
+                console.log('Outdated AST for', uri);
+                continue;
+            }
+
+            const node = findMostSpecificNodeForPosition(
+                status.ast,
+                location.range.start,
+                scoreFromNodePriorities,
+                false,
+            );
+            if (!node) {
+                continue;
+            }
+            const definition = searchInScope(
+                { uri, node },
+                {
+                    type: 'variable',
+                    name: search.name,
+                    start: location.range.start,
+                    end: location.range.end,
+                },
+            );
+            if (definition) {
+                definitions.push(definition);
+            }
+        }
+        return definitions;
+    }
+
+    const definitions = searchDotE(reference.node);
+    if (reference.node.typeRep && !definitions.length) {
+        definitions.push(...searchTypeRep(reference.node.typeRep));
+    }
+    return definitions;
 }
 
 function search(
@@ -450,7 +543,7 @@ function search(
         return [];
     }
     // If we have a DotE, search for the reference in the type.
-    const definitions = searchType(reference, path[path.length - 1]);
+    const definitions = searchTypeRep(reference, path[path.length - 1]);
     if (definitions.length) {
         return definitions;
     }
@@ -503,6 +596,18 @@ function searchDeclaration(
     search: Search,
     dec: Node,
 ): Definition | undefined {
+    function matchId(id: Node, body: Node): Definition | undefined {
+        const name = getIdName(id);
+        return name === search.name
+            ? {
+                  uri: reference.uri,
+                  cursor: id,
+                  body,
+                  name,
+              }
+            : undefined;
+    }
+
     return (
         matchNode(dec, 'LetD', (pat: Node, body: Node) => {
             const [name, varNode] = findNameInPattern(search, pat) || [];
@@ -515,17 +620,7 @@ function searchDeclaration(
                 }
             );
         }) ||
-        matchNode(dec, 'VarD', (id: Node, body: Node) => {
-            const name = getIdName(id);
-            return name === search.name
-                ? {
-                      uri: reference.uri,
-                      cursor: id,
-                      body,
-                      name,
-                  }
-                : undefined;
-        }) ||
+        matchNode(dec, 'VarD', (id: Node, body: Node) => matchId(id, body)) ||
         matchNode(dec, 'ClassD', (_sharedPat: any, pat: Node) => {
             const [name, varNode] = findNameInPattern(search, pat) || [];
             return varNode && name === search.name
@@ -536,7 +631,14 @@ function searchDeclaration(
                       name,
                   }
                 : undefined;
-        })
+        }) ||
+        matchNode(dec, 'ValF', (id: Node, _syntaxTyp: Node, _mut: Node) =>
+            matchId(id, dec),
+        ) ||
+        matchNode(dec, 'TypF', (typId: Node) => matchId(typId, dec)) ||
+        matchNode(dec, 'ValPF', (id: Node, _pat: Node) => matchId(id, dec)) ||
+        matchNode(dec, 'TypPF', (typId: Node) => matchId(typId, dec)) ||
+        undefined
     );
 }
 
@@ -594,7 +696,7 @@ export function searchObject(
                     return (
                         name === search.name && {
                             uri: reference.uri,
-                            cursor: arg,
+                            cursor: id,
                             body,
                             name,
                         }
@@ -621,6 +723,20 @@ export function searchObject(
                         return;
                     },
                 );
+            if (!definition) {
+                const result = matchNode(arg, 'case', (pat: Node, _exp: Node) =>
+                    findNameInPattern(search, pat),
+                );
+                if (result) {
+                    const [name, pat] = result;
+                    definition = {
+                        uri: reference.uri,
+                        cursor: pat,
+                        body: pat,
+                        name,
+                    };
+                }
+            }
             if (!definition) {
                 const [name, pat] = findNameInPattern(search, arg) || []; // Function parameters
                 if (pat) {
