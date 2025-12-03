@@ -216,7 +216,7 @@ function findFuncNodes(
         return bStartOffset - aStartOffset;
     }
     const nodes = findNodes(ast, funcNodesPred(doc, cursorOffset))
-        .map((n) => (n as any).args[0])
+        .map((n) => n as any)
         .sort(posDesc);
     return nodes;
 }
@@ -239,7 +239,7 @@ function funcNodesPred(
             character: node.end[1] - 1,
         });
         const funcCond =
-            node.name === 'VarE' &&
+            node.name === 'ID' &&
             node.typeRep.name === 'Func' &&
             cursorOffset > endOffset;
         if (funcCond) return true;
