@@ -1,3 +1,5 @@
+import Lib "lib";
+
 module {
     func test () {
         let x1 = f1(1, "qwerty");
@@ -5,6 +7,8 @@ module {
         let x3 = f1(/* first parameter */ 1, /* second parameter */ "f1(1, \"qwerty\")"); // f1(1, "qwerty");
         let y = f1(f3</* integer(,*/ Int, /* text ,) */ Text>(1, "qwerty"), "qweqwe");
         f4(f1, 1, "");
+        f2(
+        Lib.ff(
     };
 
     func f1 (a: Int, b: Text): Int {return a}; 
