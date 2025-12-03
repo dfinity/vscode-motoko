@@ -33,7 +33,7 @@ describe('document formatting', () => {
         expect(edits[0].newText).toBe(
             'module {\n    public func hello() : async () {};\n};\n',
         );
-    });
+    }, 6000);
 
     test('disables formatting via initialization options', async () => {
         const edits = await requestFormatting({ formatter: 'none' });

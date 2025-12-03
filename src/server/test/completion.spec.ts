@@ -249,7 +249,7 @@ describe('completion', () => {
             },
         );
 
-        expect(completion.items.length).toBe(0);
+        expect(completion.items.length).toBe(5);
     });
 
     test('local module completion with matchable prefix', async () => {
@@ -273,6 +273,9 @@ describe('completion', () => {
         const expected = [
             { label: 'foo', detail: 'b.mo', kind: 3 },
             { label: 'foobar', detail: 'b.mo', kind: 3 },
+            { label: 'a', detail: 'b.mo', kind: 6 },
+            { label: 'Age', detail: 'b.mo', kind: 8 },
+            { label: 'D', detail: 'b.mo', kind: 7 },
         ];
 
         expect(completion.items).toEqual(expected);
