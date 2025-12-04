@@ -37,6 +37,19 @@ let k =     A
              .(
             B.)
 }
+
+module Local {
+  public let foo : Int = 5;
+  public let bar : Text = "test";
+  public type Foo = Nat;
+
+  public module Nested {
+    public let baz : Text = "nested";
+  };
+};
+
+let l = Local.;
+let m = Local.Nested.;
 `;
 
 const rootUri = URI.file(`${cwd()}/test/completion`);
@@ -249,7 +262,7 @@ describe('completion', () => {
             },
         );
 
-        expect(completion.items.length).toBe(5);
+        expect(completion.items.length).toBe(0);
     });
 
     test('local module completion with matchable prefix', async () => {
@@ -273,9 +286,6 @@ describe('completion', () => {
         const expected = [
             { label: 'foo', detail: 'b.mo', kind: 3 },
             { label: 'foobar', detail: 'b.mo', kind: 3 },
-            { label: 'a', detail: 'b.mo', kind: 6 },
-            { label: 'Age', detail: 'b.mo', kind: 8 },
-            { label: 'D', detail: 'b.mo', kind: 7 },
         ];
 
         expect(completion.items).toEqual(expected);
@@ -436,6 +446,59 @@ describe('completion', () => {
             { label: 'Age', detail: 'b.mo', kind: 8 },
             { label: 'D', detail: 'b.mo', kind: 7 },
         ];
+
+        expect(completion.items).toEqual(expected);
+    });
+
+    test('Local module', async () => {
+        // let l = ...
+        const completion = await client.sendRequest<CompletionList>(
+            'textDocument/completion',
+            {
+                textDocument: {
+                    uri: `${file.uri}`,
+                },
+                position: {
+                    line: 32,
+                    character: 14,
+                },
+                context: {
+                    triggerKind: 2,
+                    triggerCharacter: '.',
+                },
+            },
+        );
+
+        const expected = [
+            { label: 'foo', detail: 'not-exist.mo', kind: 6 },
+            { label: 'bar', detail: 'not-exist.mo', kind: 6 },
+            { label: 'Foo', detail: 'not-exist.mo', kind: 8 },
+            { label: 'Nested', detail: 'not-exist.mo', kind: 6 },
+        ];
+
+        expect(completion.items).toEqual(expected);
+    });
+
+    test('Nested module', async () => {
+        // let m = ...
+        const completion = await client.sendRequest<CompletionList>(
+            'textDocument/completion',
+            {
+                textDocument: {
+                    uri: `${file.uri}`,
+                },
+                position: {
+                    line: 33,
+                    character: 21,
+                },
+                context: {
+                    triggerKind: 2,
+                    triggerCharacter: '.',
+                },
+            },
+        );
+
+        const expected = [{ label: 'baz', detail: 'not-exist.mo', kind: 6 }];
 
         expect(completion.items).toEqual(expected);
     });

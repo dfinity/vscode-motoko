@@ -1601,10 +1601,12 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                     if (!fields) {
                         return list;
                     }
-                    Array.from(fields.values()).forEach((item) => {
-                        item.detail = getRelativeUri(uri, definition.uri);
-                        list.items.push(item);
-                    });
+                    Array.from(fields.values())
+                        .filter((item) => item.label.startsWith(identStart))
+                        .forEach((item) => {
+                            item.detail = getRelativeUri(uri, definition.uri);
+                            list.items.push(item);
+                        });
                     return list;
                 }
 

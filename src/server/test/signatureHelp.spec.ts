@@ -25,7 +25,7 @@ const file = {
     },
 };
 
-describe('signanureHelp', () => {
+describe('signatureHelp', () => {
     let client: Connection;
     let server: Connection;
 
