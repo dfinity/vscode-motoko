@@ -787,7 +787,7 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
 
     connection.onDidChangeConfiguration((event) => {
         settings = (<Settings>event.settings).motoko;
-        resetContexts();
+        notifyPackageConfigChange();
     });
 
     connection.onDocumentFormatting((params) => {
