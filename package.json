@@ -124,7 +124,7 @@
                     "scope": "resource",
                     "type": "string",
                     "default": "",
-                    "description": "Path to moc.js file for using a custom Motoko version."
+                    "description": "Path to moc.js file for using a custom Motoko version. Only load moc.js files from trusted sources."
                 }
             }
         },
