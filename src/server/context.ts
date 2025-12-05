@@ -109,16 +109,15 @@ function createMotokoInstance({
         }
     }
 
-    // Default behavior
     if (version === '0.10.4') {
         const compiler = require(join(
             __dirname,
             '/compiler/moc-' + version,
         )).Motoko;
         return require('motoko/lib').default(compiler);
-    } else {
-        return require(motokoPath).default;
     }
+
+    return require(motokoPath).default;
 }
 
 let defaultContext: Context | undefined;
