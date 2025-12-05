@@ -25,6 +25,13 @@ describe('mocJsPath configuration', () => {
         validMocJsPath = join(__dirname, '../compiler/moc-0.10.4.js');
     });
 
+    afterEach(() => {
+        // Clean up temp directory after each test
+        if (existsSync(tempDir)) {
+            rmSync(tempDir, { recursive: true, force: true });
+        }
+    });
+
     const createInvalidMocJs = (): string => {
         const filePath = join(tempDir, 'invalid-moc.js');
         // This will throw immediately when require() is called
@@ -138,6 +145,16 @@ describe('mocJsPath configuration', () => {
             // Verify the invalid mocJsPath was still stored in context
             expect(context.version.mocJsPath).toBe(invalidMocJsPath);
             // Verify fallback to default compiler worked
+            expect(context.motoko.version).toBeDefined();
+        });
+
+        it('falls back when file exists but missing Motoko export', () => {
+            const filePath = join(tempDir, 'no-export-moc.js');
+            writeFileSync(filePath, 'module.exports = {};');
+            const context = addContext('test-no-export', {
+                mocJsPath: filePath,
+            });
+            expect(context.motoko).toBeDefined();
             expect(context.motoko.version).toBeDefined();
         });
     });
