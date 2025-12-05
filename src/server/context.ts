@@ -4,6 +4,7 @@ import * as baseLibrary from 'motoko/packages/latest/base.json';
 import { isAbsolute, join, resolve } from 'path';
 import AstResolver from './ast';
 import ImportResolver from './imports';
+import { resolveFilePath } from './utils';
 
 type Version = {
     version?: string;
@@ -19,14 +20,16 @@ export class Context {
     public readonly motoko: Motoko;
     public readonly astResolver: AstResolver;
     public readonly importResolver: ImportResolver;
+    public readonly workspaceRoot: string;
 
     public packages: [string, string][] | undefined;
     public error: string | undefined;
 
-    constructor(uri: string, version: Version) {
+    constructor(uri: string, version: Version, workspaceRoot?: string) {
         this.uri = uri;
         this.version = version;
-        this.motoko = requestMotokoInstance(uri, version);
+        this.workspaceRoot = workspaceRoot || resolveFilePath(uri);
+        this.motoko = requestMotokoInstance(uri, version, this.workspaceRoot);
         this.astResolver = new AstResolver(this);
         this.importResolver = new ImportResolver(this);
     }
@@ -40,16 +43,26 @@ const contexts: Context[] = [];
 // Reuse `motoko` npm package instances to limit memory usage
 const previousMotokoInstances = new Map<string, Motoko>();
 
-function getMotokoInstanceKey(uri: string, version: Version) {
-    return `${uri}:${version.version || ''}:${version.mocJsPath || ''}`;
+function getMotokoInstanceKey(
+    uri: string,
+    version: Version,
+    workspaceRoot?: string,
+) {
+    return `${uri}:${version.version || ''}:${version.mocJsPath || ''}:${
+        workspaceRoot || ''
+    }`;
 }
 
 /**
  * Create or reuse a `moc.js` compiler instance.
  */
-function requestMotokoInstance(uri: string, version: Version): Motoko {
+function requestMotokoInstance(
+    uri: string,
+    version: Version,
+    workspaceRoot: string,
+): Motoko {
     let motoko = previousMotokoInstances.get(
-        getMotokoInstanceKey(uri, version),
+        getMotokoInstanceKey(uri, version, workspaceRoot),
     )!;
     if (motoko) {
         motoko.clearPackages();
@@ -65,12 +78,15 @@ function requestMotokoInstance(uri: string, version: Version): Motoko {
             }
         });
 
-        motoko = createMotokoInstance(version);
+        motoko = createMotokoInstance(version, workspaceRoot);
 
         motoko.compiler.setTypecheckerCombineSrcs?.(true);
         motoko.compiler.setBlobImportPlaceholders?.(true);
 
-        previousMotokoInstances.set(getMotokoInstanceKey(uri, version), motoko);
+        previousMotokoInstances.set(
+            getMotokoInstanceKey(uri, version, workspaceRoot),
+            motoko,
+        );
     }
     // Required for temporary deployment (originally Motoko Playground)
     motoko.setPublicMetadata([
@@ -82,16 +98,16 @@ function requestMotokoInstance(uri: string, version: Version): Motoko {
     return motoko;
 }
 
-function createMotokoInstance({
-    version,
-    mocJsPath: customPath,
-}: Version): Motoko {
-    if (customPath) {
-        console.log('Using custom moc.js path:', customPath);
+function createMotokoInstance(
+    { version, mocJsPath }: Version,
+    workspaceRoot: string,
+): Motoko {
+    if (mocJsPath) {
+        console.log('Using custom moc.js path:', mocJsPath);
         try {
-            const resolvedPath = isAbsolute(customPath)
-                ? customPath
-                : resolve(process.cwd(), customPath);
+            const resolvedPath = isAbsolute(mocJsPath)
+                ? mocJsPath
+                : resolve(workspaceRoot, mocJsPath);
 
             if (existsSync(resolvedPath)) {
                 const compiler = require(resolvedPath).Motoko;
@@ -105,7 +121,7 @@ function createMotokoInstance({
         } catch (error: any) {
             // TODO: notify user via `connection.sendMessage()`
             console.error(
-                `Error loading custom moc.js from ${customPath}:`,
+                `Error loading custom moc.js from ${mocJsPath}:`,
                 error,
             );
         }
@@ -145,13 +161,17 @@ export function resetContexts() {
 /**
  * Register a context for the given directory (specified as a URI).
  */
-export function addContext(uri: string, version: Version): Context {
+export function addContext(
+    uri: string,
+    version: Version,
+    workspaceRoot?: string,
+): Context {
     const existing = contexts.find((other) => uri === other.uri);
     if (existing) {
         console.warn('Duplicate contexts for URI:', uri);
         return existing;
     }
-    const context = new Context(uri, version);
+    const context = new Context(uri, version, workspaceRoot);
     // Insert by descending specificity (`uri.length`) and then ascending alphabetical order
     let index = 0;
     while (index < contexts.length) {

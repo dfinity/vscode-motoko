@@ -352,10 +352,14 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                             }
 
                             const uri = URI.file(dir).toString();
-                            const context = addContext(uri, {
-                                version: overrideMotokoVersion,
-                                mocJsPath: settings?.mocJsPath,
-                            });
+                            const context = addContext(
+                                uri,
+                                {
+                                    version: overrideMotokoVersion,
+                                    mocJsPath: settings?.mocJsPath?.trim(),
+                                },
+                                dir,
+                            );
 
                             try {
                                 context.packages = await getPackageSources(dir);

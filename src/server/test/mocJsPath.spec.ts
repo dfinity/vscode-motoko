@@ -62,9 +62,13 @@ describe('mocJsPath configuration', () => {
         it('handles relative paths', () => {
             const relativePath = 'src/server/compiler/moc-0.10.4.js';
 
-            const context = addContext('test-relative', {
-                mocJsPath: relativePath,
-            });
+            const context = addContext(
+                'test-relative',
+                {
+                    mocJsPath: relativePath,
+                },
+                process.cwd(),
+            );
 
             expect(context.motoko).toBeDefined();
             // Verify the relative path was stored in context
