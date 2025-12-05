@@ -111,6 +111,11 @@ function createMotokoInstance(
 
             if (existsSync(resolvedPath)) {
                 const compiler = require(resolvedPath).Motoko;
+                if (!compiler) {
+                    throw new Error(
+                        'Invalid moc.js file: missing Motoko export',
+                    );
+                }
                 return require('motoko/lib').default(compiler);
             } else {
                 // TODO: notify user via `connection.sendMessage()`
