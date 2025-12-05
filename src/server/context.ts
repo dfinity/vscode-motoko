@@ -69,6 +69,8 @@ function requestMotokoInstance(uri: string, version: Version): Motoko {
 
         motoko.compiler.setTypecheckerCombineSrcs?.(true);
         motoko.compiler.setBlobImportPlaceholders?.(true);
+
+        previousMotokoInstances.set(getMotokoInstanceKey(uri, version), motoko);
     }
     // Required for temporary deployment (originally Motoko Playground)
     motoko.setPublicMetadata([
@@ -133,9 +135,6 @@ requestDefaultContext(); // Always add a default context
  * Reset all contexts (used to update Vessel configuration).
  */
 export function resetContexts() {
-    contexts.forEach(({ uri, version, motoko }) => {
-        previousMotokoInstances.set(getMotokoInstanceKey(uri, version), motoko);
-    });
     contexts.length = 0;
     if (defaultContext) {
         defaultContext = undefined;
