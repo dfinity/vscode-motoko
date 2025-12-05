@@ -1299,7 +1299,7 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
         const { position } = event;
         const { uri } = event.textDocument;
 
-        const list = CompletionList.create([], true);
+        const list = CompletionList.create([], false);
         try {
             const text = getFileText(uri);
             const doc = documents.get(uri);
@@ -1316,62 +1316,52 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                 context.importResolver
                     .getNameEntries()
                     .forEach(([name, importPath]) => {
-                        if (name.startsWith(identStart)) {
-                            try {
-                                const path = importPath.startsWith('mo:')
-                                    ? importPath
-                                    : getRelativeUri(uri, importPath);
-                                const existingImport =
-                                    status?.program?.imports.find(
-                                        (i) =>
-                                            i.name === name ||
-                                            i.fields.some(
-                                                ([, alias]) => alias === name,
-                                            ),
-                                    );
-                                if (existingImport || !status?.program) {
-                                    // Skip alternatives with already imported name
-                                    return;
-                                }
-                                const edits: TextEdit[] = [
-                                    TextEdit.insert(
-                                        findNewImportPosition(
-                                            uri,
-                                            context,
-                                            path,
+                        try {
+                            const path = importPath.startsWith('mo:')
+                                ? importPath
+                                : getRelativeUri(uri, importPath);
+                            const existingImport =
+                                status?.program?.imports.find(
+                                    (i) =>
+                                        i.name === name ||
+                                        i.fields.some(
+                                            ([, alias]) => alias === name,
                                         ),
-                                        `import ${name} "${path}";\n`,
-                                    ),
-                                ];
-                                list.items.push({
-                                    label: name,
-                                    detail: path,
-                                    insertText: name,
-                                    kind: CompletionItemKind.Module,
-                                    additionalTextEdits: edits,
-                                });
-                            } catch (err) {
-                                if (!hadError) {
-                                    hadError = true;
-                                    console.error(
-                                        'Error during autocompletion:',
-                                    );
-                                    console.error(err);
-                                }
+                                );
+                            if (existingImport || !status?.program) {
+                                // Skip alternatives with already imported name
+                                return;
+                            }
+                            const edits: TextEdit[] = [
+                                TextEdit.insert(
+                                    findNewImportPosition(uri, context, path),
+                                    `import ${name} "${path}";\n`,
+                                ),
+                            ];
+                            list.items.push({
+                                label: name,
+                                detail: path,
+                                insertText: name,
+                                kind: CompletionItemKind.Module,
+                                additionalTextEdits: edits,
+                            });
+                        } catch (err) {
+                            if (!hadError) {
+                                hadError = true;
+                                console.error('Error during autocompletion:');
+                                console.error(err);
                             }
                         }
                     });
 
                 if (identStart) {
                     keywords.forEach((keyword) => {
-                        if (keyword.startsWith(identStart)) {
-                            list.items.push({
-                                label: keyword,
-                                // detail: , // TODO: explanation for each keyword
-                                insertText: keyword,
-                                kind: CompletionItemKind.Keyword,
-                            });
-                        }
+                        list.items.push({
+                            label: keyword,
+                            // detail: , // TODO: explanation for each keyword
+                            insertText: keyword,
+                            kind: CompletionItemKind.Keyword,
+                        });
                     });
                 }
 
@@ -1601,12 +1591,10 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                     if (!fields) {
                         return list;
                     }
-                    Array.from(fields.values())
-                        .filter((item) => item.label.startsWith(identStart))
-                        .forEach((item) => {
-                            item.detail = getRelativeUri(uri, definition.uri);
-                            list.items.push(item);
-                        });
+                    Array.from(fields.values()).forEach((item) => {
+                        item.detail = getRelativeUri(uri, definition.uri);
+                        list.items.push(item);
+                    });
                     return list;
                 }
 
@@ -1635,13 +1623,11 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                         context.importResolver
                             .getFields(uri)
                             .forEach((item) => {
-                                if (item.label.startsWith(identStart)) {
-                                    item.detail = getRelativeUri(
-                                        event.textDocument.uri,
-                                        uri,
-                                    );
-                                    list.items.push(item);
-                                }
+                                item.detail = getRelativeUri(
+                                    event.textDocument.uri,
+                                    uri,
+                                );
+                                list.items.push(item);
                             });
                     });
                 }
