@@ -6,18 +6,18 @@ describe('context', () => {
     });
 
     test('unique Motoko instances', () => {
-        const a = addContext('A');
+        const a = addContext('A', {});
         jest.resetModules(); // TODO: test `require.cache` directly
-        const b = addContext('B');
+        const b = addContext('B', {});
         expect(a.motoko.compiler).not.toBe(b.motoko.compiler);
     });
 
     test('sorted by URI length and then alphabetical order', () => {
-        addContext('A');
-        addContext('A/C');
-        addContext('A/B');
-        addContext('B');
-        addContext('B/A');
+        addContext('A', {});
+        addContext('A/C', {});
+        addContext('A/B', {});
+        addContext('B', {});
+        addContext('B/A', {});
         expect(allContexts().map(({ uri }) => uri)).toStrictEqual([
             'A/B',
             'A/C',

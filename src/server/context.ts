@@ -1,10 +1,14 @@
+import { existsSync } from 'fs';
 import { type Motoko } from 'motoko/lib';
 import * as baseLibrary from 'motoko/packages/latest/base.json';
-import ImportResolver from './imports';
+import { isAbsolute, join, resolve } from 'path';
 import AstResolver from './ast';
-import { join } from 'path';
+import ImportResolver from './imports';
 
-type Version = string | undefined; // `undefined` refers to latest version
+type Version = {
+    version?: string;
+    mocJsPath?: string;
+};
 
 /**
  * A Motoko compiler context.
@@ -19,10 +23,10 @@ export class Context {
     public packages: [string, string][] | undefined;
     public error: string | undefined;
 
-    constructor(uri: string, version: Version, motoko: Motoko) {
-        this.version = version;
+    constructor(uri: string, version: Version) {
         this.uri = uri;
-        this.motoko = motoko;
+        this.version = version;
+        this.motoko = requestMotokoInstance(uri, version);
         this.astResolver = new AstResolver(this);
         this.importResolver = new ImportResolver(this);
     }
@@ -37,7 +41,7 @@ const contexts: Context[] = [];
 const previousMotokoInstances = new Map<string, Motoko>();
 
 function getMotokoInstanceKey(uri: string, version: Version) {
-    return `${uri}:${version}`;
+    return `${uri}:${version.version || ''}:${version.mocJsPath || ''}`;
 }
 
 /**
@@ -60,18 +64,11 @@ function requestMotokoInstance(uri: string, version: Version): Motoko {
                 delete require.cache[key];
             }
         });
-        // TODO: download `moc.js` versions from GitHub releases
-        if (version === '0.10.4') {
-            const compiler = require(join(
-                __dirname,
-                '/compiler/moc-' + version,
-            )).Motoko;
-            motoko = require('motoko/lib').default(compiler);
-        } else {
-            motoko = require(motokoPath).default;
-            motoko.setTypecheckerCombineSrcs(true);
-            motoko.compiler.setBlobImportPlaceholders(true);
-        }
+
+        motoko = createMotokoInstance(version);
+
+        motoko.compiler.setTypecheckerCombineSrcs?.(true);
+        motoko.compiler.setBlobImportPlaceholders?.(true);
     }
     // Required for temporary deployment (originally Motoko Playground)
     motoko.setPublicMetadata([
@@ -83,10 +80,51 @@ function requestMotokoInstance(uri: string, version: Version): Motoko {
     return motoko;
 }
 
+function createMotokoInstance({
+    version,
+    mocJsPath: customPath,
+}: Version): Motoko {
+    if (customPath) {
+        console.log('Using custom moc.js path:', customPath);
+        try {
+            const resolvedPath = isAbsolute(customPath)
+                ? customPath
+                : resolve(process.cwd(), customPath);
+
+            if (existsSync(resolvedPath)) {
+                const compiler = require(resolvedPath).Motoko;
+                return require('motoko/lib').default(compiler);
+            } else {
+                // TODO: notify user via `connection.sendMessage()`
+                console.error(
+                    `Custom moc.js file not found at ${resolvedPath}, falling back to default`,
+                );
+            }
+        } catch (error: any) {
+            // TODO: notify user via `connection.sendMessage()`
+            console.error(
+                `Error loading custom moc.js from ${customPath}:`,
+                error,
+            );
+        }
+    }
+
+    // Default behavior
+    if (version === '0.10.4') {
+        const compiler = require(join(
+            __dirname,
+            '/compiler/moc-' + version,
+        )).Motoko;
+        return require('motoko/lib').default(compiler);
+    } else {
+        return require(motokoPath).default;
+    }
+}
+
 let defaultContext: Context | undefined;
 function requestDefaultContext() {
     if (!defaultContext) {
-        defaultContext = addContext('');
+        defaultContext = addContext('', {});
     }
     return defaultContext;
 }
@@ -109,14 +147,13 @@ export function resetContexts() {
 /**
  * Register a context for the given directory (specified as a URI).
  */
-export function addContext(uri: string, version?: Version): Context {
+export function addContext(uri: string, version: Version): Context {
     const existing = contexts.find((other) => uri === other.uri);
     if (existing) {
         console.warn('Duplicate contexts for URI:', uri);
         return existing;
     }
-    const motoko = requestMotokoInstance(uri, version);
-    const context = new Context(uri, version, motoko);
+    const context = new Context(uri, version);
     // Insert by descending specificity (`uri.length`) and then ascending alphabetical order
     let index = 0;
     while (index < contexts.length) {

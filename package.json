@@ -119,6 +119,12 @@
                         "prettier"
                     ],
                     "description": "The Motoko code formatter used by the language server."
+                },
+                "motoko.mocJsPath": {
+                    "scope": "resource",
+                    "type": "string",
+                    "default": "",
+                    "description": "Path to moc.js file for using a custom Motoko version."
                 }
             }
         },
