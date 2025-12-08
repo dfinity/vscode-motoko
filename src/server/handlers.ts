@@ -122,6 +122,7 @@ export interface MotokoSettings {
     debugHover: boolean;
     extraFlags?: string[];
     formatter?: FormatterKind;
+    mocJsPath?: string;
 }
 
 const shouldHideWarnings = (uri: string) =>
@@ -353,7 +354,11 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                             const uri = URI.file(dir).toString();
                             const context = addContext(
                                 uri,
-                                overrideMotokoVersion,
+                                {
+                                    version: overrideMotokoVersion,
+                                    mocJsPath: settings?.mocJsPath?.trim(),
+                                },
+                                dir,
                             );
 
                             try {

@@ -2,7 +2,7 @@
     "name": "vscode-motoko",
     "displayName": "Motoko",
     "description": "Motoko language support",
-    "version": "0.20.0",
+    "version": "0.20.1",
     "publisher": "dfinity-foundation",
     "repository": "https://github.com/dfinity/vscode-motoko",
     "engines": {
@@ -119,6 +119,12 @@
                         "prettier"
                     ],
                     "description": "The Motoko code formatter used by the language server."
+                },
+                "motoko.mocJsPath": {
+                    "scope": "resource",
+                    "type": "string",
+                    "default": "",
+                    "description": "Path to moc.js file for using a custom Motoko version (absolute, or relative to workspace root). Only load moc.js files from trusted sources."
                 }
             }
         },
