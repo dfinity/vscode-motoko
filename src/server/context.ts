@@ -1,35 +1,37 @@
 import { existsSync } from 'fs';
 import { type Motoko } from 'motoko/lib';
 import * as baseLibrary from 'motoko/packages/latest/base.json';
-import { isAbsolute, join, resolve } from 'path';
+import { basename, dirname, isAbsolute, join, resolve } from 'path';
 import AstResolver from './ast';
 import ImportResolver from './imports';
-import { resolveFilePath } from './utils';
+import { extractMocVersion, getMocJs } from './utils';
+import { settings } from './globals';
+import { Result, ok, err } from 'neverthrow';
 
-type Version = {
+type MocJsInfo = {
     version?: string;
-    mocJsPath?: string;
+    path?: string;
 };
+
+type Version = string | undefined;
 
 /**
  * A Motoko compiler context.
  */
 export class Context {
     public readonly uri: string;
-    public readonly version: Version;
+    public readonly mocJsInfo: MocJsInfo;
     public readonly motoko: Motoko;
     public readonly astResolver: AstResolver;
     public readonly importResolver: ImportResolver;
-    public readonly workspaceRoot: string;
 
     public packages: [string, string][] | undefined;
     public error: string | undefined;
 
-    constructor(uri: string, version: Version, workspaceRoot?: string) {
+    constructor(uri: string, motoko: Motoko, mocJsInfo?: MocJsInfo) {
         this.uri = uri;
-        this.version = version;
-        this.workspaceRoot = workspaceRoot || resolveFilePath(uri);
-        this.motoko = requestMotokoInstance(uri, version, this.workspaceRoot);
+        this.mocJsInfo = mocJsInfo || {};
+        this.motoko = motoko;
         this.astResolver = new AstResolver(this);
         this.importResolver = new ImportResolver(this);
     }
@@ -48,7 +50,7 @@ function getMotokoInstanceKey(
     version: Version,
     workspaceRoot?: string,
 ) {
-    return `${uri}:${version.version || ''}:${version.mocJsPath || ''}:${
+    return `${uri}:${version || ''}:${settings?.mocJsPath || ''}:${
         workspaceRoot || ''
     }`;
 }
@@ -56,14 +58,16 @@ function getMotokoInstanceKey(
 /**
  * Create or reuse a `moc.js` compiler instance.
  */
-function requestMotokoInstance(
+async function requestMotokoInstance(
     uri: string,
     version: Version,
     workspaceRoot: string,
-): Motoko {
+): Promise<[Motoko, MocJsInfo]> {
     let motoko = motokoInstances.get(
         getMotokoInstanceKey(uri, version, workspaceRoot),
     )!;
+    let mocJsInfo: MocJsInfo = {};
+
     if (motoko) {
         motoko.clearPackages();
     } else {
@@ -78,75 +82,155 @@ function requestMotokoInstance(
             }
         });
 
-        motoko = createMotokoInstance(version, workspaceRoot);
+        [motoko, mocJsInfo] = await createMotokoInstance(
+            version,
+            workspaceRoot,
+        );
 
-        motoko.compiler.setTypecheckerCombineSrcs?.(true);
-        motoko.compiler.setBlobImportPlaceholders?.(true);
+        configureMotokoCompiler(motoko);
 
         motokoInstances.set(
             getMotokoInstanceKey(uri, version, workspaceRoot),
             motoko,
         );
     }
-    // Required for temporary deployment (originally Motoko Playground)
+    configureMotokoInstance(motoko);
+    return [motoko, mocJsInfo];
+}
+
+function configureMotokoCompiler(motoko: Motoko) {
+    motoko.compiler.setTypecheckerCombineSrcs?.(true);
+    motoko.compiler.setBlobImportPlaceholders?.(true);
+}
+
+// Required for temporary deployment (originally Motoko Playground)
+function configureMotokoInstance(motoko: Motoko) {
     motoko.setPublicMetadata([
         'candid:service',
         'candid:args',
         'motoko:stable-types',
     ]);
     motoko.loadPackage(baseLibrary);
-    return motoko;
 }
 
-function createMotokoInstance(
-    { version, mocJsPath }: Version,
+async function createMotokoInstance(
+    version: Version,
     workspaceRoot: string,
-): Motoko {
-    if (mocJsPath) {
-        console.log('Using custom moc.js path:', mocJsPath);
-        try {
-            const resolvedPath = isAbsolute(mocJsPath)
-                ? mocJsPath
-                : resolve(workspaceRoot, mocJsPath);
+): Promise<[Motoko, MocJsInfo]> {
+    const configuredMocJsPath = settings.mocJsPath;
+    if (configuredMocJsPath) {
+        console.log('Trying to use custom moc.js path:', configuredMocJsPath);
+        const resolvedPath = isAbsolute(configuredMocJsPath)
+            ? configuredMocJsPath
+            : resolve(workspaceRoot, configuredMocJsPath);
+        const filename = basename(resolvedPath);
+        const mocVersion = extractMocVersion(filename);
 
-            if (existsSync(resolvedPath)) {
-                const compiler = require(resolvedPath).Motoko;
-                if (!compiler) {
-                    throw new Error(
-                        'Invalid moc.js file: missing Motoko export',
-                    );
-                }
-                return require('motoko/lib').default(compiler);
+        if (existsSync(resolvedPath)) {
+            const res = getCompiler(resolvedPath);
+            if (res.isOk()) {
+                const [compiler, path] = res.value;
+                return [
+                    require('motoko/lib').default(compiler),
+                    {
+                        // assume that moc.js version in file name is correct, otherwise
+                        // use provided version
+                        version: mocVersion || version,
+                        path,
+                    },
+                ];
             } else {
                 // TODO: notify user via `connection.sendMessage()`
                 console.error(
-                    `Custom moc.js file not found at ${resolvedPath}, falling back to default`,
+                    `Error loading custom moc.js from ${configuredMocJsPath}:`,
+                    res.error.message,
                 );
             }
-        } catch (error: any) {
+        } else {
             // TODO: notify user via `connection.sendMessage()`
-            console.error(
-                `Error loading custom moc.js from ${mocJsPath}:`,
-                error,
+            console.warn(
+                `Custom moc.js file not found at ${resolvedPath}, trying to download`,
+            );
+            if (mocVersion) {
+                const res = await getMocJs(
+                    mocVersion,
+                    dirname(resolvedPath),
+                ).andThen((path) => getCompiler(path));
+                if (res.isOk()) {
+                    const [compiler, path] = res.value;
+                    return [
+                        require('motoko/lib').default(compiler),
+                        {
+                            version: mocVersion,
+                            path,
+                        },
+                    ];
+                } else {
+                    console.error(
+                        `Error while downloading custom moc.js to ${configuredMocJsPath}:`,
+                        res.error.message,
+                    );
+                }
+            }
+        }
+    }
+
+    if (version) {
+        const mocJsDir = join(__dirname, 'compiler');
+        const res = await getMocJs(version, mocJsDir).andThen((path) =>
+            getCompiler(path),
+        );
+        if (res.isOk()) {
+            console.log('Using workspace moc.js version:', version);
+            const [compiler, path] = res.value;
+            return [
+                require('motoko/lib').default(compiler),
+                {
+                    version,
+                    path,
+                },
+            ];
+        } else {
+            console.warn(
+                "Can't load moc.js for version",
+                version,
+                ':',
+                res.error.message,
             );
         }
     }
 
-    if (version === '0.10.4') {
-        const compiler = require(join(
-            __dirname,
-            '/compiler/moc-' + version,
-        )).Motoko;
-        return require('motoko/lib').default(compiler);
-    }
+    console.log('Falling back to bundled motoko package');
 
-    return require(motokoPath).default;
+    return [require(motokoPath).default, {}];
+
+    function getCompiler(path: string): Result<[any, string], Error> {
+        try {
+            const compiler = require(path).Motoko;
+            if (!compiler) {
+                return err(
+                    new Error('Invalid moc.js file: missing Motoko export'),
+                );
+            }
+            return ok([compiler, path]);
+        } catch (error: any) {
+            return err(
+                error instanceof Error ? error : new Error(String(error)),
+            );
+        }
+    }
 }
 
 let defaultContext: Context | undefined;
 function requestDefaultContext() {
     if (!defaultContext) {
-        defaultContext = addContext('', {});
+        const motoko = require(motokoPath).default;
+        configureMotokoCompiler(motoko);
+
+        motokoInstances.set(getMotokoInstanceKey('', undefined), motoko);
+        configureMotokoInstance(motoko);
+        defaultContext = new Context('', motoko);
+        insertContext(defaultContext);
     }
     return defaultContext;
 }
@@ -166,19 +250,36 @@ export function resetContexts() {
 /**
  * Register a context for the given directory (specified as a URI).
  */
-export function addContext(
+export async function addContext(
     uri: string,
-    version: Version,
+    version?: Version,
     workspaceRoot?: string,
-): Context {
+): Promise<Context> {
     const existing = contexts.find((other) => uri === other.uri);
     if (existing) {
         console.warn('Duplicate contexts for URI:', uri);
         return existing;
     }
-    const context = new Context(uri, version, workspaceRoot);
-    // Insert by descending specificity (`uri.length`) and then ascending alphabetical order
+    const [motoko, mocJsInfo] = await requestMotokoInstance(
+        uri,
+        version,
+        workspaceRoot || '',
+    );
+    const context = new Context(uri, motoko, mocJsInfo);
+    insertContext(context);
+    return context;
+}
+
+/**
+ * Inserts a context object into the global contexts array, maintaining order.
+ * The order is determined first by URI length (shorter URIs come later),
+ * then lexicographically by URI if lengths are equal.
+ *
+ * @param context - The context object to insert.
+ */
+function insertContext(context: Context) {
     let index = 0;
+    const uri = context.uri;
     while (index < contexts.length) {
         const other = contexts[index];
         if (
@@ -191,7 +292,6 @@ export function addContext(
         index++;
     }
     contexts.splice(index, 0, context);
-    return context;
 }
 
 /**

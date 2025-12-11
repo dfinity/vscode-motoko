@@ -86,6 +86,7 @@ import {
 import {
     forwardMessage,
     getFileText,
+    getWorkspaceMocVersion,
     getRelativeUri,
     isExternalUri,
     rangeContainsPosition,
@@ -99,38 +100,25 @@ import { mkOnSignatureHelpHandler } from './handlers/onSignatureHelp';
 import { mkOnPrepareRenameHandler } from './handlers/onPrepareRename';
 import { mkOnReferencesHandler } from './handlers/onReferences';
 import { mkOnRenameHandler } from './handlers/onRename';
-
-import execa = require('execa');
+import {
+    Settings,
+    InitializationOptions,
+    settings,
+    initializationOptions,
+    setSettings,
+    setInitializationOptions,
+} from './globals';
 
 const errorCodes: Record<
     string,
     string
 > = require('motoko/contrib/generated/errorCodes.json');
 
-interface Settings {
-    motoko: MotokoSettings;
-}
-
-interface InitializationOptions {
-    formatter?: FormatterKind;
-}
-
-export interface MotokoSettings {
-    hideWarningRegex: string;
-    maxNumberOfProblems: number;
-    debugHover: boolean;
-    extraFlags?: string[];
-    formatter?: FormatterKind;
-    mocJsPath?: string;
-}
-
 const shouldHideWarnings = (uri: string) => isExternalUri(uri);
 
 export const documents = new TextDocuments(TextDocument);
 
 export let projectRoot: string;
-
-let initializationOptions: InitializationOptions = {};
 
 const DEFAULT_FORMATTER: FormatterKind = 'prettier';
 
@@ -318,44 +306,28 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                             console.log('Loading packages for directory:', dir);
 
                             let overrideMotokoVersion: string | undefined;
-                            try {
-                                const result = await execa(
-                                    'dfx',
-                                    ['--version'],
-                                    {
-                                        cwd: dir,
-                                    },
-                                );
-                                const match = /dfx 0\.(\d+)/.exec(
-                                    result.stdout,
-                                );
-                                if (match) {
-                                    // TODO: generalize to all Motoko versions
-                                    const dfxMinorVersion = +match[1];
-                                    if (dfxMinorVersion < 18) {
-                                        overrideMotokoVersion = '0.10.4';
-                                    }
+                            if (!initializationOptions.useDefaultMocJs) {
+                                const res = await getWorkspaceMocVersion(dir);
+                                if (res.isOk()) {
+                                    overrideMotokoVersion = res.value;
+                                    console.log(
+                                        'Detected Motoko version:',
+                                        overrideMotokoVersion,
+                                        'in project directory:',
+                                        dir,
+                                    );
+                                } else {
+                                    console.warn(
+                                        'Could not determine Motoko version:',
+                                        res.error.message,
+                                    );
                                 }
-                            } catch (err) {
-                                console.warn(
-                                    'Error while checking for custom Motoko version:',
-                                );
-                                console.warn(err);
-                            }
-                            if (overrideMotokoVersion) {
-                                console.log(
-                                    'Using Motoko version:',
-                                    overrideMotokoVersion,
-                                );
                             }
 
                             const uri = URI.file(dir).toString();
-                            const context = addContext(
+                            const context = await addContext(
                                 uri,
-                                {
-                                    version: overrideMotokoVersion,
-                                    mocJsPath: settings?.mocJsPath?.trim(),
-                                },
+                                overrideMotokoVersion,
                                 dir,
                             );
 
@@ -406,7 +378,7 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
 
                 try {
                     const extra: string[] = [];
-                    if (settings?.extraFlags?.length) {
+                    if (settings.extraFlags?.length) {
                         extra.push(...settings.extraFlags);
                     }
                     if (extra.length) {
@@ -656,14 +628,13 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
         );
     }
 
-    let settings: MotokoSettings | undefined;
     let workspaceFolders: WorkspaceFolder[] | undefined;
 
     const getWorkspaceFolderPaths = (): string[] =>
         (workspaceFolders || []).map((folder) => URI.parse(folder.uri).fsPath);
 
     const getFormatterKind = (): FormatterKind => {
-        if (settings?.formatter) {
+        if (settings.formatter) {
             return settings.formatter;
         }
         if (initializationOptions.formatter) {
@@ -674,8 +645,9 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
 
     connection.onInitialize((event): InitializeResult => {
         workspaceFolders = event.workspaceFolders || undefined;
-        initializationOptions =
-            (event.initializationOptions as InitializationOptions) || {};
+        setInitializationOptions(
+            (event.initializationOptions as InitializationOptions) || {},
+        );
 
         const result: InitializeResult = {
             capabilities: {
@@ -787,7 +759,7 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
     });
 
     connection.onDidChangeConfiguration((event) => {
-        settings = (<Settings>event.settings).motoko;
+        setSettings((<Settings>event.settings).motoko || {});
         notifyPackageConfigChange();
     });
 
@@ -1048,27 +1020,27 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                 });
             }
 
-            if (settings) {
-                if (settings.maxNumberOfProblems > 0) {
-                    diagnostics = diagnostics.slice(
-                        0,
-                        settings.maxNumberOfProblems,
-                    );
-                }
-                if (settings.hideWarningRegex?.trim()) {
-                    diagnostics = diagnostics.filter(
-                        ({ message, severity }) =>
-                            severity === DiagnosticSeverity.Error ||
-                            !new RegExp(settings!.hideWarningRegex).test(
-                                message,
-                            ),
-                    );
-                }
-                if (resolvedUri && shouldHideWarnings(resolvedUri)) {
-                    diagnostics = diagnostics.filter(
-                        ({ severity }) => severity === DiagnosticSeverity.Error,
-                    );
-                }
+            if (
+                settings.maxNumberOfProblems &&
+                settings.maxNumberOfProblems > 0
+            ) {
+                diagnostics = diagnostics.slice(
+                    0,
+                    settings.maxNumberOfProblems,
+                );
+            }
+            if (settings.hideWarningRegex?.trim()) {
+                const regex = new RegExp(settings.hideWarningRegex.trim());
+                diagnostics = diagnostics.filter(
+                    ({ message, severity }) =>
+                        severity === DiagnosticSeverity.Error ||
+                        !regex.test(message),
+                );
+            }
+            if (resolvedUri && shouldHideWarnings(resolvedUri)) {
+                diagnostics = diagnostics.filter(
+                    ({ severity }) => severity === DiagnosticSeverity.Error,
+                );
             }
             const diagnosticMap: Record<string, Diagnostic[]> = {
                 [virtualPath]: [], // Start with empty diagnostics for the main file

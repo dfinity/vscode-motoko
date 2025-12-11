@@ -75,7 +75,9 @@ describe('go to definition', () => {
     }
 
     beforeAll(async () => {
-        [client, server] = await defaultBeforeAll(rootUri, true);
+        [client, server] = await defaultBeforeAll(rootUri, true, {
+            useDefaultMocJs: true,
+        });
     });
 
     afterAll(async () => {

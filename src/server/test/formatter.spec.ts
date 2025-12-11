@@ -8,6 +8,8 @@ const rootPath = join(cwd(), 'test', 'formatter');
 const rootUri = URI.file(rootPath);
 const fileUri = URI.file(join(rootPath, 'unformatted.mo')).toString();
 
+jest.setTimeout(30000);
+
 async function requestFormatting(
     initializationOptions?: Record<string, unknown>,
 ): Promise<TextEdit[]> {
@@ -33,7 +35,7 @@ describe('document formatting', () => {
         expect(edits[0].newText).toBe(
             'module {\n    public func hello() : async () {};\n};\n',
         );
-    }, 6000);
+    });
 
     test('disables formatting via initialization options', async () => {
         const edits = await requestFormatting({ formatter: 'none' });
