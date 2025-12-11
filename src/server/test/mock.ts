@@ -100,6 +100,7 @@ export const setupClientServer = (
     }
 
     client.onRequest('client/registerCapability', () => {});
+    client.onRequest('window/showMessageRequest', () => {});
     client.listen();
 
     addHandlers(server, redirectConsole);

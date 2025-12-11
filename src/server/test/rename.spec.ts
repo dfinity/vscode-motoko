@@ -74,7 +74,10 @@ describe('prepare rename', () => {
     }
 
     beforeAll(
-        async () => ([client, server] = await defaultBeforeAll(rootUri, true)),
+        async () =>
+            ([client, server] = await defaultBeforeAll(rootUri, true, {
+                useDefaultMocJs: true,
+            })),
     );
     afterAll(async () => await defaultAfterAll(client, server));
 
@@ -199,7 +202,10 @@ describe('rename', () => {
     }
 
     beforeAll(
-        async () => ([client, server] = await defaultBeforeAll(rootUri, true)),
+        async () =>
+            ([client, server] = await defaultBeforeAll(rootUri, true, {
+                useDefaultMocJs: true,
+            })),
     );
     afterAll(async () => await defaultAfterAll(client, server));
 
