@@ -25,7 +25,7 @@ const file = {
     },
 };
 
-describe('signanureHelp', () => {
+describe('signatureHelp', () => {
     let client: Connection;
     let server: Connection;
 
@@ -68,7 +68,7 @@ describe('signanureHelp', () => {
                 // let x1 = f1(1, "qwerty");
                 //             ^
                 position: {
-                    line: 2,
+                    line: 4,
                     character: 20,
                 },
                 context: {
@@ -103,7 +103,7 @@ describe('signanureHelp', () => {
                 // let x1 = f1(1, "qwerty");
                 //                  ^
                 position: {
-                    line: 2,
+                    line: 4,
                     character: 25,
                 },
                 context: {
@@ -138,7 +138,7 @@ describe('signanureHelp', () => {
                 // let x1 = f1(1, "qwerty");
                 //             ^
                 position: {
-                    line: 2,
+                    line: 4,
                     character: 20,
                 },
                 context: {
@@ -172,7 +172,7 @@ describe('signanureHelp', () => {
                 // let x1 = f1(1, "qwerty");
                 //                  ^
                 position: {
-                    line: 2,
+                    line: 4,
                     character: 25,
                 },
                 context: {
@@ -206,7 +206,7 @@ describe('signanureHelp', () => {
                 // let x1 = f1(1, "qwerty");
                 //             ^
                 position: {
-                    line: 2,
+                    line: 4,
                     character: 20,
                 },
                 context: {
@@ -253,7 +253,7 @@ describe('signanureHelp', () => {
                 // let x1 = f1(1, "qwerty");
                 //               ^
                 position: {
-                    line: 2,
+                    line: 4,
                     character: 22,
                 },
                 context: {
@@ -300,7 +300,7 @@ describe('signanureHelp', () => {
                 // let x1 = f1(1, "qwerty");
                 //                        ^
                 position: {
-                    line: 2,
+                    line: 4,
                     character: 31,
                 },
                 context: {
@@ -338,7 +338,7 @@ describe('signanureHelp', () => {
                 // let x1 = f1(1, "qwerty");
                 //            ^
                 position: {
-                    line: 2,
+                    line: 4,
                     character: 19,
                 },
                 context: {
@@ -374,7 +374,7 @@ describe('signanureHelp', () => {
                     uri: `${file.uri}`,
                 },
                 position: {
-                    line: 1,
+                    line: 3,
                     character: 20,
                 },
                 context: {
@@ -412,7 +412,7 @@ describe('signanureHelp', () => {
                 // f2((1, "bar"), [1,2,3], {a = 1; b = "baz"});
                 //             ^
                 position: {
-                    line: 3,
+                    line: 5,
                     character: 20,
                 },
                 context: {
@@ -463,7 +463,7 @@ describe('signanureHelp', () => {
                 // f1(/* first parameter */ 1, /* second parameter */ "f1(1, \"qwerty\")"); // f1(1, "qwerty");
                 //                                                        ^
                 position: {
-                    line: 4,
+                    line: 6,
                     character: 72,
                 },
                 context: {
@@ -497,7 +497,7 @@ describe('signanureHelp', () => {
                 // f1(/* first parameter */ 1, /* second parameter */ "f1(1, \"qwerty\")"); // f1(1, "qwerty");
                 //                                                                                    ^
                 position: {
-                    line: 4,
+                    line: 6,
                     character: 100,
                 },
                 context: {
@@ -522,7 +522,7 @@ describe('signanureHelp', () => {
                 // f1(f3</* integer(,*/ Int, /* text ,) */ Text>(1, "qwerty"), "qweqwe");
                 //          ^
                 position: {
-                    line: 5,
+                    line: 7,
                     character: 25,
                 },
                 context: {
@@ -556,7 +556,7 @@ describe('signanureHelp', () => {
                 // f1(f3</* integer(,*/ Int, /* text ,) */ Text>(1, "qwerty"), "qweqwe");
                 //                                               ^
                 position: {
-                    line: 5,
+                    line: 7,
                     character: 62,
                 },
                 context: {
@@ -590,7 +590,7 @@ describe('signanureHelp', () => {
                 // f4(f1, 1, "");
                 //     ^
                 position: {
-                    line: 6,
+                    line: 8,
                     character: 12,
                 },
                 context: {
@@ -609,6 +609,78 @@ describe('signanureHelp', () => {
                         { label: [34, 42] },
                         { label: [43, 52] },
                     ],
+                },
+            ],
+            activeSignature: 0,
+            activeParameter: 0,
+        };
+
+        expect(signatureHelp).toEqual(expected);
+    });
+
+    test('incomplete signature', async () => {
+        const signatureHelp = await client.sendRequest<SignatureHelp>(
+            'textDocument/signatureHelp',
+            {
+                textDocument: {
+                    uri: `${file.uri}`,
+                },
+                // f2(
+                //    ^
+                position: {
+                    line: 9,
+                    character: 11,
+                },
+                context: {
+                    triggerKind: 2,
+                    isRetrigger: false,
+                },
+            },
+        );
+
+        const expected = {
+            signatures: [
+                {
+                    label: 'f2(a : (Int, Text), b : [Int], c : {a : Int; b : Text}) -> ()',
+                    parameters: [
+                        { label: [3, 18] },
+                        { label: [19, 29] },
+                        { label: [30, 54] },
+                    ],
+                },
+            ],
+            activeSignature: 0,
+            activeParameter: 0,
+        };
+
+        expect(signatureHelp).toEqual(expected);
+    });
+
+    test('library function with incomplete signature', async () => {
+        const signatureHelp = await client.sendRequest<SignatureHelp>(
+            'textDocument/signatureHelp',
+            {
+                textDocument: {
+                    uri: `${file.uri}`,
+                },
+                // Lib.ff(
+                //        ^
+                position: {
+                    line: 10,
+                    character: 15,
+                },
+                context: {
+                    triggerKind: 2,
+                    isRetrigger: false,
+                },
+            },
+        );
+
+        const expected = {
+            signatures: [
+                {
+                    label: 'ff(i : Int, t : Text) -> ()',
+                    parameters: [{ label: [3, 10] }, { label: [11, 20] }],
                 },
             ],
             activeSignature: 0,

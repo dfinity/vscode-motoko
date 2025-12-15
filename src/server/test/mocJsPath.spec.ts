@@ -7,6 +7,7 @@ import {
     existsSync,
 } from 'node:fs';
 import { addContext, resetContexts } from '../context';
+import { settings } from '../globals';
 
 describe('mocJsPath configuration', () => {
     let tempDir: string;
@@ -52,59 +53,55 @@ describe('mocJsPath configuration', () => {
     };
 
     describe('valid mocJsPath', () => {
-        it('creates context with custom moc.js', () => {
-            const context = addContext('test-uri', {
-                mocJsPath: validMocJsPath,
-            });
+        it('creates context with custom moc.js', async () => {
+            settings.mocJsPath = validMocJsPath;
+            const context = await addContext('test-uri');
 
             expect(context).toBeDefined();
             expect(context.uri).toBe('test-uri');
             expect(context.motoko).toBeDefined();
             // Verify the custom moc.js path was used
-            expect(context.version.mocJsPath).toBe(validMocJsPath);
+            expect(context.mocJsInfo.path).toBe(validMocJsPath);
+            expect(context.mocJsInfo.version).toBe('0.10.4');
             expect(context.motoko.version).toBeDefined();
             expect(typeof context.motoko.version).toBe('string');
         });
 
-        it('handles relative paths', () => {
+        it('handles relative paths', async () => {
             const relativePath = 'src/server/compiler/moc-0.10.4.js';
-
-            const context = addContext(
+            settings.mocJsPath = relativePath;
+            const context = await addContext(
                 'test-relative',
-                {
-                    mocJsPath: relativePath,
-                },
+                undefined,
                 process.cwd(),
             );
 
             expect(context.motoko).toBeDefined();
-            // Verify the relative path was stored in context
-            expect(context.version.mocJsPath).toBe(relativePath);
+            // Verify the context stores absolute path to moc.js
+            expect(context.mocJsInfo.path).toBe(validMocJsPath);
+            expect(context.mocJsInfo.version).toBe('0.10.4');
         });
 
-        it('works with version option', () => {
-            const context = addContext('test-versioned', {
-                version: '0.10.4',
-                mocJsPath: validMocJsPath,
-            });
+        it('works with version option', async () => {
+            settings.mocJsPath = validMocJsPath;
+            const context = await addContext('test-versioned', '0.10.4');
 
             expect(context.motoko).toBeDefined();
             // Verify both version and mocJsPath are stored
-            expect(context.version.version).toBe('0.10.4');
-            expect(context.version.mocJsPath).toBe(validMocJsPath);
+            expect(context.mocJsInfo.version).toBe('0.10.4');
+            expect(context.mocJsInfo.path).toBe(validMocJsPath);
             expect(context.motoko.version).toBeDefined();
         });
 
-        it('loads custom moc.js with distinctive version', () => {
+        it('loads custom moc.js with distinctive version', async () => {
             const customMocJsPath = createCustomMocJs();
-            const context = addContext('test-custom-version', {
-                mocJsPath: customMocJsPath,
-            });
+            settings.mocJsPath = customMocJsPath;
+            const context = await addContext('test-custom-version');
 
             expect(context).toBeDefined();
             expect(context.motoko).toBeDefined();
             // Verify the custom moc.js path was actually used by checking the stored config
-            expect(context.version.mocJsPath).toBe(customMocJsPath);
+            expect(context.mocJsInfo.path).toBe(customMocJsPath);
             // Verify the motoko instance was created successfully
             expect(context.motoko.version).toBeDefined();
         });
@@ -121,68 +118,63 @@ describe('mocJsPath configuration', () => {
         ];
 
         testCases.forEach(({ name, mocJsPath }) => {
-            it(`falls back to default for ${name}`, () => {
-                const context = addContext(`test-${name}`, { mocJsPath });
+            it(`falls back to default for ${name}`, async () => {
+                settings.mocJsPath = mocJsPath;
+                const context = await addContext(`test-${name}`);
 
                 expect(context).toBeDefined();
                 expect(context.motoko).toBeDefined();
-                // Verify the invalid mocJsPath was still stored in context
-                // (the fallback happens during motoko instance creation, not context creation)
-                expect(context.version.mocJsPath).toBe(mocJsPath);
+                // For default motoko path and version should be undefined
+                expect(context.mocJsInfo.version).toBeUndefined();
+                expect(context.mocJsInfo.path).toBeUndefined();
                 // Verify fallback to default compiler worked
                 expect(context.motoko.version).toBeDefined();
             });
         });
 
-        it('falls back when file throws during require', () => {
+        it('falls back when file throws during require', async () => {
             const invalidMocJsPath = createInvalidMocJs();
-
-            const context = addContext('test-error', {
-                mocJsPath: invalidMocJsPath,
-            });
+            settings.mocJsPath = invalidMocJsPath;
+            const context = await addContext('test-error');
 
             expect(context.motoko).toBeDefined();
-            // Verify the invalid mocJsPath was still stored in context
-            expect(context.version.mocJsPath).toBe(invalidMocJsPath);
+            // For default motoko path and version should be undefined
+            expect(context.mocJsInfo.version).toBeUndefined();
+            expect(context.mocJsInfo.path).toBeUndefined();
             // Verify fallback to default compiler worked
             expect(context.motoko.version).toBeDefined();
         });
 
-        it('falls back when file exists but missing Motoko export', () => {
+        it('falls back when file exists but missing Motoko export', async () => {
             const filePath = join(tempDir, 'no-export-moc.js');
             writeFileSync(filePath, 'module.exports = {};');
-            const context = addContext('test-no-export', {
-                mocJsPath: filePath,
-            });
+            settings.mocJsPath = filePath;
+            const context = await addContext('test-no-export');
             expect(context.motoko).toBeDefined();
             expect(context.motoko.version).toBeDefined();
+            // For default motoko path and version should be undefined
+            expect(context.mocJsInfo.version).toBeUndefined();
+            expect(context.mocJsInfo.path).toBeUndefined();
         });
     });
 
     describe('context management', () => {
-        it('creates separate contexts for different URIs', () => {
-            const context1 = addContext('uri-1', { mocJsPath: validMocJsPath });
-            const context2 = addContext('uri-2', { mocJsPath: validMocJsPath });
+        it('creates separate contexts for different URIs', async () => {
+            settings.mocJsPath = validMocJsPath;
+            const context1 = await addContext('uri-1');
+            const context2 = await addContext('uri-2');
 
             expect(context1.uri).toBe('uri-1');
             expect(context2.uri).toBe('uri-2');
             expect(context1).not.toBe(context2);
-            // Verify both contexts have the custom path configured
-            expect(context1.version.mocJsPath).toBe(validMocJsPath);
-            expect(context2.version.mocJsPath).toBe(validMocJsPath);
         });
 
-        it('reuses context for same URI', () => {
-            const context1 = addContext('same-uri', {
-                mocJsPath: validMocJsPath,
-            });
-            const context2 = addContext('same-uri', {
-                mocJsPath: validMocJsPath,
-            });
+        it('reuses context for same URI', async () => {
+            settings.mocJsPath = validMocJsPath;
+            const context1 = await addContext('same-uri');
+            const context2 = await addContext('same-uri');
 
             expect(context1).toBe(context2);
-            // Verify the reused context maintains the custom path
-            expect(context1.version.mocJsPath).toBe(validMocJsPath);
         });
     });
 });

@@ -26,7 +26,6 @@ import {
     MarkupKind,
     Position,
     Range,
-    ReferenceParams,
     SymbolKind,
     TextDocumentPositionParams,
     TextDocumentSyncKind,
@@ -68,10 +67,8 @@ import {
     findDefinitions,
     followImport,
     locationFromDefinition,
-    locationFromUriAndRange,
     rangeFromNode,
     searchObject,
-    sameDefinition,
 } from './navigation';
 import { deployTemporary } from './deployer';
 import {
@@ -84,14 +81,14 @@ import {
     Type,
     asNode,
     findNodes,
-    getIdName,
     matchNode,
 } from './syntax';
 import {
-    LocationSet,
     forwardMessage,
     getFileText,
+    getWorkspaceMocVersion,
     getRelativeUri,
+    isExternalUri,
     rangeContainsPosition,
     resolveFilePath,
     resolveVirtualPath,
@@ -100,39 +97,28 @@ import { getAstHoverContent } from './hover/hoverContent';
 import { clearCommentStringCache } from './hover/commentRanges';
 import { formatDocument, FormatterKind } from './formatter';
 import { mkOnSignatureHelpHandler } from './handlers/onSignatureHelp';
-
-import execa = require('execa');
+import { mkOnPrepareRenameHandler } from './handlers/onPrepareRename';
+import { mkOnReferencesHandler } from './handlers/onReferences';
+import { mkOnRenameHandler } from './handlers/onRename';
+import {
+    Settings,
+    InitializationOptions,
+    settings,
+    initializationOptions,
+    setSettings,
+    setInitializationOptions,
+} from './globals';
 
 const errorCodes: Record<
     string,
     string
 > = require('motoko/contrib/generated/errorCodes.json');
 
-interface Settings {
-    motoko: MotokoSettings;
-}
-
-interface InitializationOptions {
-    formatter?: FormatterKind;
-}
-
-export interface MotokoSettings {
-    hideWarningRegex: string;
-    maxNumberOfProblems: number;
-    debugHover: boolean;
-    extraFlags?: string[];
-    formatter?: FormatterKind;
-    mocJsPath?: string;
-}
-
-const shouldHideWarnings = (uri: string) =>
-    uri.includes('/.vessel/') || uri.includes('/.mops/');
+const shouldHideWarnings = (uri: string) => isExternalUri(uri);
 
 export const documents = new TextDocuments(TextDocument);
 
 export let projectRoot: string;
-
-let initializationOptions: InitializationOptions = {};
 
 const DEFAULT_FORMATTER: FormatterKind = 'prettier';
 
@@ -320,44 +306,28 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                             console.log('Loading packages for directory:', dir);
 
                             let overrideMotokoVersion: string | undefined;
-                            try {
-                                const result = await execa(
-                                    'dfx',
-                                    ['--version'],
-                                    {
-                                        cwd: dir,
-                                    },
-                                );
-                                const match = /dfx 0\.(\d+)/.exec(
-                                    result.stdout,
-                                );
-                                if (match) {
-                                    // TODO: generalize to all Motoko versions
-                                    const dfxMinorVersion = +match[1];
-                                    if (dfxMinorVersion < 18) {
-                                        overrideMotokoVersion = '0.10.4';
-                                    }
+                            if (!initializationOptions.useDefaultMocJs) {
+                                const res = await getWorkspaceMocVersion(dir);
+                                if (res.isOk()) {
+                                    overrideMotokoVersion = res.value;
+                                    console.log(
+                                        'Detected Motoko version:',
+                                        overrideMotokoVersion,
+                                        'in project directory:',
+                                        dir,
+                                    );
+                                } else {
+                                    console.warn(
+                                        'Could not determine Motoko version:',
+                                        res.error.message,
+                                    );
                                 }
-                            } catch (err) {
-                                console.warn(
-                                    'Error while checking for custom Motoko version:',
-                                );
-                                console.warn(err);
-                            }
-                            if (overrideMotokoVersion) {
-                                console.log(
-                                    'Using Motoko version:',
-                                    overrideMotokoVersion,
-                                );
                             }
 
                             const uri = URI.file(dir).toString();
-                            const context = addContext(
+                            const context = await addContext(
                                 uri,
-                                {
-                                    version: overrideMotokoVersion,
-                                    mocJsPath: settings?.mocJsPath?.trim(),
-                                },
+                                overrideMotokoVersion,
                                 dir,
                             );
 
@@ -408,7 +378,7 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
 
                 try {
                     const extra: string[] = [];
-                    if (settings?.extraFlags?.length) {
+                    if (settings.extraFlags?.length) {
                         extra.push(...settings.extraFlags);
                     }
                     if (extra.length) {
@@ -658,14 +628,13 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
         );
     }
 
-    let settings: MotokoSettings | undefined;
     let workspaceFolders: WorkspaceFolder[] | undefined;
 
     const getWorkspaceFolderPaths = (): string[] =>
         (workspaceFolders || []).map((folder) => URI.parse(folder.uri).fsPath);
 
     const getFormatterKind = (): FormatterKind => {
-        if (settings?.formatter) {
+        if (settings.formatter) {
             return settings.formatter;
         }
         if (initializationOptions.formatter) {
@@ -676,8 +645,9 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
 
     connection.onInitialize((event): InitializeResult => {
         workspaceFolders = event.workspaceFolders || undefined;
-        initializationOptions =
-            (event.initializationOptions as InitializationOptions) || {};
+        setInitializationOptions(
+            (event.initializationOptions as InitializationOptions) || {},
+        );
 
         const result: InitializeResult = {
             capabilities: {
@@ -688,6 +658,9 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                 definitionProvider: true,
                 // declarationProvider: true,
                 referencesProvider: true,
+                renameProvider: {
+                    prepareProvider: true,
+                },
                 codeActionProvider: {
                     codeActionKinds: [
                         CodeActionKind.QuickFix,
@@ -786,7 +759,7 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
     });
 
     connection.onDidChangeConfiguration((event) => {
-        settings = (<Settings>event.settings).motoko;
+        setSettings((<Settings>event.settings).motoko || {});
         notifyPackageConfigChange();
     });
 
@@ -1047,27 +1020,27 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                 });
             }
 
-            if (settings) {
-                if (settings.maxNumberOfProblems > 0) {
-                    diagnostics = diagnostics.slice(
-                        0,
-                        settings.maxNumberOfProblems,
-                    );
-                }
-                if (settings.hideWarningRegex?.trim()) {
-                    diagnostics = diagnostics.filter(
-                        ({ message, severity }) =>
-                            severity === DiagnosticSeverity.Error ||
-                            !new RegExp(settings!.hideWarningRegex).test(
-                                message,
-                            ),
-                    );
-                }
-                if (resolvedUri && shouldHideWarnings(resolvedUri)) {
-                    diagnostics = diagnostics.filter(
-                        ({ severity }) => severity === DiagnosticSeverity.Error,
-                    );
-                }
+            if (
+                settings.maxNumberOfProblems &&
+                settings.maxNumberOfProblems > 0
+            ) {
+                diagnostics = diagnostics.slice(
+                    0,
+                    settings.maxNumberOfProblems,
+                );
+            }
+            if (settings.hideWarningRegex?.trim()) {
+                const regex = new RegExp(settings.hideWarningRegex.trim());
+                diagnostics = diagnostics.filter(
+                    ({ message, severity }) =>
+                        severity === DiagnosticSeverity.Error ||
+                        !regex.test(message),
+                );
+            }
+            if (resolvedUri && shouldHideWarnings(resolvedUri)) {
+                diagnostics = diagnostics.filter(
+                    ({ severity }) => severity === DiagnosticSeverity.Error,
+                );
             }
             const diagnosticMap: Record<string, Diagnostic[]> = {
                 [virtualPath]: [], // Start with empty diagnostics for the main file
@@ -1165,6 +1138,7 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
         const results: CodeAction[] = [];
 
         // Organize imports
+        // TODO: Consider removing unused imports
         const status = getContext(uri).astResolver.request(
             uri,
             isVirtualFileSystemReady,
@@ -1297,7 +1271,7 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
         const { position } = event;
         const { uri } = event.textDocument;
 
-        const list = CompletionList.create([], true);
+        const list = CompletionList.create([], false);
         try {
             const text = getFileText(uri);
             const doc = documents.get(uri);
@@ -1314,62 +1288,52 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                 context.importResolver
                     .getNameEntries()
                     .forEach(([name, importPath]) => {
-                        if (name.startsWith(identStart)) {
-                            try {
-                                const path = importPath.startsWith('mo:')
-                                    ? importPath
-                                    : getRelativeUri(uri, importPath);
-                                const existingImport =
-                                    status?.program?.imports.find(
-                                        (i) =>
-                                            i.name === name ||
-                                            i.fields.some(
-                                                ([, alias]) => alias === name,
-                                            ),
-                                    );
-                                if (existingImport || !status?.program) {
-                                    // Skip alternatives with already imported name
-                                    return;
-                                }
-                                const edits: TextEdit[] = [
-                                    TextEdit.insert(
-                                        findNewImportPosition(
-                                            uri,
-                                            context,
-                                            path,
+                        try {
+                            const path = importPath.startsWith('mo:')
+                                ? importPath
+                                : getRelativeUri(uri, importPath);
+                            const existingImport =
+                                status?.program?.imports.find(
+                                    (i) =>
+                                        i.name === name ||
+                                        i.fields.some(
+                                            ([, alias]) => alias === name,
                                         ),
-                                        `import ${name} "${path}";\n`,
-                                    ),
-                                ];
-                                list.items.push({
-                                    label: name,
-                                    detail: path,
-                                    insertText: name,
-                                    kind: CompletionItemKind.Module,
-                                    additionalTextEdits: edits,
-                                });
-                            } catch (err) {
-                                if (!hadError) {
-                                    hadError = true;
-                                    console.error(
-                                        'Error during autocompletion:',
-                                    );
-                                    console.error(err);
-                                }
+                                );
+                            if (existingImport || !status?.program) {
+                                // Skip alternatives with already imported name
+                                return;
+                            }
+                            const edits: TextEdit[] = [
+                                TextEdit.insert(
+                                    findNewImportPosition(uri, context, path),
+                                    `import ${name} "${path}";\n`,
+                                ),
+                            ];
+                            list.items.push({
+                                label: name,
+                                detail: path,
+                                insertText: name,
+                                kind: CompletionItemKind.Module,
+                                additionalTextEdits: edits,
+                            });
+                        } catch (err) {
+                            if (!hadError) {
+                                hadError = true;
+                                console.error('Error during autocompletion:');
+                                console.error(err);
                             }
                         }
                     });
 
                 if (identStart) {
                     keywords.forEach((keyword) => {
-                        if (keyword.startsWith(identStart)) {
-                            list.items.push({
-                                label: keyword,
-                                // detail: , // TODO: explanation for each keyword
-                                insertText: keyword,
-                                kind: CompletionItemKind.Keyword,
-                            });
-                        }
+                        list.items.push({
+                            label: keyword,
+                            // detail: , // TODO: explanation for each keyword
+                            insertText: keyword,
+                            kind: CompletionItemKind.Keyword,
+                        });
                     });
                 }
 
@@ -1631,13 +1595,11 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
                         context.importResolver
                             .getFields(uri)
                             .forEach((item) => {
-                                if (item.label.startsWith(identStart)) {
-                                    item.detail = getRelativeUri(
-                                        event.textDocument.uri,
-                                        uri,
-                                    );
-                                    list.items.push(item);
-                                }
+                                item.detail = getRelativeUri(
+                                    event.textDocument.uri,
+                                    uri,
+                                );
+                                list.items.push(item);
                             });
                     });
                 }
@@ -1753,9 +1715,11 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
         };
         globalASTCache.forEach((status) => {
             status.program?.exportFields.forEach((field) => {
-                getDocumentSymbols(field, true).forEach((symbol) =>
-                    visitDocumentSymbol(status.uri, symbol),
-                );
+                getDocumentSymbols(field, true)
+                    .filter((symbol) => symbol.name.includes(event.query))
+                    .forEach((symbol) =>
+                        visitDocumentSymbol(status.uri, symbol),
+                    );
             });
         });
         return results;
@@ -1779,6 +1743,7 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
         skipUnnamed: boolean,
     ): DocumentSymbol[] {
         const range = rangeFromNode(asNode(field.ast)) || defaultRange();
+        // TODO: Add support for other symbol kinds
         const kind =
             field.exp instanceof ObjBlock
                 ? SymbolKind.Module
@@ -1811,135 +1776,13 @@ export const addHandlers = (connection: Connection, redirectConsole = true) => {
         ];
     }
 
-    connection.onReferences((event: ReferenceParams): Location[] => {
-        console.log('[References]');
+    connection.onReferences(mkOnReferencesHandler(isVirtualFileSystemReady));
 
-        function idOfVar(node: AST): Node | undefined {
-            return (
-                matchNode(node, 'VarE', (id: Node) => id) ||
-                matchNode(node, 'VarP', (id: Node) => id) ||
-                matchNode(node, 'VarD', (id: Node) => id) ||
-                matchNode(node, 'ID', (_id: string) => node as Node) ||
-                undefined
-            );
-        }
+    connection.onPrepareRename(
+        mkOnPrepareRenameHandler(isVirtualFileSystemReady),
+    );
 
-        function searchAstStatus(
-            definitions: Definition[],
-            uri: string,
-            ast: AST,
-        ): LocationSet {
-            const references = new LocationSet();
-            const nodes = findNodes(ast, (node, _parents) =>
-                definitions.some(
-                    (definition) =>
-                        getIdName(idOfVar(node)) === definition.name,
-                ),
-            );
-            for (const node of nodes) {
-                try {
-                    const range = rangeFromNode(node);
-                    if (!range) {
-                        continue;
-                    }
-                    const referenceDefinitions = findDefinitions(
-                        uri,
-                        range.start,
-                    );
-                    if (
-                        !definitions.some((definition) =>
-                            referenceDefinitions.some((referenceDefinition) =>
-                                sameDefinition(definition, referenceDefinition),
-                            ),
-                        )
-                    ) {
-                        continue;
-                    }
-                    // We might get a definition that includes the entire body
-                    // of the declaration but we only want the range for its ID.
-                    const reference = rangeFromNode(idOfVar(node));
-                    references.add(locationFromUriAndRange(uri, reference!));
-                    if (event.context.includeDeclaration) {
-                        referenceDefinitions.forEach((refDef) => {
-                            const range = rangeFromNode(
-                                idOfVar(refDef.cursor),
-                            )!;
-                            const location = locationFromUriAndRange(
-                                refDef.uri,
-                                range,
-                            );
-                            references.add(location);
-                        });
-                    } else {
-                        referenceDefinitions.forEach((refDef) => {
-                            references.delete(locationFromDefinition(refDef));
-                        });
-                    }
-                } catch (err) {
-                    console.error(
-                        `Error while finding references for node of ${uri}:`,
-                    );
-                    console.error(err);
-                }
-            }
-
-            return references;
-        }
-
-        function astReferences(
-            uri: string,
-            event: ReferenceParams,
-        ): LocationSet {
-            const references = new LocationSet();
-            const definitions = findDefinitions(uri, event.position);
-            if (!definitions.length) {
-                console.log(
-                    `No definitions for (${event.position.line}, ${event.position.character}) at ${uri}`,
-                );
-                return references;
-            }
-
-            const context = getContext(uri);
-            const statuses = context.astResolver.requestAll(
-                isVirtualFileSystemReady,
-            );
-            for (const status of statuses) {
-                try {
-                    if (!status.ast) {
-                        throw new Error(`AST for ${status.uri} not found`);
-                    }
-                    references.union(
-                        searchAstStatus(definitions, status.uri, status.ast),
-                    );
-                } catch (err) {
-                    console.error(
-                        `Error while finding references for ${status.uri}:`,
-                    );
-                    console.error(err);
-                }
-            }
-
-            if (!event.context.includeDeclaration) {
-                for (const definition of definitions) {
-                    references.delete(locationFromDefinition(definition));
-                }
-            }
-
-            return references;
-        }
-
-        const references = new LocationSet();
-        const uri = event.textDocument.uri;
-        try {
-            references.union(astReferences(uri, event));
-        } catch (err) {
-            console.error('Error while finding references:');
-            console.error(err);
-            // throw err;
-        }
-
-        return Array.from(references.values());
-    });
+    connection.onRenameRequest(mkOnRenameHandler(isVirtualFileSystemReady));
 
     // Run a file which is recognized as a unit test
     connection.onRequest(

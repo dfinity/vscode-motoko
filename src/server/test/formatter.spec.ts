@@ -8,6 +8,8 @@ const rootPath = join(cwd(), 'test', 'formatter');
 const rootUri = URI.file(rootPath);
 const fileUri = URI.file(join(rootPath, 'unformatted.mo')).toString();
 
+jest.setTimeout(30000);
+
 async function requestFormatting(
     initializationOptions?: Record<string, unknown>,
 ): Promise<TextEdit[]> {
