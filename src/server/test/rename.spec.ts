@@ -54,6 +54,7 @@ describe('prepare rename', () => {
     async function testPrepareRename(
         reference: Location,
         isValid: boolean,
+        useRangeEnd: boolean = false,
     ): Promise<void> {
         await openTextDocuments(client, textDocuments, rootUri, [
             reference.uri,
@@ -63,7 +64,9 @@ describe('prepare rename', () => {
             'textDocument/prepareRename',
             {
                 textDocument,
-                position: reference.range.start,
+                position: useRangeEnd
+                    ? reference.range.end
+                    : reference.range.start,
             },
         );
         if (isValid) {
@@ -84,6 +87,13 @@ describe('prepare rename', () => {
     test('Can prepare rename value', () =>
         testPrepareRename(
             location('prepare_rename.mo', 6, 8, 13), // value
+            true,
+        ));
+
+    test('Can prepare rename value after identifier', () =>
+        testPrepareRename(
+            location('prepare_rename.mo', 6, 8, 13), // value
+            true,
             true,
         ));
 
