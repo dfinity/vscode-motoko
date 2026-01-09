@@ -9,25 +9,7 @@ import {
     openTextDocuments,
 } from './helpers';
 import { Connection, Location, Position, Range } from 'vscode-languageserver';
-
-function compareLocations(a: Location, b: Location): number {
-    if (a.uri < b.uri) return -1;
-    if (a.uri > b.uri) return 1;
-
-    if (a.range.start.line !== b.range.start.line) {
-        return a.range.start.line - b.range.start.line;
-    }
-
-    if (a.range.start.character !== b.range.start.character) {
-        return a.range.start.character - b.range.start.character;
-    }
-
-    if (a.range.end.line !== b.range.end.line) {
-        return a.range.end.line - b.range.end.line;
-    }
-
-    return a.range.end.character - b.range.end.character;
-}
+import { compareLocations } from '../utils';
 
 type LocationWithMetadata = {
     location: Location;
@@ -98,7 +80,9 @@ describe('references', () => {
     }
 
     beforeAll(async () => {
-        [client, server] = await defaultBeforeAll(rootUri, true);
+        [client, server] = await defaultBeforeAll(rootUri, true, {
+            useDefaultMocJs: true,
+        });
     });
 
     afterAll(async () => {
@@ -152,6 +136,12 @@ describe('references', () => {
             location('sub.mo', 15, 6, 10, false), // c.meth
             location('sub.mo', 2, 16, 20, true), // definition of Class1.meth
             location('sub.mo', 8, 16, 20, true), // definition of Class2.meth
+        ]));
+
+    test('Can find all references of type', () =>
+        testReferences([
+            location('record.mo', 1, 9, 12, true), // definition of Foo
+            location('record.mo', 4, 18, 21, false), // Foo in annotation
         ]));
 
     test('Can find all references of record (type definition)', () =>

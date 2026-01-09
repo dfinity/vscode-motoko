@@ -20,6 +20,6 @@
     "noImplicitReturns": true /* Report error when not all code paths in function return a value. */,
     "noFallthroughCasesInSwitch": true /* Report errors for fallthrough cases in switch statement. */
   },
-  "include": ["src", "src/generated"],
+  "include": ["src", "src/generated", "src/jest.setup.ts", "src/jest.custom-matchers.d.ts"],
   "exclude": ["node_modules", ".vscode-test"]
 }

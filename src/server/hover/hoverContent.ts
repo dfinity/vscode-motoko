@@ -5,7 +5,7 @@ import { keywords } from 'motoko/lib/keywords';
 import { Position, Range } from 'vscode-languageserver/node';
 import AstResolver from '../ast';
 import { findDocComments } from './docs';
-import { MotokoSettings } from '../handlers';
+import { MotokoSettings } from '../globals';
 import { getAstInformation } from '../information';
 import { findMostSpecificNodeForPosition, rangeFromNode } from '../navigation';
 import { findNodes } from '../syntax';

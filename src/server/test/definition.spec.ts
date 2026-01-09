@@ -75,7 +75,9 @@ describe('go to definition', () => {
     }
 
     beforeAll(async () => {
-        [client, server] = await defaultBeforeAll(rootUri, true);
+        [client, server] = await defaultBeforeAll(rootUri, true, {
+            useDefaultMocJs: true,
+        });
     });
 
     afterAll(async () => {
@@ -211,6 +213,18 @@ describe('go to definition', () => {
         testDefinition(
             location('var.mo', 4, 8, 9), // x
             [location('var.mo', 1, 8, 9)], // definition of x
+        ));
+
+    test('Can find definition of type from definition', () =>
+        testDefinition(
+            location('record.mo', 1, 9, 12), // definition of Foo
+            [location('record.mo', 1, 9, 12)], // definition of Foo
+        ));
+
+    test('Can find definition of type from reference', () =>
+        testDefinition(
+            location('record.mo', 4, 18, 21), // Foo in annotation
+            [location('record.mo', 1, 9, 12)], // definition of Foo
         ));
 
     test('Can find field from record type definition', () =>

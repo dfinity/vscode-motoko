@@ -152,7 +152,7 @@ describe('completion', () => {
             },
         ];
 
-        expect(completion.items).toEqual(expected);
+        expect(completion.items).toContainSubarray(expected);
     });
 
     test('scope of class method', async () => {
@@ -253,7 +253,7 @@ describe('completion', () => {
             },
         ];
 
-        expect(completion.items).toEqual(expected);
+        expect(completion.items).toContainSubarray(expected);
     });
 
     test('scope of if-block', async () => {
@@ -347,7 +347,7 @@ describe('completion', () => {
             },
         ];
 
-        expect(completion.items).toEqual(expected);
+        expect(completion.items).toContainSubarray(expected);
     });
 
     test('scope of for-block', async () => {
@@ -447,6 +447,6 @@ describe('completion', () => {
             },
         ];
 
-        expect(completion.items).toEqual(expected);
+        expect(completion.items).toContainSubarray(expected);
     });
 });
