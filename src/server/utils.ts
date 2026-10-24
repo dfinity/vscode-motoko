@@ -333,6 +333,50 @@ export function getMopsMocArgs(workspaceDir: string): string[] {
     }
 }
 
+export interface CanisterMigrationConfig {
+    name: string;
+    main: string;
+    chainDir: string;
+}
+
+/** Canisters in `mops.toml` with a `[canisters.<name>.migrations]` chain. */
+export function getMopsCanisterMigrations(
+    workspaceDir: string,
+): CanisterMigrationConfig[] {
+    const mopsPath = join(workspaceDir, 'mops.toml');
+    let content: string;
+    try {
+        content = readFileSync(mopsPath, 'utf8');
+    } catch {
+        return [];
+    }
+    let config: any;
+    try {
+        config = toml.parse(content);
+    } catch (err) {
+        console.warn(`Failed to parse ${mopsPath}:`, err);
+        return [];
+    }
+    const canisters = config?.canisters;
+    if (!canisters || typeof canisters !== 'object') {
+        return [];
+    }
+    const results: CanisterMigrationConfig[] = [];
+    for (const [name, canister] of Object.entries(canisters)) {
+        if (!canister || typeof canister !== 'object') continue;
+        const c = canister as any;
+        const main = c.main;
+        const chain = c.migrations?.chain;
+        if (typeof main !== 'string' || typeof chain !== 'string') continue;
+        results.push({
+            name,
+            main: join(workspaceDir, main),
+            chainDir: join(workspaceDir, chain),
+        });
+    }
+    return results;
+}
+
 /**
  * Returns path to relevant moc.js downloading required version from the Motoko
  * GitHub releases if needed.

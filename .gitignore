@@ -2,6 +2,8 @@
 /out/
 *.vsix
 /src/generated/**/*
+/src/server/compiler/moc-bundled.js
 /snippets.json
 .vessel
 .mops
+mops.lock

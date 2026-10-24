@@ -1,0 +1,13 @@
+[dependencies]
+
+[canisters.backend]
+main = "src/main.mo"
+
+[canisters.backend.migrations]
+chain = "migrations"
+
+[canisters.test]
+main = "src/test.mo"
+
+[moc]
+args = ["--default-persistent-actors"]
